@@ -6,8 +6,7 @@ import { ArrowLeft, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { db } from '@/lib/db';
-
-
+import { supabase } from '@/lib/supabase';
 import { useLiveQuery } from "dexie-react-hooks";
 
 export default function ReadPage() {
@@ -23,10 +22,12 @@ export default function ReadPage() {
     const pdfUrl = book?.pdfUrl || '/sample.pdf';
 
     // State for tracking per-page time
-    const [currentPage, setCurrentPage] = useState(1); // Track current page
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(0);
     const pageStartTimeRef = useRef(Date.now());
     const accumulatedPointsRef = useRef(0);
-    const MAX_POINTS_PER_PAGE = 5; // Cap at 5 points (50 seconds) per page visit
+    const completedRef = useRef(false);
+    const MAX_POINTS_PER_PAGE = 5;
 
     // Global Session Tracking
     const startTimeRef = useRef(Date.now());
@@ -44,96 +45,140 @@ export default function ReadPage() {
 
         return () => {
             clearInterval(interval);
-            // Notice: saveProgress is called by the unmount closure
-            // We need to ensure we capture the final page's points here or in saveProgress
             saveProgress();
         };
-    }, [bookIdString]); // Dependencies updated
+    }, [bookIdString]);
 
-    // Handle Page Change
+    const handleLoadSuccess = (numPages: number) => {
+        setTotalPages(numPages);
+    };
+
     const handlePageChange = (newPage: number) => {
         const now = Date.now();
         const durationOnPage = (now - pageStartTimeRef.current) / 1000;
 
-        // Calculate points for the page we just left
-        const pointsForPage = Math.min(Math.floor(durationOnPage / 10), MAX_POINTS_PER_PAGE);
+        const pointsForPage = Math.min(
+            Math.floor(durationOnPage / 10),
+            MAX_POINTS_PER_PAGE
+        );
 
         if (pointsForPage > 0) {
             accumulatedPointsRef.current += pointsForPage;
-            console.log(`Page ${currentPage} done: ${durationOnPage.toFixed(1)}s -> ${pointsForPage} pts. Total: ${accumulatedPointsRef.current}`);
+            console.log(
+                `Page ${currentPage} done: ${durationOnPage.toFixed(1)}s -> ${pointsForPage} pts. Total: ${accumulatedPointsRef.current}`
+            );
         }
 
-        // Reset for new page
+        if (newPage === totalPages && totalPages > 0) {
+            completedRef.current = true;
+        }
+
         pageStartTimeRef.current = now;
         setCurrentPage(newPage);
     };
 
     const saveProgress = async () => {
-        // Calculate potential points for the *current* page (the one being closed)
         const now = Date.now();
         const durationOnFinalPage = (now - pageStartTimeRef.current) / 1000;
-        const pointsForFinalPage = Math.min(Math.floor(durationOnFinalPage / 10), MAX_POINTS_PER_PAGE);
+        const pointsForFinalPage = Math.min(
+            Math.floor(durationOnFinalPage / 10),
+            MAX_POINTS_PER_PAGE
+        );
 
-        const totalSessionPoints = accumulatedPointsRef.current + pointsForFinalPage;
+        const totalSessionPoints =
+            accumulatedPointsRef.current + pointsForFinalPage;
 
-        // Use total session duration for logs, but points are now capped
-        const totalDuration = Math.floor((now - startTimeRef.current) / 1000);
+        const totalDuration = Math.floor(
+            (now - startTimeRef.current) / 1000
+        );
 
         if (totalSessionPoints === 0 && totalDuration < 5) return;
 
-        console.log(`Saving session for book ${bookIdString}: ${totalDuration}s, Points: ${totalSessionPoints}`);
+        console.log(
+            `Saving session for book ${bookIdString}: ${totalDuration}s, Points: ${totalSessionPoints}`
+        );
 
         try {
-            // Get local user info first
             const localUser = await db.users.get('local-user');
             if (!localUser) {
-                console.error("No local user found, cannot save progress properly.");
+                console.error("No local user found.");
                 return;
             }
 
             const endTime = Date.now();
-            const userId = localUser.id;
+            const userId =
+                (localUser as any).student_id ||
+                (localUser.id !== 'local-user' ? localUser.id : null);
 
-            // 1. Save Local Reading Session
             await db.readings.add({
-                bookId: bookIdString,
-                userId: userId,
+                bookId: bookIdNum,
+                userId: userId || 'local-user',
                 startTime: startTimeRef.current,
                 endTime: endTime,
                 synced: 0
             });
 
-            // 2. Update Local User Points
-            const newTotalPoints = (localUser.totalPoints || 0) + totalSessionPoints;
+            const newTotalPoints =
+                (localUser.totalPoints || 0) + totalSessionPoints;
+
             await db.users.update('local-user', {
                 totalPoints: newTotalPoints
             });
-            // Also update the original record if it exists separately
-            if (userId !== 'local-user') {
-                await db.users.update(userId, {
-                    totalPoints: newTotalPoints
-                });
+
+            if (userId && userId !== 'local-user') {
+                const exists = await db.users.get(userId);
+                if (exists) {
+                    await db.users.update(userId, {
+                        totalPoints: newTotalPoints
+                    });
+                }
             }
 
-            // 3. Add to Sync Queue (for Cloud)
+            if (supabase && userId) {
+                const bookTitle = ({
+                    1: 'Sample Book',
+                    2: 'Science Book',
+                    3: 'Math Book',
+                    4: 'History'
+                } as any)[bookIdNum] || 'Unknown Book';
 
-            // Task A: Sync the Reading Log
+                const isCompleted =
+                    completedRef.current ||
+                    (currentPage === totalPages && totalPages > 0);
+
+                const { error } = await supabase
+                    .from('reading_sessions')
+                    .insert([{
+                        user_id: userId,
+                        book_id: bookIdNum,
+                        book_title: bookTitle,
+                        start_time: new Date(startTimeRef.current).toISOString(),
+                        end_time: new Date(endTime).toISOString(),
+                        duration_seconds: totalDuration,
+                        pages_read: currentPage,
+                        completed: isCompleted
+                    }]);
+
+                if (error) {
+                    console.warn("Supabase error:", error.message);
+                }
+            }
+
             await db.syncQueue.add({
                 type: 'READ_LOG',
                 payload: {
-                    userId: userId, // Important: Supabase needs the real ID
-                    bookId: bookIdString,
+                    userId: userId || 'local-user',
+                    bookId: bookIdNum,
                     startTime: startTimeRef.current,
                     endTime: endTime
                 },
                 createdAt: Date.now()
             });
 
-            // Task B: Sync the Points Update
             await db.syncQueue.add({
                 type: 'UPDATE_POINTS',
                 payload: {
-                    userId: userId,
+                    userId: userId || 'local-user',
                     totalPoints: newTotalPoints
                 },
                 createdAt: Date.now()
@@ -147,25 +192,29 @@ export default function ReadPage() {
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
-            {/* Header */}
             <header className="bg-white px-4 py-3 shadow-sm flex items-center justify-between sticky top-0 z-20">
                 <Link href="/" className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
                     <ArrowLeft className="w-5 h-5 text-gray-700" />
                 </Link>
-                <h1 className="font-semibold text-gray-800 text-sm">{book?.title || "Reading..."}</h1>
+                <h1 className="font-semibold text-gray-800 text-sm">
+                    {book?.title || "Reading..."}
+                </h1>
                 <div className="flex items-center gap-1 text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full">
                     <Clock className="w-3 h-3" />
-                    <span>{Math.floor(displaySeconds / 60)}:{(displaySeconds % 60).toString().padStart(2, '0')}</span>
+                    <span>
+                        {Math.floor(displaySeconds / 60)}:
+                        {(displaySeconds % 60).toString().padStart(2, '0')}
+                    </span>
                 </div>
             </header>
 
-            {/* Reader Area */}
             <main className="flex-1 p-4 flex justify-center">
                 <PdfReader
                     url={pdfUrl}
                     book={book}
                     bookIdNum={bookIdNum}
                     onPageChange={handlePageChange}
+                    onLoadSuccess={handleLoadSuccess}
                 />
             </main>
         </div>

@@ -17,9 +17,11 @@ interface PdfReaderProps {
     book?: Book;
     bookIdNum?: number;
     onPageChange?: (page: number) => void;
+    onLoadSuccess?: (numPages: number) => void;
 }
 
-export function PdfReader({ url, book, bookIdNum, onPageChange }: PdfReaderProps) {
+
+export function PdfReader({ url, onPageChange, onLoadSuccess }: PdfReaderProps) {
     const [numPages, setNumPages] = useState<number>(0);
     const [pageNumber, setPageNumber] = useState<number>(1);
     const [loading, setLoading] = useState(true);
@@ -70,6 +72,8 @@ export function PdfReader({ url, book, bookIdNum, onPageChange }: PdfReaderProps
         console.error("PDF Load Error:", err);
         setLoading(false);
         setError(err.message);
+        onLoadSuccess?.(numPages);
+
     }
 
     function changePage(offset: number) {

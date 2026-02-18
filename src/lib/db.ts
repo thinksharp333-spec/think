@@ -12,6 +12,7 @@ interface User {
 
 interface ReadingSession {
     id?: number; // Local Auto-increment
+    userId: string; // ID of the user who read
     bookId: string;
     userId: string;
     startTime: number;

@@ -1,31 +1,45 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BookOpen, User, Lock, ArrowRight, ArrowLeft, MapPin, School, Calendar, Phone } from "lucide-react";
+import { BookOpen, User, Lock, ArrowRight, ArrowLeft, Phone, Calendar } from "lucide-react";
 import { db } from "@/lib/db";
 
 import { useSync } from "@/hooks/useSync";
 import { supabase } from "@/lib/supabase";
+import { SchoolSelector } from "@/components/school-selector";
 
 export default function SignUpPage() {
     const router = useRouter();
     const { isOnline } = useSync();
+
+    // Form State
     const [formData, setFormData] = useState({
         name: "",
         age: "",
         mobile: "",
-        city: "",
-        school: "",
         password: "",
         confirmPassword: ""
     });
+
+    // School Selection State
+    const [schoolData, setSchoolData] = useState({
+        schoolId: "",
+        schoolName: "",
+        district: "",
+        taluka: ""
+    });
+
     const [error, setError] = useState("");
     const [isLoading, setIsLoading] = useState(false);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleSchoolSelect = (schoolId: string, schoolName: string, district: string, taluka: string) => {
+        setSchoolData({ schoolId, schoolName, district, taluka });
     };
 
     const handleSignUp = async (e: React.FormEvent) => {
@@ -37,6 +51,11 @@ export default function SignUpPage() {
             return;
         }
 
+        if (!schoolData.schoolId) {
+            setError("Please select your school.");
+            return;
+        }
+
         if (formData.password !== formData.confirmPassword) {
             setError("Passwords do not match");
             return;
@@ -45,7 +64,8 @@ export default function SignUpPage() {
         setIsLoading(true);
 
         try {
-            // Simple ID generation
+            // ID Generation (using a consistent format, or could rely on Supabase auth.users if using Auth)
+            // For now, continuing with the custom ID pattern as per request context
             const id = `student-${Date.now()}`;
 
             const userData = {
@@ -53,13 +73,18 @@ export default function SignUpPage() {
                 name: formData.name,
                 age: Number(formData.age),
                 mobile: formData.mobile,
-                city: formData.city,
-                school: formData.school,
-                password: formData.password, // Storing plain for demo parity, but in prod use Auth
+                // Saving school details flat for local convenience/offline, 
+                // but strictly relying on school_id for relational data in Supabase
+                school: schoolData.schoolName,
+                school_id: schoolData.schoolId,
+                district: schoolData.district,
+                taluka: schoolData.taluka,
+                city: schoolData.taluka, // Mapping Taluka to City for backward compatibility/display
+                password: formData.password,
                 totalPoints: 0
             };
 
-            // 1. Save to Cloud (Supabase) - Optional for Demo
+            // 1. Save to Cloud (Supabase)
             if (supabase) {
                 try {
                     const { error: supabaseError } = await supabase
@@ -69,32 +94,34 @@ export default function SignUpPage() {
                                 id: userData.id,
                                 name: userData.name,
                                 age: userData.age,
-                                city: userData.city,
-                                school: userData.school,
                                 mobile: userData.mobile,
-                                password: userData.password,
-                                totalPoints: 0
+                                school_id: userData.school_id,
+                                // Note: We don't necessarily need to duplicate district/taluka/school_name in users table 
+                                // if we have the join, but user might want it for easier export. 
+                                // My schema only had school_id.
+                                total_points: 0
                             }
                         ]);
 
                     if (supabaseError) {
                         console.warn("Cloud sync failed:", supabaseError.message);
-                        alert("Cloud Error: " + supabaseError.message); // Show error to user
+                        throw new Error("Cloud Registration Failed: " + supabaseError.message);
                     } else {
                         console.log("Supabase insert successful!");
                     }
-                } catch (cloudErr) {
-                    console.warn("Cloud connection error (Demo Mode active):", cloudErr);
+                } catch (cloudErr: any) {
+                    console.error("Cloud connection error:", cloudErr);
+                    throw new Error(cloudErr.message || "Cloud connection failed");
                 }
             } else {
-                console.warn("Cloud connection not configured. Saving locally only (Demo Mode).");
+                console.warn("Supabase not configured.");
+                throw new Error("System configuration error: Cloud database unavailable.");
             }
 
-            // 2. Save Local (Dexie)
+            // 2. Save Local (Dexie) - Keeping for offline cache/session
             await db.users.add(userData);
 
             // Set as current local user
-            // Clear previous session
             await db.users.delete('local-user');
             await db.users.put({
                 ...userData,
@@ -207,37 +234,11 @@ export default function SignUpPage() {
                                     />
                                 </div>
                             </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">City</label>
-                                <div className="relative group">
-                                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 group-focus-within:text-green-500 transition-colors" />
-                                    <input
-                                        type="text"
-                                        name="city"
-                                        placeholder="City"
-                                        className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-100 focus:border-green-500 outline-none transition-all bg-gray-50 focus:bg-white text-sm text-black placeholder:text-gray-400"
-                                        value={formData.city}
-                                        onChange={handleChange}
-                                        required
-                                    />
-                                </div>
-                            </div>
                         </div>
 
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">School Name</label>
-                            <div className="relative group">
-                                <School className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 group-focus-within:text-green-500 transition-colors" />
-                                <input
-                                    type="text"
-                                    name="school"
-                                    placeholder="Enter your school name"
-                                    className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-100 focus:border-green-500 outline-none transition-all bg-gray-50 focus:bg-white text-sm text-black placeholder:text-gray-400"
-                                    value={formData.school}
-                                    onChange={handleChange}
-                                    required
-                                />
-                            </div>
+                        {/* Replacing Manual City/School with SchoolSelector */}
+                        <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
+                            <SchoolSelector onSelect={handleSchoolSelect} selectedSchoolId={schoolData.schoolId} />
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
