@@ -49,12 +49,21 @@ const db = new Dexie('AdaptivePlatformDB') as Dexie & {
 };
 
 // Schema definition
-db.version(7).stores({
+db.version(9).stores({
     users: 'id, name, totalPoints',
     readings: '++id, bookId, userId, synced, startTime',
     syncQueue: '++id, type, createdAt',
     books: '++id, title, grade, level, subject, language'
 });
+
+// Helper for composite book identification
+export const getSyncKey = (b: any) => {
+    const t = (b.title || "").trim().toLowerCase();
+    const l = (b.level || "").toString().trim().toLowerCase();
+    const lg = (b.language || "").trim().toLowerCase();
+    const s = (b.subject || "").trim().toLowerCase();
+    return `${t}|${l}|${lg}|${s}`;
+};
 
 export { db };
 export type { User, ReadingSession, SyncTask, Book };

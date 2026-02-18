@@ -3,52 +3,66 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { BookOpen, Download, Loader2, CheckCircle2 } from "lucide-react";
+import { db } from "@/lib/db";
 
 interface BookCardProps {
     id: number;
+    fileId?: string;
     title: string;
     grade: string;
     level: string;
     pages: number;
     pdfUrl: string;
+    pdfBlob?: Blob;
+    language: string;
     coverUrl?: string;
 }
 
-export function BookCard({ id, title, grade, level, pages, pdfUrl, coverUrl }: BookCardProps) {
+export function BookCard({ id, fileId, title, grade, level, pages, pdfUrl, pdfBlob, language, coverUrl }: BookCardProps) {
 
     const [downloading, setDownloading] = useState(false);
-    const [isOfflineReady, setIsOfflineReady] = useState(false);
+    const [isOfflineReady, setIsOfflineReady] = useState(!!pdfBlob);
 
-    // Check if book is already cached on mount
+    // Update status if prop changes
     useEffect(() => {
-        checkCache();
-    }, [pdfUrl]);
+        if (pdfBlob) setIsOfflineReady(true);
+        else checkLocalStore();
+    }, [pdfBlob, id]);
 
-    async function checkCache() {
+    async function checkLocalStore() {
         try {
-            const cache = await caches.open('next-pwa-cache');
-            const match = await cache.match(pdfUrl);
-            if (match) setIsOfflineReady(true);
+            const book = await db.books.get(id);
+            if (book?.pdfBlob) {
+                setIsOfflineReady(true);
+            } else {
+                setIsOfflineReady(false);
+            }
         } catch (e) {
-            // Ignore cache errors in environments where it might not exist
+            console.error("Local store check failed", e);
         }
     }
 
     async function handleDownload(e: React.MouseEvent) {
-        e.preventDefault(); // Prevent navigation when clicking download
-        if (isOfflineReady) return;
+        e.preventDefault();
+        if (isOfflineReady || downloading) return;
 
         setDownloading(true);
         try {
-            const cache = await caches.open('next-pwa-cache');
-            const response = await fetch(pdfUrl);
+            // Use proxy to avoid CORS
+            const proxyUrl = fileId ? `/api/proxy-pdf?fileId=${fileId}` : pdfUrl;
+            const response = await fetch(proxyUrl);
+
             if (response.ok) {
-                await cache.put(pdfUrl, response.clone());
+                const blob = await response.blob();
+                // Store in Dexie
+                await db.books.update(id, { pdfBlob: blob });
                 setIsOfflineReady(true);
+            } else {
+                throw new Error(`Server responded with ${response.status}`);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Download failed:", error);
-            alert("Download failed. Check your connection.");
+            alert(`Download failed: ${error.message}. Please check your connection.`);
         } finally {
             setDownloading(false);
         }
@@ -75,9 +89,16 @@ export function BookCard({ id, title, grade, level, pages, pdfUrl, coverUrl }: B
                     )}
 
 
-                    {/* Level Badge */}
-                    <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-md text-white px-2 py-0.5 rounded-full text-[10px] font-bold z-10 border border-white/10 uppercase tracking-tighter">
-                        Level {level}
+                    {/* Level & Language Badges */}
+                    <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
+                        <div className="bg-black/60 backdrop-blur-md text-white px-2 py-0.5 rounded-full text-[10px] font-bold border border-white/10 uppercase tracking-tighter w-fit">
+                            Level {level}
+                        </div>
+                        {language && (
+                            <div className="bg-green-600/80 backdrop-blur-md text-white px-2 py-0.5 rounded-full text-[10px] font-bold border border-white/10 uppercase tracking-tighter w-fit">
+                                {language}
+                            </div>
+                        )}
                     </div>
 
                     {/* Download Overlay Button */}

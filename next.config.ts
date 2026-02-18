@@ -10,7 +10,7 @@ const nextConfig = withPWA({
   cacheOnFrontEndNav: true,
   aggressiveFrontEndNavCaching: true,
   reloadOnOnline: false,
-  disable: false, // Enable PWA for offline support
+  disable: true, // Enable PWA for offline support
   workboxOptions: {
     disableDevLogs: true,
   },

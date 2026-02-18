@@ -1,8 +1,8 @@
 "use client";
 
 import { useBooks } from "@/hooks/useBooks";
-import { Book, db, User } from "@/lib/db";
-import { useState } from "react";
+import { Book, db, User, getSyncKey } from "@/lib/db";
+import { useState, useEffect } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import {
@@ -25,10 +25,11 @@ import {
 } from "lucide-react";
 import { Dropdown } from "@/components/dropdown";
 import { fetchDriveContents, getDirectDownloadUrl, DriveItem } from "@/lib/google-drive";
+import { supabase } from "@/lib/supabase";
 
 
 export default function AdminDashboard() {
-    const { books, addBook, addBooks, removeBook } = useBooks();
+    const { books, addBook, addBooks, removeBook, syncLibrary } = useBooks();
 
     const [newBook, setNewBook] = useState<Partial<Book>>({
         title: "",
@@ -46,6 +47,27 @@ export default function AdminDashboard() {
     const [scanning, setScanning] = useState(false);
     const [scanStatus, setScanStatus] = useState("");
     const [importing, setImporting] = useState(false);
+    const [supabaseStatus, setSupabaseStatus] = useState<'checking' | 'connected' | 'error'>('checking');
+    const [storeLocally, setStoreLocally] = useState(false); // Default to FALSE to save storage
+
+    // Check Supabase connection
+    useEffect(() => {
+        async function checkStatus() {
+            if (!supabase) {
+                setSupabaseStatus('error');
+                return;
+            }
+            try {
+                const { error } = await supabase.from('books').select('count', { count: 'exact', head: true });
+                if (error) throw error;
+                setSupabaseStatus('connected');
+            } catch (err) {
+                console.error("Supabase connection check failed:", err);
+                setSupabaseStatus('error');
+            }
+        }
+        checkStatus();
+    }, []);
 
 
     // Student Reporting State
@@ -148,7 +170,7 @@ export default function AdminDashboard() {
             const discoveredBooks: Book[] = [];
 
             // recursive scan helper
-            const crawl = async (currentFolderId: string, currentLevel?: string, currentSubject?: string, currentLanguage?: string) => {
+            const crawl = async (currentFolderId: string, depth: number = 0, currentLevel?: string, currentSubject?: string, currentLanguage?: string) => {
                 const items = await fetchDriveContents(currentFolderId);
 
                 for (const item of items) {
@@ -166,31 +188,24 @@ export default function AdminDashboard() {
 
                         const name = item.name.toLowerCase();
                         setScanStatus(`Scanning: ${item.name}...`);
-                        console.log(`[DriveScan] Found ${isShortcut ? 'shortcut to ' : ''}folder: ${item.name} (${targetId})`);
 
-                        // Detect Level
-                        if (name.includes('level') || name.includes('grade') || name.includes('lv')) {
-                            const match = name.match(/(?:level|lv|grade)\s*(\d+)/i);
-                            if (match) nextLevel = match[1];
+                        // STRICT DEPTH-BASED DETECTION (Language -> Level -> Subject)
+                        if (depth === 0) {
+                            nextLanguage = item.name; // Root children are Languages
+                        }
+                        else if (depth === 1) {
+                            // Stage 2 children are Levels (e.g., "Level 1", "Grade 10")
+                            const match = name.match(/(?:level|lv|grade|std)\s*(\d+)/i);
+                            nextLevel = match ? match[1] : item.name.replace(/\D/g, "") || item.name;
+                        }
+                        else if (depth === 2) {
+                            nextSubject = item.name; // Stage 3 children are Subjects
                         }
 
-                        // Detect Language
-                        if (['english', 'hindi', 'marathi', 'gujarati', 'tamil', 'telugu', 'kannada', 'bengali'].some(l => name.includes(l))) {
-                            nextLanguage = item.name;
-                        }
-
-                        // Detect Subject
-                        if (['science', 'mathematics', 'math', 'history', 'geography', 'civics', 'english', 'hindi', 'marathi', 'evs', 'social'].some(s => name.includes(s)) && !name.includes('level') && !name.includes('grade')) {
-                            nextSubject = item.name;
-                        } else if (!nextSubject && !nextLevel && !nextLanguage) {
-                            // Fallback: if nothing specific detected, assume it might be a subject
-                            nextSubject = item.name;
-                        }
-
-                        console.log(`[DriveScan] Descending: ${item.name} | L:${nextLevel} S:${nextSubject} Lang:${nextLanguage}`);
-                        await crawl(targetId, nextLevel, nextSubject, nextLanguage);
+                        console.log(`[DriveScan] Depth ${depth + 1}: Detected ${item.name} as ${depth === 0 ? 'Language' : depth === 1 ? 'Level' : 'Subject'}`);
+                        await crawl(targetId, depth + 1, nextLevel, nextSubject, nextLanguage);
                     } else {
-                        // Handle PDFs or Shortcuts to PDFs
+                        // Handle PDFs
                         const isPDF = item.mimeType === 'application/pdf';
                         const isShortcutToPDF = isShortcut && (item as any).shortcutDetails?.targetMimeType === 'application/pdf';
 
@@ -198,23 +213,22 @@ export default function AdminDashboard() {
                             const pdfId = isShortcutToPDF ? (item as any).shortcutDetails?.targetId : item.id;
                             if (!pdfId) continue;
 
-                            console.log(`[DriveScan] Found PDF: ${item.name} | L:${currentLevel} S:${currentSubject} Lang:${currentLanguage}`);
                             discoveredBooks.push({
                                 title: item.name.replace(/\.pdf$/i, ""),
                                 fileId: pdfId,
-                                grade: currentLevel ? `Grade ${currentLevel}` : (newBook.grade || "Grade 10"),
+                                grade: currentLevel ? `Level ${currentLevel}` : "Other",
                                 pages: 10,
                                 pdfUrl: getDirectDownloadUrl(pdfId),
-                                level: currentLevel || newBook.level || "1",
-                                subject: currentSubject || nextSubject || newBook.subject || "General",
-                                language: currentLanguage || newBook.language || "English"
+                                level: currentLevel || "1",
+                                subject: currentSubject || "General",
+                                language: currentLanguage || "English"
                             });
                         }
                     }
                 }
             };
 
-            await crawl(rootId);
+            await crawl(rootId, 0);
             setScanResults(discoveredBooks);
             if (discoveredBooks.length === 0) alert("No PDFs found in the specified folder structure.");
         } catch (error: any) {
@@ -237,30 +251,92 @@ export default function AdminDashboard() {
         setImporting(true);
         let importedCount = 0;
         try {
-            for (const book of scanResults) {
+            // Deduplicate scan results by normalized composite key
+            const uniqueResults = Array.from(new Map(
+                scanResults.map(item => [getSyncKey(item), item])
+            ).values());
+
+            for (const book of uniqueResults) {
                 setScanStatus(`Importing Content: ${book.title}...`);
 
                 let pdfBlob: Blob | undefined;
-                try {
-                    // Use the proxy API to avoid CORS issues
-                    const proxyUrl = `/api/proxy-pdf?fileId=${book.fileId}`;
-                    const response = await fetch(proxyUrl);
-                    if (response.ok) {
-                        pdfBlob = await response.blob();
+                if (storeLocally) {
+                    try {
+                        // Use the proxy API to avoid CORS issues
+                        const proxyUrl = `/api/proxy-pdf?fileId=${book.fileId}`;
+                        const response = await fetch(proxyUrl);
+                        if (response.ok) {
+                            pdfBlob = await response.blob();
+                        }
+                    } catch (e) {
+                        console.error(`Failed to fetch PDF for ${book.title} via proxy`, e);
                     }
-                } catch (e) {
-                    console.error(`Failed to fetch PDF for ${book.title} via proxy`, e);
                 }
 
-                await db.books.add({
+                // Match existing book by normalized composite key
+                const sKey = getSyncKey(book);
+                const localBooks = await db.books.toArray();
+                const existing = localBooks.find(lb => getSyncKey(lb) === sKey);
+
+                await db.books.put({
                     ...book,
-                    pdfBlob: pdfBlob
+                    id: existing?.id,
+                    pdfBlob: pdfBlob || existing?.pdfBlob
                 });
+
+                // Global Sharing: Upload to Supabase
+                if (supabase) {
+                    setScanStatus(`Sharing Globally: ${book.title}...`);
+                    let finalPdfUrl = book.pdfUrl;
+
+                    // 1. Upload to Storage if blob available
+                    if (pdfBlob) {
+                        const fileName = `${book.fileId || Date.now()}.pdf`;
+                        const { data, error: uploadError } = await supabase.storage
+                            .from('books')
+                            .upload(fileName, pdfBlob, {
+                                contentType: 'application/pdf',
+                                upsert: true
+                            });
+
+                        if (data && supabase) {
+                            const { data: { publicUrl } } = supabase.storage
+                                .from('books')
+                                .getPublicUrl(fileName);
+                            finalPdfUrl = publicUrl;
+                        } else if (uploadError) {
+                            console.error(`[Supabase] Upload error for ${book.title}:`, uploadError);
+                        }
+                    }
+
+                    // 2. Save metadata to shared books table
+                    const { error: dbError } = await supabase
+                        .from('books')
+                        .upsert({
+                            title: book.title,
+                            fileId: book.fileId,
+                            grade: book.grade,
+                            pages: book.pages,
+                            pdfUrl: finalPdfUrl,
+                            level: book.level,
+                            subject: book.subject,
+                            language: book.language,
+                            coverUrl: book.coverUrl
+                        }, { onConflict: 'title,level,language,subject' }); // Match composite unique constraint
+
+                    if (dbError) {
+                        console.error(`[Supabase] DB error for ${book.title}:`, dbError.message, dbError.details);
+                        alert(`Cloud save failed for "${book.title}": ${dbError.message}\n\nDid you run the SQL command in Supabase?`);
+                        throw new Error(`Supabase error: ${dbError.message}`);
+                    }
+                }
+
                 importedCount++;
             }
 
             setScanResults([]);
             setFolderId("");
+            await syncLibrary(); // Refresh local view from shared server
             alert(`Successfully imported ${importedCount} books with full content!`);
         } catch (error: any) {
             alert("Import failed: " + error.message);
@@ -270,13 +346,56 @@ export default function AdminDashboard() {
         }
     };
 
-    const handleClearLibrary = async () => {
-        if (!confirm("Are you sure you want to delete ALL books? This will remove your imported library as well as the sample books.")) return;
+    const handleClearLibrary = async (global: boolean = false) => {
+        const msg = global
+            ? "WARNING: This will delete ALL books from both your device AND the Cloud (Supabase). This cannot be undone. Are you sure?"
+            : "Are you sure you want to delete ALL books from this device? (Cloud library will remain safe)";
+
+        if (!confirm(msg)) return;
+
         try {
+            setImporting(true); // Reuse loader
+
+            if (global && supabase) {
+                console.log("[Admin] Deleting global library from Supabase...");
+                const { error } = await supabase
+                    .from('books')
+                    .delete()
+                    .neq('id', 0); // Delete all rows
+
+                if (error) throw error;
+                console.log("[Admin] Cloud library cleared.");
+            }
+
             await db.books.clear();
-            alert("Library cleared successfully!");
+            alert(global ? "Global library cleared successfully!" : "Local library cleared successfully!");
+            await syncLibrary();
         } catch (error: any) {
+            console.error("Clear failed:", error);
             alert("Failed to clear library: " + error.message);
+        } finally {
+            setImporting(false);
+        }
+    };
+
+    const handleClearDownloads = async () => {
+        if (!confirm("This will remove all downloaded PDF files from this device to save storage. You will need to download them again for offline reading. Continue?")) return;
+
+        try {
+            setImporting(true);
+            const allBooks = await db.books.toArray();
+            for (const book of allBooks) {
+                if (book.pdfBlob) {
+                    await db.books.update(book.id!, { pdfBlob: undefined });
+                }
+            }
+            alert("All local downloads cleared. Storage has been freed!");
+            await syncLibrary();
+        } catch (error: any) {
+            console.error("Clear downloads failed:", error);
+            alert("Failed to clear downloads: " + error.message);
+        } finally {
+            setImporting(false);
         }
     };
 
@@ -310,9 +429,24 @@ export default function AdminDashboard() {
 
     return (
         <div className="space-y-8">
-            <header>
-                <h2 className="text-2xl font-bold text-gray-800">Overview</h2>
-                <p className="text-gray-500">Welcome back, Admin</p>
+            <header className="flex justify-between items-start">
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-800">Overview</h2>
+                    <p className="text-gray-500">Welcome back, Admin</p>
+                </div>
+
+                <div className="flex items-center gap-4">
+                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-wider ${supabaseStatus === 'connected'
+                        ? 'bg-green-50 border-green-200 text-green-700'
+                        : supabaseStatus === 'checking'
+                            ? 'bg-blue-50 border-blue-200 text-blue-700'
+                            : 'bg-red-50 border-red-200 text-red-700'
+                        }`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${supabaseStatus === 'connected' ? 'bg-green-500' : supabaseStatus === 'checking' ? 'bg-blue-500 animate-pulse' : 'bg-red-500'
+                            }`} />
+                        {supabaseStatus === 'connected' ? 'Cloud Sync Active' : supabaseStatus === 'checking' ? 'Connecting...' : 'Cloud Connection Failed'}
+                    </div>
+                </div>
             </header>
 
             {/* Stats Grid */}
@@ -501,6 +635,7 @@ export default function AdminDashboard() {
                                 <option value="English">English</option>
                                 <option value="Hindi">Hindi</option>
                                 <option value="Marathi">Marathi</option>
+                                <option value="Marathi-English">Marathi-English</option>
                             </select>
 
                             <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 flex items-center justify-center gap-2">
@@ -622,10 +757,21 @@ export default function AdminDashboard() {
                                 </table>
                             </div>
 
-                            <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-100">
-                                <div className="text-sm text-blue-700">
-                                    Found <strong>{scanResults.length}</strong> books across hierarchies.
-                                    Metadata (Level/Subject) will be extracted from folder names where possible.
+                            <div className="flex flex-col gap-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
+                                <div className="flex items-center justify-between">
+                                    <div className="text-sm text-blue-700">
+                                        Found <strong>{scanResults.length}</strong> books across hierarchies.
+                                        Metadata (Level/Subject) will be extracted from folder names where possible.
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs font-medium text-blue-700">Store Offline?</span>
+                                        <button
+                                            onClick={() => setStoreLocally(!storeLocally)}
+                                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${storeLocally ? 'bg-blue-600' : 'bg-gray-200'}`}
+                                        >
+                                            <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${storeLocally ? 'translate-x-4' : 'translate-x-0'}`} />
+                                        </button>
+                                    </div>
                                 </div>
                                 <button
                                     onClick={handleImportAll}
@@ -641,14 +787,33 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Danger Zone */}
-                <div className="mt-8 pt-6 border-t border-red-100">
-                    <h4 className="text-xs font-bold text-red-500 uppercase tracking-wider mb-3">Danger Zone</h4>
+                <div className="mt-8 pt-6 border-t border-red-100 flex flex-wrap gap-4">
+                    <div className="w-full">
+                        <h4 className="text-xs font-bold text-red-500 uppercase tracking-wider mb-3">Danger Zone</h4>
+                    </div>
                     <button
-                        onClick={handleClearLibrary}
-                        className="text-xs flex items-center gap-2 bg-red-50 text-red-600 px-4 py-2 rounded-lg hover:bg-red-100 transition-colors border border-red-100"
+                        onClick={() => handleClearLibrary(false)}
+                        disabled={importing}
+                        className="text-xs flex items-center gap-2 bg-red-50 text-red-600 px-4 py-2 rounded-lg hover:bg-red-100 transition-colors border border-red-100 disabled:opacity-50"
                     >
                         <Trash2 className="w-3 h-3" />
-                        Clear All Books from Library
+                        Clear Local Cache
+                    </button>
+                    <button
+                        onClick={handleClearDownloads}
+                        disabled={importing}
+                        className="text-xs flex items-center gap-2 bg-orange-50 text-orange-600 px-4 py-2 rounded-lg hover:bg-orange-100 transition-colors border border-orange-100 disabled:opacity-50"
+                    >
+                        <Download className="w-3 h-3 rotate-180" />
+                        Clear Local Downloads (Free Space)
+                    </button>
+                    <button
+                        onClick={() => handleClearLibrary(true)}
+                        disabled={importing}
+                        className="text-xs flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors shadow-sm disabled:opacity-50"
+                    >
+                        <Cloud className="w-3 h-3" />
+                        Reset Global Library (Supabase)
                     </button>
                 </div>
             </section>

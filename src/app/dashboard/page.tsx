@@ -18,11 +18,19 @@ export default function Dashboard() {
     const { user } = useUser();
     const isOnline = useNetworkStatus();
     const { isMobile } = useDeviceType();
-    const { books } = useBooks();
+    const { books, syncLibrary } = useBooks();
     const { recentBooks } = useReadingHistory();
+
+    // Sync library from Supabase when online
+    useEffect(() => {
+        if (isOnline) {
+            syncLibrary();
+        }
+    }, [isOnline, syncLibrary]);
 
     const [selectedLevel, setSelectedLevel] = useState("");
     const [selectedSubject, setSelectedSubject] = useState("");
+    const [selectedLanguage, setSelectedLanguage] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
     const [visibleCount, setVisibleCount] = useState(12); // Pagination
 
@@ -38,6 +46,19 @@ export default function Dashboard() {
 
     const points = user?.totalPoints || 0;
 
+    const languages = [
+        { value: "English", label: "English" },
+        { value: "Hindi", label: "Hindi" },
+        { value: "Marathi", label: "Marathi" },
+        { value: "Marathi-English", label: "Marathi-English" },
+    ];
+    // Add any other languages found in the database that are not in our curated list
+    const otherLanguages = Array.from(new Set(books?.map(b => b.language) || []))
+        .filter(l => !languages.find(opt => opt.value === l))
+        .map(l => ({ value: l, label: l }));
+
+    const combinedLanguages = [...languages, ...otherLanguages];
+
     const levels = [
         { value: "1", label: "Level 1" },
         { value: "2", label: "Level 2" },
@@ -45,17 +66,17 @@ export default function Dashboard() {
         { value: "4", label: "Level 4" },
     ];
 
-    const subjects = [
-        { value: "Science", label: "Science" },
-        { value: "Mathematics", label: "Mathematics" },
-        { value: "History", label: "History" },
-    ];
+    const subjects = Array.from(new Set(books?.map(b => b.subject) || [])).sort().map(s => ({
+        value: s,
+        label: s
+    }));
 
     const filteredBooks = books?.filter((book) => {
+        const languageMatch = selectedLanguage ? book.language === selectedLanguage : true;
         const levelMatch = selectedLevel ? book.level === selectedLevel : true;
         const subjectMatch = selectedSubject ? book.subject === selectedSubject : true;
         const searchMatch = searchQuery ? book.title.toLowerCase().includes(searchQuery.toLowerCase()) : true;
-        return levelMatch && subjectMatch && searchMatch;
+        return languageMatch && levelMatch && subjectMatch && searchMatch;
     });
 
     const paginatedBooks = filteredBooks?.slice(0, visibleCount);
@@ -103,8 +124,10 @@ export default function Dashboard() {
                         {user?.id !== 'local-user' ? (
                             <button
                                 onClick={async () => {
-                                    await supabase.auth.signOut();
-                                    window.location.reload();
+                                    if (supabase) {
+                                        await supabase.auth.signOut();
+                                        window.location.reload();
+                                    }
                                 }}
                                 className="flex items-center gap-1 text-gray-600 hover:text-red-600 transition-colors bg-gray-50 hover:bg-red-50 px-2 py-1 rounded-lg"
                                 title="Sign Out"
@@ -170,11 +193,14 @@ export default function Dashboard() {
                                 <BookCard
                                     key={book.id}
                                     id={book.id!}
+                                    fileId={book.fileId}
                                     title={book.title}
                                     grade={book.grade}
                                     level={book.level}
                                     pages={book.pages}
                                     pdfUrl={book.pdfUrl}
+                                    pdfBlob={book.pdfBlob}
+                                    language={book.language}
                                     coverUrl={book.coverUrl}
                                 />
                             ))}
@@ -193,7 +219,14 @@ export default function Dashboard() {
                                 </h2>
                             </div>
 
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 flex-wrap">
+                                <Dropdown
+                                    label="All Languages"
+                                    options={combinedLanguages}
+                                    value={selectedLanguage}
+                                    onChange={setSelectedLanguage}
+                                    className=""
+                                />
                                 <Dropdown
                                     label="All Levels"
                                     options={levels}
@@ -241,11 +274,14 @@ export default function Dashboard() {
                                     <BookCard
                                         key={book.id}
                                         id={book.id!}
+                                        fileId={book.fileId}
                                         title={book.title}
                                         grade={book.grade}
                                         level={book.level}
                                         pages={book.pages}
                                         pdfUrl={book.pdfUrl}
+                                        pdfBlob={book.pdfBlob}
+                                        language={book.language}
                                         coverUrl={book.coverUrl}
                                     />
                                 ))}
@@ -258,7 +294,7 @@ export default function Dashboard() {
                             <Search className="w-16 h-16 text-gray-100 mx-auto mb-4" />
                             <h3 className="text-lg font-medium text-gray-400">No books match your current selection</h3>
                             <button
-                                onClick={() => { setSelectedLevel(""); setSelectedSubject(""); setSearchQuery(""); }}
+                                onClick={() => { setSelectedLevel(""); setSelectedSubject(""); setSelectedLanguage(""); setSearchQuery(""); }}
                                 className="mt-4 px-6 py-2 bg-green-50 text-green-600 rounded-full font-bold hover:bg-green-100 transition-colors"
                             >
                                 Reset Filters
