@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BookOpen, User, Lock, ArrowRight, ArrowLeft, Wifi, WifiOff, Phone } from "lucide-react";
+import { BookOpen, User, Lock, ArrowRight, ArrowLeft, Wifi, WifiOff, Phone, Loader2 } from "lucide-react";
 import { db } from "@/lib/db";
 import { useSync } from "@/hooks/useSync";
 import { supabase } from "@/lib/supabase";
@@ -16,6 +16,7 @@ export default function LoginPage() {
     const [showForgotPassword, setShowForgotPassword] = useState(false);
     const [resetEmail, setResetEmail] = useState("");
     const [resetSubmitted, setResetSubmitted] = useState(false);
+    const [loading, setLoading] = useState(false);
 
     // Toggle Forgot Password View
     const toggleForgotPassword = () => {
@@ -68,6 +69,11 @@ export default function LoginPage() {
                         ...user,
                         id: 'local-user'
                     });
+
+                    // Set session cookie for middleware
+                    document.cookie = `user_session=${user.id}; path=/; max-age=86400`;
+
+                    // Always go to dashboard after successful login
                     router.push("/dashboard");
                 } else {
                     alert("Invalid credentials or user not found.");
@@ -82,11 +88,15 @@ export default function LoginPage() {
 
     const handleForgotPassword = (e: React.FormEvent) => {
         e.preventDefault();
-        // Simulate sending reset email
-        if (resetEmail) {
+        // Simulate sending Reset OTP
+        if (mobile) {
+            setLoading(true);
             setTimeout(() => {
-                setResetSubmitted(true);
-            }, 500);
+                setLoading(false);
+                router.push(`/verify-otp?mobile=${mobile}&mode=reset`);
+            }, 800);
+        } else {
+            alert("Please enter your mobile number first.");
         }
     };
 
@@ -127,7 +137,7 @@ export default function LoginPage() {
                 <div className="p-8">
                     {!showForgotPassword ? (
                         /* LOGIN FORM */
-                        <form onSubmit={handleLogin} className="space-y-6">
+                        <form onSubmit={handleLogin} className="space-y-6 text-black">
                             <div className="space-y-4">
                                 <div>
                                     <label className="block text-sm font-semibold text-gray-700 mb-1">Mobile Number</label>
@@ -185,61 +195,44 @@ export default function LoginPage() {
                         </form>
                     ) : (
                         /* FORGOT PASSWORD FORM */
-                        !resetSubmitted ? (
-                            <form onSubmit={handleForgotPassword} className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-                                <p className="text-sm text-gray-500">
-                                    Enter the email address associated with your account and we'll send you a link to reset your password.
-                                </p>
+                        <form onSubmit={handleForgotPassword} className="space-y-6 text-black animate-in fade-in slide-in-from-right-4 duration-300">
+                            <p className="text-sm text-gray-500">
+                                Please confirm your registered mobile number to receive a verification code.
+                            </p>
 
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Email Address</label>
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">Registered Mobile</label>
+                                <div className="relative group">
+                                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 group-focus-within:text-green-500 transition-colors" />
                                     <input
-                                        type="email"
-                                        placeholder="you@example.com"
-                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-100 focus:border-green-500 outline-none transition-all bg-gray-50 focus:bg-white"
-                                        value={resetEmail}
-                                        onChange={(e) => setResetEmail(e.target.value)}
+                                        type="tel"
+                                        placeholder="Enter your Mobile Number"
+                                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-100 focus:border-green-500 outline-none transition-all bg-gray-50 focus:bg-white"
+                                        value={mobile}
+                                        onChange={(e) => setMobile(e.target.value)}
                                         required
+                                        pattern="[0-9]{10}"
                                     />
                                 </div>
+                            </div>
 
-                                <div className="space-y-3">
-                                    <button
-                                        type="submit"
-                                        className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-green-200 transition-all text-sm"
-                                    >
-                                        Send Reset Link
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={toggleForgotPassword}
-                                        className="w-full bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-bold py-3 rounded-xl transition-all text-sm"
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </form>
-                        ) : (
-                            /* SUBMITTED SUCCESS STATE */
-                            <div className="text-center py-4 animate-in zoom-in duration-300">
-                                <div className="w-16 h-16 bg-green-50 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-green-100">
-                                    <ArrowRight className="w-8 h-8" />
-                                </div>
-                                <h4 className="font-bold text-gray-800 text-lg mb-2">Check your email</h4>
-                                <p className="text-sm text-gray-500 mb-8 max-w-xs mx-auto">
-                                    We've sent a password reset link to <br />
-                                    <span className="font-semibold text-gray-800 bg-gray-100 px-2 py-1 rounded mt-1 inline-block">{resetEmail}</span>
-                                </p>
-
+                            <div className="space-y-3">
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-green-200 transition-all text-sm flex items-center justify-center gap-2"
+                                >
+                                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send Reset OTP"}
+                                </button>
                                 <button
                                     type="button"
                                     onClick={toggleForgotPassword}
-                                    className="bg-green-600 hover:bg-green-700 text-white font-bold px-6 py-2 rounded-lg transition-all text-sm shadow-md"
+                                    className="w-full bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-bold py-3 rounded-xl transition-all text-sm"
                                 >
-                                    Back to Login
+                                    Cancel
                                 </button>
                             </div>
-                        )
+                        </form>
                     )}
                 </div>
             </div>

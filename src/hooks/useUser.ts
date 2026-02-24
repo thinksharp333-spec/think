@@ -5,7 +5,8 @@ import { supabase } from "@/lib/supabase";
 
 export function useUser() {
     const users = useLiveQuery(() => db.users.toArray());
-    const user = users?.[0]; // Current active user (local or synced)
+    // Try to find 'local-user' first, otherwise take the first available
+    const user = users?.find(u => u.id === 'local-user') || users?.[0];
 
     // Listen for Supabase Auth Changes
     useEffect(() => {
@@ -24,6 +25,7 @@ export function useUser() {
                     await db.users.add({
                         id: session.user.id,
                         name: session.user.user_metadata.full_name || localUser.name,
+                        mobile: session.user.phone || localUser.mobile || '',
                         totalPoints: localUser.totalPoints // Preserve local points
                     });
                 } else {
@@ -33,6 +35,7 @@ export function useUser() {
                         await db.users.add({
                             id: session.user.id,
                             name: session.user.user_metadata.full_name || 'Student',
+                            mobile: session.user.phone || '', // Mobile is required in schema
                             totalPoints: 0 // Will sync from server later
                         });
                     }
@@ -44,6 +47,7 @@ export function useUser() {
                 await db.users.add({
                     id: 'local-user',
                     name: 'Student',
+                    mobile: '',
                     totalPoints: 0
                 });
             }
@@ -63,6 +67,7 @@ export function useUser() {
                 await db.users.add({
                     id: 'local-user',
                     name: 'Student',
+                    mobile: '',
                     totalPoints: 0
                 });
             }

@@ -3,11 +3,16 @@ import Dexie, { type EntityTable } from 'dexie';
 interface User {
     id: string; // Remote ID
     name: string;
+    mobile: string;
+    verifiedMobile?: string; // Confirmed mobile after OTP
+    isVerified?: boolean;
     age?: number;
     city?: string;
     school?: string;
-    password?: string; // Simple local password for demo
+    schoolId?: string; // ID from schools table
+    password?: string;
     totalPoints: number;
+    lastLogin?: number;
 }
 
 interface ReadingSession {
@@ -50,21 +55,27 @@ const db = new Dexie('AdaptivePlatformDB') as Dexie & {
 };
 
 // Schema definition
-db.version(10).stores({
-    users: 'id, name, totalPoints',
-    readings: '++id, bookId, userId, synced, startTime',
+db.version(7).stores({ // Incremented version to apply changes
+    users: 'id, name, mobile, isVerified, schoolId, totalPoints',
+    readings: '++id, bookId, synced, startTime',
     syncQueue: '++id, type, createdAt',
     books: '++id, title, grade, level, subject, language'
 });
 
-// Helper for composite book identification
-export const getSyncKey = (b: any) => {
-    const t = (b.title || "").trim().toLowerCase();
-    const l = (b.level || "").toString().trim().toLowerCase();
-    const lg = (b.language || "").trim().toLowerCase();
-    const s = (b.subject || "").trim().toLowerCase();
-    return `${t}|${l}|${lg}|${s}`;
-};
+// Seed default user
+db.on('populate', async () => {
+    await db.users.add({
+        id: 'local-admin',
+        name: 'Test Student',
+        mobile: '1234567890',
+        password: 'admin',
+        totalPoints: 0,
+        isVerified: true,
+        school: 'ThinkSharp School',
+        city: 'Mumbai',
+        age: 12
+    });
+});
 
 export { db };
 export type { User, ReadingSession, SyncTask, Book };

@@ -23,14 +23,29 @@ export function AuthForm({ mode }: AuthFormProps) {
     const [password, setPassword] = useState("");
     const [name, setName] = useState("");
 
+    const mergeLocalData = async (userId: string) => {
+        const localUser = await db.users.get('local-user');
+        if (localUser && localUser.totalPoints > 0) {
+            await db.syncQueue.add({
+                type: 'UPDATE_POINTS',
+                payload: { pointsEarned: localUser.totalPoints },
+                createdAt: Date.now()
+            });
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
         setLoading(true);
 
+        if (!supabase) {
+            setError("Supabase is not configured.");
+            setLoading(false);
+            return;
+        }
+
         try {
-            // 1. Construct Email
-            // For students: [phone]@student.example.com (Safe Domain)
             const authEmail = userType === "student"
                 ? `${phone}@student.example.com`
                 : email;
@@ -49,7 +64,6 @@ export function AuthForm({ mode }: AuthFormProps) {
 
                 if (signUpError) throw signUpError;
 
-                // Create User Profile in Public Table manually if trigger doesn't exist
                 if (data.user) {
                     await supabase.from("users").upsert({
                         id: data.user.id,
@@ -57,11 +71,8 @@ export function AuthForm({ mode }: AuthFormProps) {
                         role: userType,
                         total_points: 0
                     });
-
-                    // Merge Local Data (if any)
                     await mergeLocalData(data.user.id);
                 }
-
             } else {
                 const { data, error: signInError } = await supabase.auth.signInWithPassword({
                     email: authEmail,
@@ -75,9 +86,7 @@ export function AuthForm({ mode }: AuthFormProps) {
                 }
             }
 
-            // Redirect and Refresh
             router.push("/");
-            // Force a refresh to update server components and hooks
             setTimeout(() => {
                 window.location.reload();
             }, 500);
@@ -87,23 +96,6 @@ export function AuthForm({ mode }: AuthFormProps) {
             setError(err.message || "Authentication failed");
         } finally {
             setLoading(false);
-        }
-    };
-
-    const mergeLocalData = async (userId: string) => {
-        // Simple merge: If local user has points, add them to the account
-        // Ideally this should be more robust, but for now:
-        const localUser = await db.users.get('local-user');
-        if (localUser && localUser.totalPoints > 0) {
-            // Send a sync task to server to merge points
-            await db.syncQueue.add({
-                type: 'UPDATE_POINTS', // We need to handle this in API
-                payload: { pointsEarned: localUser.totalPoints },
-                createdAt: Date.now()
-            });
-            // Reset local points ensuring they don't double count if we re-login
-            // But complex to handle properly without server logic.
-            // For this MVP, we just sync pending reads.
         }
     };
 

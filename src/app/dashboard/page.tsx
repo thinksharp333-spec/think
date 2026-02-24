@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Dropdown } from "@/components/dropdown";
 
 import { SyncStatus } from "@/components/sync-status";
-import { BookOpen, Trophy, Flame, Wifi, WifiOff, Laptop, Smartphone, LayoutDashboard, LogIn, LogOut, Search, Clock, Sparkles } from "lucide-react";
+import { BookOpen, Trophy, Flame, Wifi, WifiOff, Laptop, Smartphone, LogIn, LogOut, Search, Clock, Sparkles } from "lucide-react";
 import Link from 'next/link';
 import { useUser } from "@/hooks/useUser";
 import { supabase } from "@/lib/supabase";
@@ -110,6 +110,7 @@ export default function Dashboard() {
                             <span>{points} pts</span>
                         </div>
 
+<<<<<<< HEAD
                         {user?.id !== 'local-user' ? (
                             <button
                                 onClick={async () => {
@@ -132,6 +133,8 @@ export default function Dashboard() {
                                 <span className="text-sm">Login</span>
                             </Link>
                         )}
+=======
+>>>>>>> utsavi
                     </div>
                 </div>
             </header>
@@ -307,10 +310,6 @@ export default function Dashboard() {
                     <Link href="/leaderboard" className="flex flex-col items-center text-gray-400 hover:text-green-600 transition-colors">
                         <Trophy className="w-6 h-6" />
                         <span className="text-[10px] mt-1 font-medium">Rank</span>
-                    </Link>
-                    <Link href="/admin" className="flex flex-col items-center text-gray-400 hover:text-green-600 transition-colors">
-                        <LayoutDashboard className="w-6 h-6" />
-                        <span className="text-[10px] mt-1 font-medium">Admin</span>
                     </Link>
                 </div>
             </nav>
