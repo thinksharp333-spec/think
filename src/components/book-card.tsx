@@ -70,32 +70,45 @@ export function BookCard({ id, fileId, title, grade, level, pages, pdfUrl, pdfBl
 
     return (
         <Link href={`/read/${id}`} className="block text-left group/card relative">
-            <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 active:scale-95 transition-transform h-full">
-                <div className="aspect-[3/4] bg-gray-100 rounded-lg mb-3 relative overflow-hidden">
+            <div className="bg-white p-5 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.06)] border border-gray-100 active:scale-95 transition-all duration-300 h-full hover:shadow-[0_12px_32px_rgba(0,0,0,0.12)] hover:-translate-y-2">
+                <div className="aspect-[1.5/1] bg-gray-900 rounded-xl mb-4 relative overflow-hidden ring-1 ring-black/10 shadow-inner group-hover/card:ring-green-500/30 transition-all duration-500">
                     {/* Cover Image or Placeholder */}
                     {coverUrl ? (
-                        <img
-                            src={coverUrl}
-                            alt={title}
-                            className="absolute inset-0 w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-500"
-                            onError={(e) => {
-                                (e.target as HTMLImageElement).style.display = 'none';
-                            }}
-                        />
+                        <div className="absolute inset-0 w-full h-full flex items-center justify-center">
+                            {/* Blurred Backdrop */}
+                            <img
+                                src={coverUrl}
+                                alt=""
+                                className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-40 scale-110 pointer-events-none"
+                            />
+
+                            {/* Sharp, Uncropped Cover */}
+                            <img
+                                src={coverUrl}
+                                alt={title}
+                                className="relative z-[1] h-full w-auto max-w-full object-contain shadow-2xl group-hover/card:scale-[1.05] transition-transform duration-1000 ease-out"
+                                onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                }}
+                            />
+
+                            {/* Physical Book Spine/Gradient Refinement */}
+                            <div className="absolute inset-y-0 left-0 w-[8%] bg-gradient-to-r from-black/40 via-black/10 to-transparent z-[2] pointer-events-none" />
+                        </div>
                     ) : (
-                        <div className="absolute inset-0 flex items-center justify-center text-gray-300">
-                            <BookOpen className="w-8 h-8" />
+                        <div className="absolute inset-0 flex items-center justify-center text-gray-400 bg-gray-100">
+                            <BookOpen className="w-12 h-12 opacity-30" />
                         </div>
                     )}
 
 
                     {/* Level & Language Badges */}
-                    <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
-                        <div className="bg-black/60 backdrop-blur-md text-white px-2 py-0.5 rounded-full text-[10px] font-bold border border-white/10 uppercase tracking-tighter w-fit">
+                    <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-10">
+                        <div className="bg-black/70 backdrop-blur-md text-white px-3 py-1 rounded-full text-[11px] font-bold border border-white/20 uppercase tracking-tight w-fit">
                             Level {level}
                         </div>
                         {language && (
-                            <div className="bg-green-600/80 backdrop-blur-md text-white px-2 py-0.5 rounded-full text-[10px] font-bold border border-white/10 uppercase tracking-tighter w-fit">
+                            <div className="bg-green-600/90 backdrop-blur-md text-white px-3 py-1 rounded-full text-[11px] font-bold border border-white/20 uppercase tracking-tight w-fit">
                                 {language}
                             </div>
                         )}
@@ -105,27 +118,28 @@ export function BookCard({ id, fileId, title, grade, level, pages, pdfUrl, pdfBl
                     <button
                         onClick={handleDownload}
                         disabled={downloading || isOfflineReady}
-                        className={`absolute bottom-2 right-2 p-1.5 rounded-full shadow-md transition-all z-10 
+                        className={`absolute bottom-3 right-3 p-2 rounded-full shadow-lg transition-all z-10 
               ${isOfflineReady
                                 ? 'bg-green-100 text-green-600'
-                                : 'bg-white text-gray-600 hover:bg-green-600 hover:text-white'}`}
+                                : 'bg-white text-gray-700 hover:bg-green-600 hover:text-white'}`}
                     >
                         {downloading ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <Loader2 className="w-5 h-5 animate-spin" />
                         ) : isOfflineReady ? (
-                            <CheckCircle2 className="w-4 h-4" />
+                            <CheckCircle2 className="w-5 h-5" />
                         ) : (
-                            <Download className="w-4 h-4" />
+                            <Download className="w-5 h-5" />
                         )}
                     </button>
                 </div>
 
-                <h3 className="font-semibold text-gray-800 line-clamp-1 leading-tight">{title}</h3>
-                <p className="text-xs text-gray-500 mt-1">{grade} • {pages} pages</p>
-
-                {isOfflineReady && (
-                    <span className="text-[10px] text-green-600 font-medium inline-block mt-1">Available Offline</span>
-                )}
+                <h3 className="text-lg font-bold text-gray-800 line-clamp-1 leading-tight group-hover/card:text-green-700 transition-colors uppercase tracking-tight">{title}</h3>
+                <div className="flex items-center justify-between mt-2">
+                    <p className="text-sm text-gray-500 font-medium">{grade} • {pages} pages</p>
+                    {isOfflineReady && (
+                        <span className="text-[10px] bg-green-50 text-green-700 px-2 py-0.5 rounded-md font-bold uppercase tracking-wider">Offline Ok</span>
+                    )}
+                </div>
             </div>
         </Link>
     );

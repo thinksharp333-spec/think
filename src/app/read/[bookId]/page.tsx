@@ -26,8 +26,16 @@ export default function ReadPage() {
     const [totalPages, setTotalPages] = useState(0);
     const pageStartTimeRef = useRef(Date.now());
     const accumulatedPointsRef = useRef(0);
-    const completedRef = useRef(false);
-    const MAX_POINTS_PER_PAGE = 5;
+
+    const discoveredWordCountsRef = useRef<Record<number, number>>({});
+
+    // Dynamic max points based on word count
+    const getMaxPointsForPage = (page: number) => {
+        const wordCount = discoveredWordCountsRef.current[page] ?? book?.pageWordCounts?.[page];
+        if (wordCount === undefined) return 5; // Default cap if word count unknown
+        // Formula: 1 point per 25 words, min 1, max 10
+        return Math.max(1, Math.min(10, Math.floor(wordCount / 25)));
+    };
 
     // Global Session Tracking
     const startTimeRef = useRef(Date.now());
@@ -57,33 +65,28 @@ export default function ReadPage() {
         const now = Date.now();
         const durationOnPage = (now - pageStartTimeRef.current) / 1000;
 
-        const pointsForPage = Math.min(
-            Math.floor(durationOnPage / 10),
-            MAX_POINTS_PER_PAGE
-        );
+        // Calculate points for the page we just left
+        const maxPoints = getMaxPointsForPage(currentPage);
+        const pointsForPage = Math.min(Math.floor(durationOnPage / 10), maxPoints);
 
         if (pointsForPage > 0) {
             accumulatedPointsRef.current += pointsForPage;
-            console.log(
-                `Page ${currentPage} done: ${durationOnPage.toFixed(1)}s -> ${pointsForPage} pts. Total: ${accumulatedPointsRef.current}`
-            );
-        }
-
-        if (newPage === totalPages && totalPages > 0) {
-            completedRef.current = true;
+            console.log(`Page ${currentPage} done: ${durationOnPage.toFixed(1)}s -> ${pointsForPage} pts (Max: ${maxPoints}). Total: ${accumulatedPointsRef.current}`);
         }
 
         pageStartTimeRef.current = now;
         setCurrentPage(newPage);
     };
 
+    const handleWordCount = (page: number, count: number) => {
+        discoveredWordCountsRef.current[page] = count;
+    };
+
     const saveProgress = async () => {
         const now = Date.now();
         const durationOnFinalPage = (now - pageStartTimeRef.current) / 1000;
-        const pointsForFinalPage = Math.min(
-            Math.floor(durationOnFinalPage / 10),
-            MAX_POINTS_PER_PAGE
-        );
+        const maxPointsFinal = getMaxPointsForPage(currentPage);
+        const pointsForFinalPage = Math.min(Math.floor(durationOnFinalPage / 10), maxPointsFinal);
 
         const totalSessionPoints =
             accumulatedPointsRef.current + pointsForFinalPage;
@@ -99,9 +102,12 @@ export default function ReadPage() {
         );
 
         try {
-            const localUser = await db.users.get('local-user');
+            // Get the active user (first one in the local DB)
+            const allUsers = await db.users.toArray();
+            const localUser = allUsers[0];
+
             if (!localUser) {
-                console.error("No local user found.");
+                console.error("No active user found, cannot save progress properly.");
                 return;
             }
 
@@ -111,27 +117,38 @@ export default function ReadPage() {
                 (localUser.id !== 'local-user' ? localUser.id : null);
 
             await db.readings.add({
-                bookId: bookIdNum,
+                bookId: bookIdString,
                 userId: userId || 'local-user',
                 startTime: startTimeRef.current,
                 endTime: endTime,
                 synced: 0
             });
 
-            const newTotalPoints =
-                (localUser.totalPoints || 0) + totalSessionPoints;
-
-            await db.users.update('local-user', {
+            // 2. Update Local User Points & Book Word Counts
+            const newTotalPoints = (localUser.totalPoints || 0) + totalSessionPoints;
+            await db.users.update(userId, {
                 totalPoints: newTotalPoints
             });
 
-            if (userId && userId !== 'local-user') {
-                const exists = await db.users.get(userId);
-                if (exists) {
-                    await db.users.update(userId, {
+            // Also update 'local-user' specifically if it still exists and is different
+            if (userId !== 'local-user') {
+                const guest = await db.users.get('local-user');
+                if (guest) {
+                    await db.users.update('local-user', {
                         totalPoints: newTotalPoints
                     });
                 }
+            }
+
+            // Save any newly discovered word counts to the book
+            if (book && Object.keys(discoveredWordCountsRef.current).length > 0) {
+                const updatedWordCounts = {
+                    ...(book.pageWordCounts || {}),
+                    ...discoveredWordCountsRef.current
+                };
+                await db.books.update(bookIdNum, {
+                    pageWordCounts: updatedWordCounts
+                });
             }
 
             if (supabase && userId) {
@@ -142,9 +159,9 @@ export default function ReadPage() {
                     4: 'History'
                 } as any)[bookIdNum] || 'Unknown Book';
 
-                const isCompleted =
-                    completedRef.current ||
-                    (currentPage === totalPages && totalPages > 0);
+                // const isCompleted =
+                //     completedRef.current ||
+                //     (currentPage === totalPages && totalPages > 0);
 
                 const { error } = await supabase
                     .from('reading_sessions')
@@ -156,7 +173,7 @@ export default function ReadPage() {
                         end_time: new Date(endTime).toISOString(),
                         duration_seconds: totalDuration,
                         pages_read: currentPage,
-                        completed: isCompleted
+                        // completed: isCompleted
                     }]);
 
                 if (error) {
@@ -192,19 +209,27 @@ export default function ReadPage() {
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
-            <header className="bg-white px-4 py-3 shadow-sm flex items-center justify-between sticky top-0 z-20">
-                <Link href="/" className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
-                    <ArrowLeft className="w-5 h-5 text-gray-700" />
-                </Link>
-                <h1 className="font-semibold text-gray-800 text-sm">
-                    {book?.title || "Reading..."}
-                </h1>
-                <div className="flex items-center gap-1 text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full">
-                    <Clock className="w-3 h-3" />
-                    <span>
-                        {Math.floor(displaySeconds / 60)}:
-                        {(displaySeconds % 60).toString().padStart(2, '0')}
-                    </span>
+            {/* Header */}
+            <header className="bg-white/80 backdrop-blur-md px-4 py-3 shadow-sm flex items-center justify-between sticky top-0 z-20 border-b border-gray-100">
+                <div className="flex items-center gap-3">
+                    <Link href="/" className="p-2 -ml-2 hover:bg-black/5 rounded-full transition-colors">
+                        <ArrowLeft className="w-5 h-5 text-gray-700" />
+                    </Link>
+                    <div className="flex flex-col">
+                        <h1 className="font-bold text-gray-900 text-sm line-clamp-1">{book?.title || "Reading..."}</h1>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Level {book?.level || "1"}</span>
+                            <span className="w-1 h-1 rounded-full bg-gray-200" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-green-600">{book?.language || "English"}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 text-[11px] font-black tabular-nums text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full ring-1 ring-black/5">
+                        <Clock className="w-3.5 h-3.5 text-gray-400" />
+                        <span>{Math.floor(displaySeconds / 60)}:{(displaySeconds % 60).toString().padStart(2, '0')}</span>
+                    </div>
                 </div>
             </header>
 
@@ -214,7 +239,7 @@ export default function ReadPage() {
                     book={book}
                     bookIdNum={bookIdNum}
                     onPageChange={handlePageChange}
-                    onLoadSuccess={handleLoadSuccess}
+                    onWordCount={handleWordCount}
                 />
             </main>
         </div>

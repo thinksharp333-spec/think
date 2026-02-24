@@ -3,6 +3,7 @@
 import { useBooks } from "@/hooks/useBooks";
 import { Book, db, User, getSyncKey } from "@/lib/db";
 import { useState, useEffect } from "react";
+import { generateCoverFromPdf } from "@/lib/pdf-utils";
 import { useLiveQuery } from "dexie-react-hooks";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import {
@@ -24,7 +25,7 @@ import {
     FolderTree
 } from "lucide-react";
 import { Dropdown } from "@/components/dropdown";
-import { fetchDriveContents, getDirectDownloadUrl, DriveItem } from "@/lib/google-drive";
+import { fetchDriveContents, getDirectDownloadUrl, DriveItem, fetchDriveItem } from "@/lib/google-drive";
 import { supabase } from "@/lib/supabase";
 
 
@@ -49,6 +50,8 @@ export default function AdminDashboard() {
     const [importing, setImporting] = useState(false);
     const [supabaseStatus, setSupabaseStatus] = useState<'checking' | 'connected' | 'error'>('checking');
     const [storeLocally, setStoreLocally] = useState(false); // Default to FALSE to save storage
+    const [scanLevel, setScanLevel] = useState("1");
+    const [scanLanguage, setScanLanguage] = useState("English");
 
     // Check Supabase connection
     useEffect(() => {
@@ -169,66 +172,105 @@ export default function AdminDashboard() {
             setScanStatus("Initializing scan...");
             const discoveredBooks: Book[] = [];
 
+            // Metadata Detection Helper
+            const detectMetadata = (name: string, current: { level?: string, subject?: string, language?: string }) => {
+                const nameLower = name.trim().toLowerCase();
+                let nextLevel = current.level;
+                let nextSubject = current.subject;
+                let nextLanguage = current.language;
+
+                // 1. Language Detection
+                if (nameLower.includes("english")) nextLanguage = "English";
+                else if (nameLower.includes("hindi")) nextLanguage = "Hindi";
+                else if (nameLower.includes("marathi")) {
+                    if (nameLower.includes("marathi-english")) nextLanguage = "Marathi-English";
+                    else nextLanguage = "Marathi";
+                }
+                else if (nameLower.includes("gujarati")) nextLanguage = "Gujarati";
+
+                // 2. Level Detection (Flexible: Level 4, Grade 4, L4, or just "4")
+                const levelMatch = name.match(/(?:level|lv|grade|std|class|l|g)\s*(\d+)/i);
+                if (levelMatch) {
+                    nextLevel = levelMatch[1];
+                } else if (/(\d+)$/.test(name.trim())) {
+                    // If the folder name ends in a digit (e.g. "Math 4")
+                    const match = name.trim().match(/(\d+)$/);
+                    if (match) nextLevel = match[1];
+                }
+
+                // 3. Subject Detection (Non-category folders)
+                const isPureCategoryFolder = /^(?:english|hindi|marathi|gujarati|level|grade|std|class|combined)\s*\d*$/i.test(nameLower);
+                if (!isPureCategoryFolder) {
+                    nextSubject = name.trim();
+                }
+
+                return { level: nextLevel, subject: nextSubject, language: nextLanguage };
+            };
+
             // recursive scan helper
             const crawl = async (currentFolderId: string, depth: number = 0, currentLevel?: string, currentSubject?: string, currentLanguage?: string) => {
                 const items = await fetchDriveContents(currentFolderId);
 
-                for (const item of items) {
-                    let nextLevel = currentLevel;
-                    let nextSubject = currentSubject;
-                    let nextLanguage = currentLanguage;
+                const folders: DriveItem[] = [];
+                const pdfs: DriveItem[] = [];
 
-                    // Handle Folders or Shortcuts to Folders
-                    const isFolder = item.mimeType === 'application/vnd.google-apps.folder';
+                items.forEach(item => {
                     const isShortcut = item.mimeType === 'application/vnd.google-apps.shortcut';
+                    const mime = isShortcut ? (item as any).shortcutDetails?.targetMimeType : item.mimeType;
 
-                    if (isFolder || isShortcut) {
-                        const targetId = isShortcut ? (item as any).shortcutDetails?.targetId : item.id;
-                        if (!targetId) continue;
-
-                        const name = item.name.toLowerCase();
-                        setScanStatus(`Scanning: ${item.name}...`);
-
-                        // STRICT DEPTH-BASED DETECTION (Language -> Level -> Subject)
-                        if (depth === 0) {
-                            nextLanguage = item.name; // Root children are Languages
-                        }
-                        else if (depth === 1) {
-                            // Stage 2 children are Levels (e.g., "Level 1", "Grade 10")
-                            const match = name.match(/(?:level|lv|grade|std)\s*(\d+)/i);
-                            nextLevel = match ? match[1] : item.name.replace(/\D/g, "") || item.name;
-                        }
-                        else if (depth === 2) {
-                            nextSubject = item.name; // Stage 3 children are Subjects
-                        }
-
-                        console.log(`[DriveScan] Depth ${depth + 1}: Detected ${item.name} as ${depth === 0 ? 'Language' : depth === 1 ? 'Level' : 'Subject'}`);
-                        await crawl(targetId, depth + 1, nextLevel, nextSubject, nextLanguage);
-                    } else {
-                        // Handle PDFs
-                        const isPDF = item.mimeType === 'application/pdf';
-                        const isShortcutToPDF = isShortcut && (item as any).shortcutDetails?.targetMimeType === 'application/pdf';
-
-                        if (isPDF || isShortcutToPDF) {
-                            const pdfId = isShortcutToPDF ? (item as any).shortcutDetails?.targetId : item.id;
-                            if (!pdfId) continue;
-
-                            discoveredBooks.push({
-                                title: item.name.replace(/\.pdf$/i, ""),
-                                fileId: pdfId,
-                                grade: currentLevel ? `Level ${currentLevel}` : "Other",
-                                pages: 10,
-                                pdfUrl: getDirectDownloadUrl(pdfId),
-                                level: currentLevel || "1",
-                                subject: currentSubject || "General",
-                                language: currentLanguage || "English"
-                            });
-                        }
+                    if (item.mimeType === 'application/vnd.google-apps.folder' || (isShortcut && mime === 'application/vnd.google-apps.folder')) {
+                        folders.push(item);
+                    } else if (mime === 'application/pdf') {
+                        pdfs.push(item);
                     }
+                });
+
+                // 1. Process Folders (Recursive + KeyWord Extraction)
+                for (const folder of folders) {
+                    const isShortcut = folder.mimeType === 'application/vnd.google-apps.shortcut';
+                    const targetId = isShortcut ? (folder as any).shortcutDetails?.targetId : folder.id;
+                    if (!targetId) continue;
+
+                    let { level: nextLevel, subject: nextSubject, language: nextLanguage } = detectMetadata(folder.name, {
+                        level: currentLevel,
+                        subject: currentSubject,
+                        language: currentLanguage
+                    });
+
+                    await crawl(targetId, depth + 1, nextLevel, nextSubject, nextLanguage);
+                }
+
+                // 2. Process PDFs (Inherit Metadata)
+                for (const pdf of pdfs) {
+                    const isShortcut = pdf.mimeType === 'application/vnd.google-apps.shortcut';
+                    const pdfId = isShortcut ? (pdf as any).shortcutDetails?.targetId : pdf.id;
+                    if (!pdfId) continue;
+
+                    discoveredBooks.push({
+                        title: pdf.name.replace(/\.pdf$/i, ""),
+                        fileId: pdfId,
+                        grade: currentLevel ? `Level ${currentLevel}` : "Level 1",
+                        pages: 10,
+                        pdfUrl: getDirectDownloadUrl(pdfId),
+                        coverUrl: undefined,
+                        level: currentLevel || "1",
+                        subject: currentSubject || "General",
+                        language: currentLanguage || "English"
+                    });
                 }
             };
 
-            await crawl(rootId, 0);
+            setScanStatus("Resolving root folder...");
+            const rootInfo = await fetchDriveItem(rootId);
+
+            // Detect initial metadata from root folder name, using user selections as baseline
+            const initialMeta = detectMetadata(rootInfo.name, {
+                level: scanLevel || undefined,
+                subject: rootInfo.name,
+                language: scanLanguage
+            });
+
+            await crawl(rootId, 0, initialMeta.level, initialMeta.subject, initialMeta.language);
             setScanResults(discoveredBooks);
             if (discoveredBooks.length === 0) alert("No PDFs found in the specified folder structure.");
         } catch (error: any) {
@@ -260,17 +302,17 @@ export default function AdminDashboard() {
                 setScanStatus(`Importing Content: ${book.title}...`);
 
                 let pdfBlob: Blob | undefined;
-                if (storeLocally) {
-                    try {
-                        // Use the proxy API to avoid CORS issues
-                        const proxyUrl = `/api/proxy-pdf?fileId=${book.fileId}`;
-                        const response = await fetch(proxyUrl);
-                        if (response.ok) {
-                            pdfBlob = await response.blob();
-                        }
-                    } catch (e) {
-                        console.error(`Failed to fetch PDF for ${book.title} via proxy`, e);
+                // We ALWAYS fetch the blob temporarily if we want to generate a cover, 
+                // even if we don't store it locally permanently.
+                try {
+                    // Use the proxy API to avoid CORS issues
+                    const proxyUrl = `/api/proxy-pdf?fileId=${book.fileId}`;
+                    const response = await fetch(proxyUrl);
+                    if (response.ok) {
+                        pdfBlob = await response.blob();
                     }
+                } catch (e) {
+                    console.error(`Failed to fetch PDF for ${book.title} via proxy`, e);
                 }
 
                 // Match existing book by normalized composite key
@@ -281,15 +323,40 @@ export default function AdminDashboard() {
                 await db.books.put({
                     ...book,
                     id: existing?.id,
-                    pdfBlob: pdfBlob || existing?.pdfBlob
+                    pdfBlob: storeLocally ? (pdfBlob || existing?.pdfBlob) : undefined
                 });
 
                 // Global Sharing: Upload to Supabase
                 if (supabase) {
                     setScanStatus(`Sharing Globally: ${book.title}...`);
                     let finalPdfUrl = book.pdfUrl;
+                    let finalCoverUrl = book.coverUrl;
 
-                    // 1. Upload to Storage if blob available
+                    // 1. Handle Cover (Always Generate from PDF for consistency)
+                    if (pdfBlob) {
+                        setScanStatus(`Generating Cover: ${book.title}...`);
+                        const coverBlob = await generateCoverFromPdf(pdfBlob);
+                        if (coverBlob) {
+                            const coverName = `covers/${book.fileId || Date.now()}.jpg`;
+                            const { data: cData, error: cError } = await supabase.storage
+                                .from('books')
+                                .upload(coverName, coverBlob, {
+                                    contentType: 'image/jpeg',
+                                    upsert: true
+                                });
+
+                            if (cData) {
+                                const { data: { publicUrl } } = supabase.storage
+                                    .from('books')
+                                    .getPublicUrl(coverName);
+                                finalCoverUrl = publicUrl;
+                            } else {
+                                console.error(`[CoverGen] Failed to upload cover for ${book.title}:`, cError);
+                            }
+                        }
+                    }
+
+                    // 2. Upload PDF to Storage
                     if (pdfBlob) {
                         const fileName = `${book.fileId || Date.now()}.pdf`;
                         const { data, error: uploadError } = await supabase.storage
@@ -309,7 +376,7 @@ export default function AdminDashboard() {
                         }
                     }
 
-                    // 2. Save metadata to shared books table
+                    // 3. Save metadata to shared books table
                     const { error: dbError } = await supabase
                         .from('books')
                         .upsert({
@@ -321,7 +388,7 @@ export default function AdminDashboard() {
                             level: book.level,
                             subject: book.subject,
                             language: book.language,
-                            coverUrl: book.coverUrl
+                            coverUrl: finalCoverUrl
                         }, { onConflict: 'title,level,language,subject' }); // Match composite unique constraint
 
                     if (dbError) {
@@ -698,9 +765,11 @@ export default function AdminDashboard() {
                 </div>
                 <div className="p-6 space-y-6">
                     <div className="space-y-4">
-                        <div className="flex gap-2">
+                        <div className="flex flex-col md:flex-row gap-4">
                             <div className="relative flex-1">
-                                <Cloud className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                                <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
+                                    <Cloud className="text-gray-400 w-4 h-4" />
+                                </div>
                                 <input
                                     type="text"
                                     placeholder="Paste Google Drive Folder ID or Link..."
@@ -709,15 +778,42 @@ export default function AdminDashboard() {
                                     onChange={(e) => setFolderId(e.target.value)}
                                 />
                             </div>
+                            <div className="flex gap-2">
+                                <select
+                                    className="p-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                    value={scanLevel}
+                                    onChange={(e) => setScanLevel(e.target.value)}
+                                >
+                                    <option value="">Auto Level</option>
+                                    <option value="1">Level 1</option>
+                                    <option value="2">Level 2</option>
+                                    <option value="3">Level 3</option>
+                                    <option value="4">Level 4</option>
+                                </select>
+                                <select
+                                    className="p-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                    value={scanLanguage}
+                                    onChange={(e) => setScanLanguage(e.target.value)}
+                                >
+                                    <option value="English">English</option>
+                                    <option value="Hindi">Hindi</option>
+                                    <option value="Marathi">Marathi</option>
+                                    <option value="Gujarati">Gujarati</option>
+                                    <option value="Marathi-English">Marathi-English</option>
+                                </select>
+                            </div>
                             <button
                                 onClick={handleScan}
-                                disabled={scanning}
-                                className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-all flex items-center gap-2 text-sm whitespace-nowrap"
+                                disabled={scanning || !folderId}
+                                className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 disabled:bg-gray-400 transition-all shadow-md shadow-blue-200 flex items-center gap-2 text-sm whitespace-nowrap"
                             >
                                 {scanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                                 Scan Folder
                             </button>
                         </div>
+                        <p className="text-[10px] text-gray-400 mt-1">
+                            Tip: If the folder name doesn't contain the level (e.g. just "Science"), select the starting Level manually above.
+                        </p>
 
                         {!process.env.NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY && (
                             <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-600 flex items-center gap-2">
@@ -736,21 +832,27 @@ export default function AdminDashboard() {
 
                     {scanResults.length > 0 && (
                         <div className="space-y-4">
-                            <div className="max-h-60 overflow-y-auto border rounded-lg bg-gray-50">
-                                <table className="w-full text-sm text-left">
-                                    <thead className="bg-gray-100 sticky top-0">
+                            <div className="max-h-60 overflow-y-auto border rounded-xl bg-gray-50/50 shadow-inner">
+                                <table className="w-full text-xs text-left">
+                                    <thead className="bg-white border-b sticky top-0 z-10">
                                         <tr>
-                                            <th className="p-2">File Name</th>
-                                            <th className="p-2 text-right">Type</th>
+                                            <th className="p-3 font-bold text-gray-600">Book Name</th>
+                                            <th className="p-3 font-bold text-gray-600">Language</th>
+                                            <th className="p-3 font-bold text-gray-600 text-center">Level</th>
+                                            <th className="p-3 font-bold text-gray-600">Subject</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-200">
                                         {scanResults.map((book, idx) => (
-                                            <tr key={idx}>
-                                                <td className="p-2">{book.title}</td>
-                                                <td className="p-2 text-right text-gray-400">
-                                                    {book.subject} / L{book.level}
+                                            <tr key={idx} className="hover:bg-blue-50/30 transition-colors">
+                                                <td className="p-3 font-medium text-gray-900">{book.title}</td>
+                                                <td className="p-3 text-gray-500">
+                                                    <span className="px-2 py-0.5 bg-gray-100 rounded-full text-[10px]">{book.language}</span>
                                                 </td>
+                                                <td className="p-3 text-center">
+                                                    <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-bold">L{book.level}</span>
+                                                </td>
+                                                <td className="p-3 text-gray-500 italic">{book.subject}</td>
                                             </tr>
                                         ))}
                                     </tbody>

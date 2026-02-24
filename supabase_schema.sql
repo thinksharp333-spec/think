@@ -64,13 +64,34 @@ CREATE POLICY "Public books access" ON books FOR SELECT USING (true);
 DROP POLICY IF EXISTS "Admin books management" ON books;
 CREATE POLICY "Admin books management" ON books FOR ALL USING (true); -- Simplified for admin demo
 
--- Storage Policies for the "books" bucket
--- These allow the app to upload and manage the PDF files
+-- Storage Infrastructure Setup
+-- 1. Create the bucket if it doesn't exist
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('books', 'books', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+-- 2. Enable RLS (Should be enabled by default on storage.objects, but ensuring here)
+ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+
+-- 3. Create permissive policies for the "books" bucket
+-- Note: These policies allow ANY client with your API key to upload to this specific bucket.
 DROP POLICY IF EXISTS "Allow Public Upload" ON storage.objects;
-CREATE POLICY "Allow Public Upload" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'books');
+CREATE POLICY "Allow Public Upload" ON storage.objects 
+FOR INSERT TO anon, authenticated 
+WITH CHECK (bucket_id = 'books');
 
 DROP POLICY IF EXISTS "Allow Public Update" ON storage.objects;
-CREATE POLICY "Allow Public Update" ON storage.objects FOR UPDATE WITH CHECK (bucket_id = 'books');
+CREATE POLICY "Allow Public Update" ON storage.objects 
+FOR UPDATE TO anon, authenticated 
+USING (bucket_id = 'books') 
+WITH CHECK (bucket_id = 'books');
 
 DROP POLICY IF EXISTS "Allow Public Read" ON storage.objects;
-CREATE POLICY "Allow Public Read" ON storage.objects FOR SELECT USING (bucket_id = 'books');
+CREATE POLICY "Allow Public Read" ON storage.objects 
+FOR SELECT TO anon, authenticated 
+USING (bucket_id = 'books');
+
+DROP POLICY IF EXISTS "Allow Public Delete" ON storage.objects;
+CREATE POLICY "Allow Public Delete" ON storage.objects 
+FOR DELETE TO anon, authenticated 
+USING (bucket_id = 'books');

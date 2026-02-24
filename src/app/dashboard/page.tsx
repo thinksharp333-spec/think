@@ -32,17 +32,7 @@ export default function Dashboard() {
     const [selectedSubject, setSelectedSubject] = useState("");
     const [selectedLanguage, setSelectedLanguage] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
-    const [visibleCount, setVisibleCount] = useState(12); // Pagination
-
-    // Personalization: Set default level based on age if available
-    useEffect(() => {
-        if (user?.age && !selectedLevel) {
-            if (user.age <= 7) setSelectedLevel("1");
-            else if (user.age <= 10) setSelectedLevel("2");
-            else if (user.age <= 13) setSelectedLevel("3");
-            else setSelectedLevel("4");
-        }
-    }, [user, selectedLevel]);
+    const [visibleCount, setVisibleCount] = useState(12);
 
     const points = user?.totalPoints || 0;
 
@@ -52,9 +42,10 @@ export default function Dashboard() {
         { value: "Marathi", label: "Marathi" },
         { value: "Marathi-English", label: "Marathi-English" },
     ];
-    // Add any other languages found in the database that are not in our curated list
+
+    // Add any other languages found in the database
     const otherLanguages = Array.from(new Set(books?.map(b => b.language) || []))
-        .filter(l => !languages.find(opt => opt.value === l))
+        .filter(l => l && !languages.find(opt => opt.value === l))
         .map(l => ({ value: l, label: l }));
 
     const combinedLanguages = [...languages, ...otherLanguages];
@@ -66,28 +57,29 @@ export default function Dashboard() {
         { value: "4", label: "Level 4" },
     ];
 
-    const subjects = Array.from(new Set(books?.map(b => b.subject) || [])).sort().map(s => ({
-        value: s,
-        label: s
-    }));
+    const subjects = Array.from(new Set(books?.map(b => b.subject) || []))
+        .filter(Boolean)
+        .sort()
+        .map(s => ({
+            value: s,
+            label: s
+        }));
 
     const filteredBooks = books?.filter((book) => {
         const languageMatch = selectedLanguage ? book.language === selectedLanguage : true;
-        const levelMatch = selectedLevel ? book.level === selectedLevel : true;
+        const levelMatch = selectedLevel ? book.level === selectedLevel.toString() : true;
         const subjectMatch = selectedSubject ? book.subject === selectedSubject : true;
         const searchMatch = searchQuery ? book.title.toLowerCase().includes(searchQuery.toLowerCase()) : true;
         return languageMatch && levelMatch && subjectMatch && searchMatch;
     });
 
-    const paginatedBooks = filteredBooks?.slice(0, visibleCount);
-    const hasMore = filteredBooks && visibleCount < filteredBooks.length;
-
+    const isFilterActive = selectedLevel || selectedSubject || selectedLanguage || searchQuery;
 
     return (
         <main className={`min-h-screen pb-20 transition-colors duration-500 ${isOnline ? 'bg-gray-50' : 'bg-stone-100'}`}>
-            {/* Header / Gamification Bar */}
+            {/* ... header ... */}
             <header className={`sticky top-0 z-10 px-4 py-4 shadow-sm transition-colors duration-300 ${isOnline ? 'bg-white' : 'bg-stone-200'}`}>
-                <div className={`flex justify-between items-center mx-auto ${isMobile ? 'max-w-md' : 'max-w-4xl'}`}>
+                <div className={`flex justify-between items-center mx-auto ${isMobile ? 'max-w-md' : 'max-w-6xl'}`}>
                     <div className="flex flex-col">
                         <h1 className={`text-xl font-bold flex items-center gap-2 ${isOnline ? 'text-green-700' : 'text-stone-700'}`}>
                             <BookOpen className="w-6 h-6" />
@@ -95,14 +87,12 @@ export default function Dashboard() {
                         </h1>
                         {user?.name && (
                             <span className="text-xs text-gray-500 font-medium ml-8">
-                                Welcome back, {user.name.split(' ')[0]}!
+                                Welcome, {user.name.split(' ')[0]}!
                             </span>
                         )}
                     </div>
 
                     <div className="flex items-center gap-3">
-
-                        {/* Status Indicators for Demo */}
                         <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full text-xs font-mono text-gray-500">
                             {isMobile ? <Smartphone className="w-3 h-3" /> : <Laptop className="w-3 h-3" />}
                             <span>{isMobile ? "Mobile" : "Desktop"}</span>
@@ -120,7 +110,6 @@ export default function Dashboard() {
                             <span>{points} pts</span>
                         </div>
 
-                        {/* Auth Button */}
                         {user?.id !== 'local-user' ? (
                             <button
                                 onClick={async () => {
@@ -147,48 +136,15 @@ export default function Dashboard() {
                 </div>
             </header>
 
-            {/* Main Content */}
-            <div className={`mx-auto px-4 mt-6 space-y-8 ${isMobile ? 'max-w-md' : 'max-w-4xl'}`}>
-
-                {/* Dynamic Warning Banner */}
-                {!isOnline && (
-                    <div className="bg-amber-100 border-l-4 border-amber-500 text-amber-700 p-4 rounded shadow-sm animate-in fade-in slide-in-from-top-4">
-                        <div className="flex items-center gap-2">
-                            <WifiOff className="w-5 h-5" />
-                            <p className="font-bold">You are currently offline.</p>
-                        </div>
-                        <p className="text-sm mt-1">You can still read your downloaded books. Progress will sync when you're back online.</p>
-                    </div>
-                )}
-
-                {/* Daily Goal Card */}
-                <section className={`rounded-2xl p-6 text-white shadow-lg bg-gradient-to-br ${isOnline ? 'from-green-500 to-emerald-600' : 'from-stone-500 to-stone-600 grayscale-[0.2]'}`}>
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <h2 className="text-lg font-semibold mb-1">Daily Goal</h2>
-                            <p className="opacity-90 text-sm mb-4">Read for 30 minutes today</p>
-                        </div>
-                        {!isMobile && (
-                            <div className="bg-white/20 p-2 rounded-lg">
-                                <BookOpen className="w-8 h-8 opacity-80" />
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="w-full bg-white/20 rounded-full h-2 mb-2">
-                        <div className="bg-white h-2 rounded-full w-[40%]"></div>
-                    </div>
-                    <p className="text-xs text-right opacity-80">12 / 30 mins</p>
-                </section>
-
-                {/* Continue Reading Section */}
+            <div className={`mx-auto px-4 mt-6 space-y-12 ${isMobile ? 'max-w-md' : 'max-w-6xl'}`}>
+                {/* ... Daily Goal & History ... */}
                 {recentBooks && recentBooks.length > 0 && (
                     <section className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <div className="flex items-center gap-2 mb-4">
                             <Clock className="w-5 h-5 text-green-600" />
                             <h2 className="text-lg font-bold text-gray-800">Continue Reading</h2>
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-2 lg:grid-cols-3 gap-8">
                             {recentBooks.map((book) => (
                                 <BookCard
                                     key={book.id}
@@ -209,48 +165,77 @@ export default function Dashboard() {
                 )}
 
                 {/* Library Grid grouped by Subject */}
-                <section className="space-y-12">
-                    <div className="flex flex-col gap-4 mb-6">
-                        <div className="flex justify-between items-center flex-wrap gap-4">
-                            <div className="flex items-center gap-2">
-                                <Sparkles className="w-5 h-5 text-yellow-500" />
-                                <h2 className="text-xl font-bold text-gray-800">
-                                    {selectedLevel ? `Level ${selectedLevel} Library` : "Explore Your Library"}
-                                </h2>
+                <section className="space-y-12 pb-20">
+                    <div className="flex flex-col gap-6">
+                        <div className="flex justify-between items-end flex-wrap gap-4">
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                    <Sparkles className="w-5 h-5 text-yellow-500" />
+                                    <h2 className="text-2xl font-black text-gray-900 tracking-tight">
+                                        {selectedLevel ? `Level ${selectedLevel} Library` : "Our Library"}
+                                    </h2>
+                                </div>
+                                <p className="text-sm text-gray-400 font-medium">Explore and learn something new today!</p>
                             </div>
 
-                            <div className="flex gap-2 flex-wrap">
+                            <div className="flex gap-2 flex-wrap items-center">
                                 <Dropdown
                                     label="All Languages"
                                     options={combinedLanguages}
                                     value={selectedLanguage}
                                     onChange={setSelectedLanguage}
-                                    className=""
+                                    className="min-w-[140px]"
                                 />
                                 <Dropdown
                                     label="All Levels"
                                     options={levels}
                                     value={selectedLevel}
                                     onChange={setSelectedLevel}
-                                    className=""
+                                    className="min-w-[120px]"
                                 />
-                                <Dropdown
-                                    label="All Subjects"
-                                    options={subjects}
-                                    value={selectedSubject}
-                                    onChange={setSelectedSubject}
-                                    className=""
-                                />
+                                {isFilterActive && (
+                                    <button
+                                        onClick={() => { setSelectedLevel(""); setSelectedSubject(""); setSelectedLanguage(""); setSearchQuery(""); }}
+                                        className="text-xs font-bold text-red-500 hover:text-red-600 px-3 py-2 bg-red-50 rounded-lg transition-colors ml-2"
+                                    >
+                                        Reset
+                                    </button>
+                                )}
                             </div>
                         </div>
 
+                        {/* Subject Quick Bubbles */}
+                        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide no-scrollbar">
+                            <button
+                                onClick={() => setSelectedSubject("")}
+                                className={`px-5 py-2.5 rounded-2xl text-sm font-bold whitespace-nowrap transition-all ${selectedSubject === ""
+                                        ? "bg-green-600 text-white shadow-lg shadow-green-100 scale-105"
+                                        : "bg-white border border-gray-100 text-gray-500 hover:bg-gray-50"
+                                    }`}
+                            >
+                                All Subjects
+                            </button>
+                            {subjects.map((sub) => (
+                                <button
+                                    key={sub.value}
+                                    onClick={() => setSelectedSubject(sub.value)}
+                                    className={`px-5 py-2.5 rounded-2xl text-sm font-bold whitespace-nowrap transition-all ${selectedSubject === sub.value
+                                            ? "bg-green-600 text-white shadow-lg shadow-green-100 scale-105"
+                                            : "bg-white border border-gray-100 text-gray-500 hover:bg-gray-50"
+                                        }`}
+                                >
+                                    {sub.label}
+                                </button>
+                            ))}
+                        </div>
+
                         {/* Search Bar */}
-                        <div className="relative">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                        <div className="relative group">
+                            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300 w-5 h-5 group-focus-within:text-green-500 transition-colors" />
                             <input
                                 type="text"
-                                placeholder="Search by title, level, or subject..."
-                                className="w-full pl-12 pr-4 py-3 bg-white border border-gray-100 rounded-2xl shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all text-sm"
+                                placeholder="Search by title, subject or level..."
+                                className="w-full pl-14 pr-6 py-4 bg-white border border-gray-100 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] focus:outline-none focus:ring-2 focus:ring-green-500/10 focus:border-green-200 transition-all text-sm placeholder:text-gray-300"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                             />
@@ -258,18 +243,20 @@ export default function Dashboard() {
                     </div>
 
                     {Array.from(new Set(filteredBooks?.map(b => b.subject) || [])).sort().map(subject => (
-                        <div key={subject} className="space-y-4">
-                            <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                                <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                                    <div className="w-1.5 h-6 bg-green-500 rounded-full" />
-                                    {subject}
+                        <div key={subject} className="space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
+                            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                                <h3 className="text-xl font-bold text-gray-800 flex items-center gap-3">
+                                    <div className="w-2 h-8 bg-green-500 rounded-full shadow-[0_0_12px_rgba(34,197,94,0.3)]" />
+                                    {subject || "General"}
                                 </h3>
-                                <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
-                                    {filteredBooks?.filter(b => b.subject === subject).length} Books
-                                </span>
+                                <div className="flex items-center gap-2">
+                                    <span className="px-3 py-1 bg-gray-100 text-gray-500 rounded-full text-[10px] font-black uppercase tracking-widest">
+                                        {filteredBooks?.filter(b => b.subject === subject).length} Books
+                                    </span>
+                                </div>
                             </div>
 
-                            <div className={`grid gap-6 ${isMobile ? 'grid-cols-2' : 'grid-cols-3 lg:grid-cols-4'}`}>
+                            <div className="grid grid-cols-2 lg:grid-cols-3 gap-8">
                                 {filteredBooks?.filter(b => b.subject === subject).map((book) => (
                                     <BookCard
                                         key={book.id}
@@ -290,26 +277,29 @@ export default function Dashboard() {
                     ))}
 
                     {filteredBooks?.length === 0 && (
-                        <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
-                            <Search className="w-16 h-16 text-gray-100 mx-auto mb-4" />
-                            <h3 className="text-lg font-medium text-gray-400">No books match your current selection</h3>
+                        <div className="text-center py-32 bg-white rounded-[2rem] border-2 border-dashed border-gray-100 shadow-inner">
+                            <div className="relative inline-block mb-6">
+                                <Search className="w-20 h-20 text-gray-50 mx-auto" />
+                                <Sparkles className="w-8 h-8 text-yellow-400 absolute -top-2 -right-2 animate-pulse" />
+                            </div>
+                            <h3 className="text-2xl font-black text-gray-900 mb-2 tracking-tight">No books found</h3>
+                            <p className="text-gray-400 max-w-xs mx-auto text-sm mb-8 font-medium">Try adjusting your filters or search terms to explore more of our library.</p>
                             <button
                                 onClick={() => { setSelectedLevel(""); setSelectedSubject(""); setSelectedLanguage(""); setSearchQuery(""); }}
-                                className="mt-4 px-6 py-2 bg-green-50 text-green-600 rounded-full font-bold hover:bg-green-100 transition-colors"
+                                className="px-8 py-3 bg-green-600 text-white rounded-2xl font-black hover:bg-green-700 active:scale-95 transition-all shadow-xl shadow-green-100"
                             >
-                                Reset Filters
+                                Show All Books
                             </button>
                         </div>
                     )}
                 </section>
-
             </div>
 
             <SyncStatus />
 
             {/* Bottom Nav */}
             <nav className={`fixed bottom-0 left-0 right-0 border-t py-3 px-6 transition-colors duration-300 ${isOnline ? 'bg-white border-gray-200' : 'bg-stone-100 border-stone-200'}`}>
-                <div className={`mx-auto flex justify-around ${isMobile ? 'max-w-md' : 'max-w-4xl'}`}>
+                <div className={`mx-auto flex justify-around ${isMobile ? 'max-w-md' : 'max-w-6xl'}`}>
                     <button className={`flex flex-col items-center ${isOnline ? 'text-green-600' : 'text-stone-600'}`}>
                         <BookOpen className="w-6 h-6" />
                         <span className="text-[10px] mt-1 font-medium">Library</span>

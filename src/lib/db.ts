@@ -32,6 +32,7 @@ interface Book {
     subject: string;
     language: string;
     coverUrl?: string;
+    pageWordCounts?: Record<number, number>; // Local cache of word counts per page
 }
 
 interface SyncTask {
@@ -49,7 +50,7 @@ const db = new Dexie('AdaptivePlatformDB') as Dexie & {
 };
 
 // Schema definition
-db.version(9).stores({
+db.version(10).stores({
     users: 'id, name, totalPoints',
     readings: '++id, bookId, userId, synced, startTime',
     syncQueue: '++id, type, createdAt',
