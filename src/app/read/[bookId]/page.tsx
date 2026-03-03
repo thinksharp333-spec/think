@@ -117,14 +117,9 @@ export default function ReadPage() {
             }
 
             const endTime = Date.now();
-<<<<<<< HEAD
-            const userId = localUser.id;
-            console.log(`[DEBUG] Saving progress for user: ${userId}, Session Points: ${totalSessionPoints}`);
-=======
             const userId =
                 (localUser as any).student_id ||
                 (localUser.id !== 'local-user' ? localUser.id : null);
->>>>>>> 3070a558c5a2adf544ed0d121b144e437264c2f7
 
             await db.readings.add({
                 bookId: bookIdString,
