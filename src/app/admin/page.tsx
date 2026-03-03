@@ -6,27 +6,10 @@ import { useState, useEffect } from "react";
 import { generateCoverFromPdf } from "@/lib/pdf-utils";
 import { useLiveQuery } from "dexie-react-hooks";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import {
-    LayoutDashboard,
-    BookOpen,
-    Users,
-    GraduationCap,
-    MapPin,
-    Download,
-    History,
-    Trophy,
-    LogOut,
-    Search,
-    ChevronRight,
-    Loader2,
-    Trash2,
-    Plus,
-    Cloud,
-    FolderTree
-} from "lucide-react";
+import { Trash2, Plus, BookOpen, GraduationCap, MapPin, Search, Cloud, Download, Loader2, LayoutDashboard } from "lucide-react";
 import { Dropdown } from "@/components/dropdown";
-import { fetchDriveContents, getDirectDownloadUrl, DriveItem, fetchDriveItem } from "@/lib/google-drive";
-import { supabase } from "@/lib/supabase";
+import { fetchDriveFolder, getDirectDownloadUrl, DriveFile } from "@/lib/google-drive";
+import Link from "next/link";
 
 
 export default function AdminDashboard() {
@@ -39,7 +22,8 @@ export default function AdminDashboard() {
         pdfUrl: "/sample.pdf",
         level: "1",
         subject: "Science",
-        language: "English"
+        language: "English",
+        coverUrl: ""
     });
 
     // Google Drive Import State
@@ -135,7 +119,8 @@ export default function AdminDashboard() {
                 pdfUrl: newBook.pdfUrl || "/sample.pdf",
                 level: newBook.level || "1",
                 subject: newBook.subject || "Science",
-                language: newBook.language || "English"
+                language: newBook.language || "English",
+                coverUrl: newBook.coverUrl || ""
             } as Book);
             setNewBook({
                 title: "",
@@ -144,7 +129,8 @@ export default function AdminDashboard() {
                 pdfUrl: "/sample.pdf",
                 level: "1",
                 subject: "Science",
-                language: "English"
+                language: "English",
+                coverUrl: ""
             });
         }
     };
@@ -516,6 +502,19 @@ export default function AdminDashboard() {
                 </div>
             </header>
 
+            {/* Quick Actions */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <Link href="/admin/analytics" className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow group flex items-center justify-between">
+                    <div>
+                        <h3 className="font-semibold text-gray-900 group-hover:text-green-600 transition-colors">Analytics</h3>
+                        <p className="text-sm text-gray-500 mt-1">View reports & insights</p>
+                    </div>
+                    <div className="p-3 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-100 transition-colors">
+                        <LayoutDashboard className="w-6 h-6" />
+                    </div>
+                </Link>
+            </div>
+
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard icon={<BookOpen className="text-blue-500" />} label="Total Books" value={books?.length || 0} />
@@ -652,6 +651,13 @@ export default function AdminDashboard() {
                                 value={newBook.title}
                                 onChange={(e) => setNewBook({ ...newBook, title: e.target.value })}
                                 required
+                            />
+                            <input
+                                type="text"
+                                placeholder="Cover Page Google Drive Link (Optional)"
+                                className="w-full p-2 border rounded"
+                                value={newBook.coverUrl || ''}
+                                onChange={(e) => setNewBook({ ...newBook, coverUrl: e.target.value })}
                             />
                             <div className="grid grid-cols-2 gap-2">
                                 <select

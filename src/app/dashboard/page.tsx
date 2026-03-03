@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Dropdown } from "@/components/dropdown";
 
 import { SyncStatus } from "@/components/sync-status";
-import { BookOpen, Trophy, Flame, Wifi, WifiOff, Laptop, Smartphone, LayoutDashboard, LogIn, LogOut, Search, Clock, Sparkles } from "lucide-react";
+import { BookOpen, Trophy, Flame, Wifi, WifiOff, Laptop, Smartphone, LogIn, LogOut, Search, Clock, Sparkles } from "lucide-react";
 import Link from 'next/link';
 import { useUser } from "@/hooks/useUser";
 import { supabase } from "@/lib/supabase";
@@ -209,8 +209,8 @@ export default function Dashboard() {
                             <button
                                 onClick={() => setSelectedSubject("")}
                                 className={`px-5 py-2.5 rounded-2xl text-sm font-bold whitespace-nowrap transition-all ${selectedSubject === ""
-                                        ? "bg-green-600 text-white shadow-lg shadow-green-100 scale-105"
-                                        : "bg-white border border-gray-100 text-gray-500 hover:bg-gray-50"
+                                    ? "bg-green-600 text-white shadow-lg shadow-green-100 scale-105"
+                                    : "bg-white border border-gray-100 text-gray-500 hover:bg-gray-50"
                                     }`}
                             >
                                 All Subjects
@@ -220,8 +220,8 @@ export default function Dashboard() {
                                     key={sub.value}
                                     onClick={() => setSelectedSubject(sub.value)}
                                     className={`px-5 py-2.5 rounded-2xl text-sm font-bold whitespace-nowrap transition-all ${selectedSubject === sub.value
-                                            ? "bg-green-600 text-white shadow-lg shadow-green-100 scale-105"
-                                            : "bg-white border border-gray-100 text-gray-500 hover:bg-gray-50"
+                                        ? "bg-green-600 text-white shadow-lg shadow-green-100 scale-105"
+                                        : "bg-white border border-gray-100 text-gray-500 hover:bg-gray-50"
                                         }`}
                                 >
                                     {sub.label}
@@ -307,10 +307,6 @@ export default function Dashboard() {
                     <Link href="/leaderboard" className="flex flex-col items-center text-gray-400 hover:text-green-600 transition-colors">
                         <Trophy className="w-6 h-6" />
                         <span className="text-[10px] mt-1 font-medium">Rank</span>
-                    </Link>
-                    <Link href="/admin" className="flex flex-col items-center text-gray-400 hover:text-green-600 transition-colors">
-                        <LayoutDashboard className="w-6 h-6" />
-                        <span className="text-[10px] mt-1 font-medium">Admin</span>
                     </Link>
                 </div>
             </nav>

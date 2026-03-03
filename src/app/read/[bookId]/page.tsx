@@ -6,8 +6,7 @@ import { ArrowLeft, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { db } from '@/lib/db';
-
-
+import { supabase } from '@/lib/supabase';
 import { useLiveQuery } from "dexie-react-hooks";
 
 export default function ReadPage() {
@@ -23,9 +22,11 @@ export default function ReadPage() {
     const pdfUrl = book?.pdfUrl || '/sample.pdf';
 
     // State for tracking per-page time
-    const [currentPage, setCurrentPage] = useState(1); // Track current page
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(0);
     const pageStartTimeRef = useRef(Date.now());
     const accumulatedPointsRef = useRef(0);
+
     const discoveredWordCountsRef = useRef<Record<number, number>>({});
 
     // Dynamic max points based on word count
@@ -52,13 +53,14 @@ export default function ReadPage() {
 
         return () => {
             clearInterval(interval);
-            // Notice: saveProgress is called by the unmount closure
-            // We need to ensure we capture the final page's points here or in saveProgress
             saveProgress();
         };
-    }, [bookIdString]); // Dependencies updated
+    }, [bookIdString]);
 
-    // Handle Page Change
+    const handleLoadSuccess = (numPages: number) => {
+        setTotalPages(numPages);
+    };
+
     const handlePageChange = (newPage: number) => {
         const now = Date.now();
         const durationOnPage = (now - pageStartTimeRef.current) / 1000;
@@ -75,7 +77,6 @@ export default function ReadPage() {
             console.log(`[DEBUG] Page ${currentPage} - No points awarded. Duration: ${durationOnPage.toFixed(1)}s, MaxPoints: ${maxPoints}`);
         }
 
-        // Reset for new page
         pageStartTimeRef.current = now;
         setCurrentPage(newPage);
     };
@@ -85,20 +86,23 @@ export default function ReadPage() {
     };
 
     const saveProgress = async () => {
-        // Calculate potential points for the *current* page (the one being closed)
         const now = Date.now();
         const durationOnFinalPage = (now - pageStartTimeRef.current) / 1000;
         const maxPointsFinal = getMaxPointsForPage(currentPage);
         const pointsForFinalPage = Math.min(Math.floor(durationOnFinalPage / 10), maxPointsFinal);
 
-        const totalSessionPoints = accumulatedPointsRef.current + pointsForFinalPage;
+        const totalSessionPoints =
+            accumulatedPointsRef.current + pointsForFinalPage;
 
-        // Use total session duration for logs, but points are now capped
-        const totalDuration = Math.floor((now - startTimeRef.current) / 1000);
+        const totalDuration = Math.floor(
+            (now - startTimeRef.current) / 1000
+        );
 
         if (totalSessionPoints === 0 && totalDuration < 5) return;
 
-        console.log(`Saving session for book ${bookIdString}: ${totalDuration}s, Points: ${totalSessionPoints}`);
+        console.log(
+            `Saving session for book ${bookIdString}: ${totalDuration}s, Points: ${totalSessionPoints}`
+        );
 
         try {
             // Get the active user (first one in the local DB)
@@ -113,13 +117,18 @@ export default function ReadPage() {
             }
 
             const endTime = Date.now();
+<<<<<<< HEAD
             const userId = localUser.id;
             console.log(`[DEBUG] Saving progress for user: ${userId}, Session Points: ${totalSessionPoints}`);
+=======
+            const userId =
+                (localUser as any).student_id ||
+                (localUser.id !== 'local-user' ? localUser.id : null);
+>>>>>>> 3070a558c5a2adf544ed0d121b144e437264c2f7
 
-            // 1. Save Local Reading Session
             await db.readings.add({
                 bookId: bookIdString,
-                userId: userId,
+                userId: userId || 'local-user',
                 startTime: startTimeRef.current,
                 endTime: endTime,
                 synced: 0
@@ -152,25 +161,51 @@ export default function ReadPage() {
                 });
             }
 
-            // 3. Add to Sync Queue (for Cloud)
+            if (supabase && userId) {
+                const bookTitle = ({
+                    1: 'Sample Book',
+                    2: 'Science Book',
+                    3: 'Math Book',
+                    4: 'History'
+                } as any)[bookIdNum] || 'Unknown Book';
 
-            // Task A: Sync the Reading Log
+                // const isCompleted =
+                //     completedRef.current ||
+                //     (currentPage === totalPages && totalPages > 0);
+
+                const { error } = await supabase
+                    .from('reading_sessions')
+                    .insert([{
+                        user_id: userId,
+                        book_id: bookIdNum,
+                        book_title: bookTitle,
+                        start_time: new Date(startTimeRef.current).toISOString(),
+                        end_time: new Date(endTime).toISOString(),
+                        duration_seconds: totalDuration,
+                        pages_read: currentPage,
+                        // completed: isCompleted
+                    }]);
+
+                if (error) {
+                    console.warn("Supabase error:", error.message);
+                }
+            }
+
             await db.syncQueue.add({
                 type: 'READ_LOG',
                 payload: {
-                    userId: userId, // Important: Supabase needs the real ID
-                    bookId: bookIdString,
+                    userId: userId || 'local-user',
+                    bookId: bookIdNum,
                     startTime: startTimeRef.current,
                     endTime: endTime
                 },
                 createdAt: Date.now()
             });
 
-            // Task B: Sync the Points Update
             await db.syncQueue.add({
                 type: 'UPDATE_POINTS',
                 payload: {
-                    userId: userId,
+                    userId: userId || 'local-user',
                     totalPoints: newTotalPoints
                 },
                 createdAt: Date.now()
@@ -208,7 +243,6 @@ export default function ReadPage() {
                 </div>
             </header>
 
-            {/* Reader Area */}
             <main className="flex-1 p-4 flex justify-center">
                 <PdfReader
                     url={pdfUrl}

@@ -117,3 +117,12 @@ export async function fetchSheetsData(spreadsheetId: string): Promise<Record<str
 export function getDirectDownloadUrl(fileId: string): string {
     return `https://docs.google.com/uc?export=download&id=${fileId}`;
 }
+
+export function extractFileId(url: string): string {
+    const match = url.match(/[-\w]{25,}/);
+    return match ? match[0] : url;
+}
+
+export function getThumbnailUrl(fileId: string): string {
+    return `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`; // Width 400px
+}

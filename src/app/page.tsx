@@ -1,9 +1,19 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { BookOpen, UserCircle, LogIn, ArrowRight, Sparkles, BookHeart, GraduationCap } from "lucide-react";
+import { BookOpen, UserCircle, LogIn, LogOut, ArrowRight, Sparkles, BookHeart, GraduationCap, LayoutDashboard } from "lucide-react";
+import { BookCard } from "@/components/book-card";
+import { useUser } from "@/hooks/useUser";
+import { supabase } from "@/lib/supabase";
 
 export default function LandingPage() {
+  const { user } = useUser();
+  const [visibleCount, setVisibleCount] = useState(12);
+  const [paginatedBooks, setPaginatedBooks] = useState<any[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const isMobile = false;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 flex flex-col font-sans">
 
@@ -26,19 +36,46 @@ export default function LandingPage() {
             <Link href="https://www.thinksharpfoundation.org/about-us.php" target="_blank" className="hidden md:block text-sm font-medium text-slate-600 hover:text-green-600 transition-colors">
               About ThinkSharp
             </Link>
+
             <div className="flex items-center gap-2">
-              <Link
-                href="/signup"
-                className="px-4 py-2 text-sm font-bold text-slate-700 hover:bg-green-50 hover:text-green-700 rounded-full transition-colors"
-              >
-                Sign In
-              </Link>
-              <Link
-                href="/login"
-                className="px-5 py-2 text-sm font-bold text-white bg-green-600 hover:bg-green-700 rounded-full shadow-lg shadow-green-200 hover:shadow-green-300 transition-all flex items-center gap-2"
-              >
-                Start Learning <ArrowRight className="w-4 h-4" />
-              </Link>
+              {user && user.id !== 'local-user' ? (
+                <>
+                  <Link
+                    href="/dashboard"
+                    className="px-4 py-2 text-sm font-bold text-slate-700 hover:bg-green-50 hover:text-green-700 rounded-full transition-colors flex items-center gap-2"
+                  >
+                    <LayoutDashboard className="w-4 h-4" />
+                    Dashboard
+                  </Link>
+                  <button
+                    onClick={async () => {
+                      if (supabase) {
+                        await supabase.auth.signOut();
+                        window.location.reload();
+                      }
+                    }}
+                    className="px-4 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-full transition-colors flex items-center gap-2"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    className="px-4 py-2 text-sm font-bold text-slate-700 hover:bg-green-50 hover:text-green-700 rounded-full transition-colors"
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    href="/signup"
+                    className="px-5 py-2 text-sm font-bold text-white bg-green-600 hover:bg-green-700 rounded-full shadow-lg shadow-green-200 hover:shadow-green-300 transition-all flex items-center gap-2"
+                  >
+                    Start Learning <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </>
+              )}
             </div>
           </nav>
         </div>
@@ -72,11 +109,20 @@ export default function LandingPage() {
 
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link
-                  href="/login"
+                  href={user && user.id !== 'local-user' ? "/dashboard" : "/login"}
                   className="px-8 py-4 bg-slate-900 text-white font-bold rounded-xl shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all flex items-center justify-center gap-3"
                 >
-                  <UserCircle className="w-5 h-5" />
-                  Student Login
+                  {user && user.id !== 'local-user' ? (
+                    <>
+                      <LayoutDashboard className="w-5 h-5" />
+                      Go to Dashboard
+                    </>
+                  ) : (
+                    <>
+                      <UserCircle className="w-5 h-5" />
+                      Student Login
+                    </>
+                  )}
                 </Link>
                 <button className="px-8 py-4 bg-white text-green-700 font-bold rounded-xl border-2 border-green-100 hover:border-green-300 hover:bg-green-50 transition-all flex items-center justify-center gap-3 shadow-sm">
                   <BookHeart className="w-5 h-5" />
@@ -107,17 +153,36 @@ export default function LandingPage() {
                     <GraduationCap className="w-96 h-96 text-green-900" />
                   </div>
 
-                  <div className="z-10 text-center space-y-4 p-8">
-                    <div className="w-24 h-24 bg-white rounded-2xl shadow-xl shadow-green-100 mx-auto flex items-center justify-center animate-bounce border border-green-50">
-                      <BookOpen className="w-12 h-12 text-green-500" />
-                    </div>
-                    <h3 className="text-2xl font-bold text-slate-800">Your Digital Classroom</h3>
-                    <p className="text-slate-500 font-medium">Interactive. Offline-ready. Fun.</p>
+
+                  <div className={`grid gap-4 ${isMobile ? 'grid-cols-2' : 'grid-cols-3 lg:grid-cols-4'}`}>
+                    {paginatedBooks?.map((book) => (
+                      <BookCard
+                        key={book.id}
+                        id={book.id!}
+                        title={book.title}
+                        grade={book.grade}
+                        pages={book.pages}
+                        pdfUrl={book.pdfUrl}
+                        coverUrl={book.coverUrl}
+                      />
+                    ))}
                   </div>
+
+                  {/* Load More Button */}
+                  {hasMore && (
+                    <div className="mt-8 text-center">
+                      <button
+                        onClick={() => setVisibleCount(prev => prev + 12)}
+                        className="bg-white text-gray-700 px-6 py-2 rounded-full shadow-sm border border-gray-100 font-medium hover:bg-gray-50 active:scale-95 transition-all"
+                      >
+                        Load More Books
+                      </button>
+
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
-
           </div>
         </section>
       </main>
@@ -128,7 +193,6 @@ export default function LandingPage() {
           <p className="text-sm text-slate-400 font-medium">
             &copy; 2024 ThinkSharp Foundation. All rights reserved.
           </p>
-
           <div className="flex items-center gap-6">
             <Link href="/admin" className="text-xs text-slate-400 hover:text-green-600 transition-colors flex items-center gap-1 group font-medium">
               <LogIn className="w-3 h-3 group-hover:text-green-600" />
@@ -137,7 +201,6 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
-
     </div>
   );
 }

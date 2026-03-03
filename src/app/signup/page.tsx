@@ -1,31 +1,41 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BookOpen, User, Lock, ArrowRight, ArrowLeft, MapPin, School, Calendar, Phone } from "lucide-react";
+import { BookOpen, User, Lock, ArrowRight, ArrowLeft, Phone, Calendar } from "lucide-react";
 import { db } from "@/lib/db";
 
 import { useSync } from "@/hooks/useSync";
 import { supabase } from "@/lib/supabase";
+import { SchoolSelector } from "@/components/school-selector";
 
 export default function SignUpPage() {
     const router = useRouter();
     const { isOnline } = useSync();
+
+    // Form State
     const [formData, setFormData] = useState({
         name: "",
         age: "",
         mobile: "",
         city: "",
         school: "",
+        schoolId: "",
+        customSchool: "",
         password: "",
         confirmPassword: ""
     });
+    const [showCustomSchool, setShowCustomSchool] = useState(false);
     const [error, setError] = useState("");
     const [isLoading, setIsLoading] = useState(false);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleSchoolSelect = (schoolId: string, schoolName: string, district: string, taluka: string) => {
+        setSchoolData({ schoolId, schoolName, district, taluka });
     };
 
     const handleSignUp = async (e: React.FormEvent) => {
@@ -37,6 +47,11 @@ export default function SignUpPage() {
             return;
         }
 
+        if (!schoolData.schoolId) {
+            setError("Please select your school.");
+            return;
+        }
+
         if (formData.password !== formData.confirmPassword) {
             setError("Passwords do not match");
             return;
@@ -45,8 +60,11 @@ export default function SignUpPage() {
         setIsLoading(true);
 
         try {
-            // Simple ID generation
+            // ID Generation (using a consistent format, or could rely on Supabase auth.users if using Auth)
+            // For now, continuing with the custom ID pattern as per request context
             const id = `student-${Date.now()}`;
+
+            const finalSchoolName = formData.schoolId === "other" ? formData.customSchool : formData.school;
 
             const userData = {
                 id,
@@ -54,12 +72,14 @@ export default function SignUpPage() {
                 age: Number(formData.age),
                 mobile: formData.mobile,
                 city: formData.city,
-                school: formData.school,
-                password: formData.password, // Storing plain for demo parity, but in prod use Auth
-                totalPoints: 0
+                school: finalSchoolName,
+                schoolId: formData.schoolId,
+                password: formData.password,
+                totalPoints: 0,
+                isVerified: false
             };
 
-            // 1. Save to Cloud (Supabase) - Optional for Demo
+            // 1. Save to Cloud (Supabase)
             if (supabase) {
                 try {
                     const { error: supabaseError } = await supabase
@@ -69,40 +89,45 @@ export default function SignUpPage() {
                                 id: userData.id,
                                 name: userData.name,
                                 age: userData.age,
-                                city: userData.city,
-                                school: userData.school,
                                 mobile: userData.mobile,
-                                password: userData.password,
-                                totalPoints: 0
+                                school_id: userData.school_id,
+                                // Note: We don't necessarily need to duplicate district/taluka/school_name in users table 
+                                // if we have the join, but user might want it for easier export. 
+                                // My schema only had school_id.
+                                total_points: 0
                             }
                         ]);
 
                     if (supabaseError) {
                         console.warn("Cloud sync failed:", supabaseError.message);
-                        alert("Cloud Error: " + supabaseError.message); // Show error to user
+                        throw new Error("Cloud Registration Failed: " + supabaseError.message);
                     } else {
                         console.log("Supabase insert successful!");
                     }
-                } catch (cloudErr) {
-                    console.warn("Cloud connection error (Demo Mode active):", cloudErr);
+                } catch (cloudErr: any) {
+                    console.error("Cloud connection error:", cloudErr);
+                    throw new Error(cloudErr.message || "Cloud connection failed");
                 }
             } else {
-                console.warn("Cloud connection not configured. Saving locally only (Demo Mode).");
+                console.warn("Supabase not configured.");
+                throw new Error("System configuration error: Cloud database unavailable.");
             }
 
-            // 2. Save Local (Dexie)
+            // 2. Save Local (Dexie) - Keeping for offline cache/session
             await db.users.add(userData);
 
             // Set as current local user
-            // Clear previous session
             await db.users.delete('local-user');
             await db.users.put({
                 ...userData,
                 id: 'local-user'
             });
 
-            // Redirect to dashboard
-            router.push("/dashboard");
+            // Set session cookie for middleware
+            document.cookie = `user_session=${id}; path=/; max-age=86400`;
+
+            // Redirect to OTP verification
+            router.push(`/verify-otp?mobile=${formData.mobile}&mode=signup`);
 
         } catch (err: any) {
             console.error("Signup failed", err);
@@ -207,38 +232,50 @@ export default function SignUpPage() {
                                     />
                                 </div>
                             </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">City</label>
-                                <div className="relative group">
-                                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 group-focus-within:text-green-500 transition-colors" />
-                                    <input
-                                        type="text"
-                                        name="city"
-                                        placeholder="City"
-                                        className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-100 focus:border-green-500 outline-none transition-all bg-gray-50 focus:bg-white text-sm text-black placeholder:text-gray-400"
-                                        value={formData.city}
-                                        onChange={handleChange}
-                                        required
-                                    />
-                                </div>
-                            </div>
                         </div>
 
                         <div>
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">School Name</label>
                             <div className="relative group">
-                                <School className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 group-focus-within:text-green-500 transition-colors" />
+                                <School className="absolute left-3 top-[11px] text-gray-400 w-4 h-4 z-10" />
+                                <select
+                                    name="schoolId"
+                                    className="w-full pl-9 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-100 focus:border-green-500 outline-none transition-all bg-gray-50 focus:bg-white text-sm text-black appearance-none"
+                                    value={formData.schoolId}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        const schoolName = e.target.options[e.target.selectedIndex].text;
+                                        setFormData({ ...formData, schoolId: val, school: schoolName });
+                                        setShowCustomSchool(val === "other");
+                                    }}
+                                    required
+                                >
+                                    <option value="">Select your school</option>
+                                    <option value="s1">ThinkSharp School, Pune</option>
+                                    <option value="s2">Z.P. School, Ahmednagar</option>
+                                    <option value="s3">Ideal Public School, Mumbai</option>
+                                    <option value="other">Other (My school is not listed)</option>
+                                </select>
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                    <ArrowRight className="w-4 h-4 rotate-90" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {showCustomSchool && (
+                            <div className="animate-in fade-in slide-in-from-top-2">
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Enter School Name</label>
                                 <input
                                     type="text"
-                                    name="school"
-                                    placeholder="Enter your school name"
-                                    className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-100 focus:border-green-500 outline-none transition-all bg-gray-50 focus:bg-white text-sm text-black placeholder:text-gray-400"
-                                    value={formData.school}
+                                    name="customSchool"
+                                    placeholder="Type your school name"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-100 focus:border-green-500 outline-none transition-all bg-yellow-50 focus:bg-white text-sm text-black"
+                                    value={formData.customSchool}
                                     onChange={handleChange}
                                     required
                                 />
                             </div>
-                        </div>
+                        )}
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>

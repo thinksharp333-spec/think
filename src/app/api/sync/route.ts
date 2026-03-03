@@ -19,8 +19,11 @@ export async function POST(request: Request) {
 
         console.log(`[API] Received sync task: ${type} for user: ${targetUserId}`, payload);
 
+        if (!supabase) {
+            return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 });
+        }
+
         // Common Helper: Ensure User Exists
-        // We do this for both action types to ensure data integrity
         const { data: userData } = await supabase
             .from('users')
             .select('total_points, name')
@@ -29,8 +32,7 @@ export async function POST(request: Request) {
 
         let currentPoints = userData?.total_points || 0;
 
-        // If user doesn't exist remotely yet (e.g. first sync after signup), create them
-        // Note: Auth setup usually creates them, but 'local-user' needs explicit creation
+        // If user doesn't exist remotely yet
         if (!userData) {
             const { error: createError } = await supabase.from('users').insert({
                 id: targetUserId,
@@ -59,10 +61,10 @@ export async function POST(request: Request) {
             }
 
             // Insert Reading Session
-            const { error: sessionError } = await supabase
+            const { error: sessionError } = await (supabase as any)
                 .from('reading_sessions')
                 .insert({
-                    user_id: targetUserId, // Use the proper ID
+                    user_id: targetUserId,
                     book_id: payload.bookId,
                     duration: payload.duration,
                     points_earned: payload.pointsEarned,

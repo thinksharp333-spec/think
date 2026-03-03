@@ -71,6 +71,8 @@ export function PdfReader({ url, book, bookIdNum, onPageChange, onWordCount }: P
         console.error("PDF Load Error:", err);
         setLoading(false);
         setError(err.message);
+        // onLoadSuccess?.(numPages);
+
     }
 
     // Notify parent of page change safely
