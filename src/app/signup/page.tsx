@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BookOpen, User, Lock, ArrowRight, ArrowLeft, Phone, Calendar } from "lucide-react";
+import { BookOpen, User, Lock, ArrowRight, ArrowLeft, Phone, Calendar, School } from "lucide-react";
 import { db } from "@/lib/db";
 
 import { useSync } from "@/hooks/useSync";
@@ -35,7 +35,7 @@ export default function SignUpPage() {
     };
 
     const handleSchoolSelect = (schoolId: string, schoolName: string, district: string, taluka: string) => {
-        setSchoolData({ schoolId, schoolName, district, taluka });
+        setFormData(prev => ({ ...prev, schoolId, school: schoolName }));
     };
 
     const handleSignUp = async (e: React.FormEvent) => {
@@ -47,7 +47,7 @@ export default function SignUpPage() {
             return;
         }
 
-        if (!schoolData.schoolId) {
+        if (!formData.schoolId) {
             setError("Please select your school.");
             return;
         }
@@ -90,7 +90,7 @@ export default function SignUpPage() {
                                 name: userData.name,
                                 age: userData.age,
                                 mobile: userData.mobile,
-                                school_id: userData.school_id,
+                                school_id: userData.schoolId,
                                 // Note: We don't necessarily need to duplicate district/taluka/school_name in users table 
                                 // if we have the join, but user might want it for easier export. 
                                 // My schema only had school_id.
@@ -235,47 +235,12 @@ export default function SignUpPage() {
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">School Name</label>
-                            <div className="relative group">
-                                <School className="absolute left-3 top-[11px] text-gray-400 w-4 h-4 z-10" />
-                                <select
-                                    name="schoolId"
-                                    className="w-full pl-9 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-100 focus:border-green-500 outline-none transition-all bg-gray-50 focus:bg-white text-sm text-black appearance-none"
-                                    value={formData.schoolId}
-                                    onChange={(e) => {
-                                        const val = e.target.value;
-                                        const schoolName = e.target.options[e.target.selectedIndex].text;
-                                        setFormData({ ...formData, schoolId: val, school: schoolName });
-                                        setShowCustomSchool(val === "other");
-                                    }}
-                                    required
-                                >
-                                    <option value="">Select your school</option>
-                                    <option value="s1">ThinkSharp School, Pune</option>
-                                    <option value="s2">Z.P. School, Ahmednagar</option>
-                                    <option value="s3">Ideal Public School, Mumbai</option>
-                                    <option value="other">Other (My school is not listed)</option>
-                                </select>
-                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                                    <ArrowRight className="w-4 h-4 rotate-90" />
-                                </div>
-                            </div>
+                            <SchoolSelector
+                                onSelect={handleSchoolSelect}
+                                selectedSchoolId={formData.schoolId}
+                            />
                         </div>
 
-                        {showCustomSchool && (
-                            <div className="animate-in fade-in slide-in-from-top-2">
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Enter School Name</label>
-                                <input
-                                    type="text"
-                                    name="customSchool"
-                                    placeholder="Type your school name"
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-100 focus:border-green-500 outline-none transition-all bg-yellow-50 focus:bg-white text-sm text-black"
-                                    value={formData.customSchool}
-                                    onChange={handleChange}
-                                    required
-                                />
-                            </div>
-                        )}
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>

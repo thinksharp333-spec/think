@@ -117,14 +117,9 @@ export default function ReadPage() {
             }
 
             const endTime = Date.now();
-<<<<<<< HEAD
-            const userId = localUser.id;
-            console.log(`[DEBUG] Saving progress for user: ${userId}, Session Points: ${totalSessionPoints}`);
-=======
             const userId =
                 (localUser as any).student_id ||
                 (localUser.id !== 'local-user' ? localUser.id : null);
->>>>>>> 3070a558c5a2adf544ed0d121b144e437264c2f7
 
             await db.readings.add({
                 bookId: bookIdString,
@@ -222,7 +217,7 @@ export default function ReadPage() {
             {/* Header */}
             <header className="bg-white/80 backdrop-blur-md px-4 py-3 shadow-sm flex items-center justify-between sticky top-0 z-20 border-b border-gray-100">
                 <div className="flex items-center gap-3">
-                    <Link href="/" className="p-2 -ml-2 hover:bg-black/5 rounded-full transition-colors">
+                    <Link href="/dashboard" className="p-2 -ml-2 hover:bg-black/5 rounded-full transition-colors">
                         <ArrowLeft className="w-5 h-5 text-gray-700" />
                     </Link>
                     <div className="flex flex-col">
