@@ -44,8 +44,13 @@ export function useSync() {
 
                     if (task.type === 'READ_LOG') {
                         const { error } = await supabase
-                            .from('readings')
-                            .insert([task.payload]);
+                            .from('reading_sessions')
+                            .insert([{
+                                user_id: task.payload.userId,
+                                book_id: task.payload.bookId,
+                                start_time: new Date(task.payload.startTime).toISOString(),
+                                end_time: new Date(task.payload.endTime).toISOString(),
+                            }]);
 
                         if (error) throw error;
                     }

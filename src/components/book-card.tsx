@@ -11,13 +11,13 @@ interface BookCardProps {
     fileId?: string;
     title: string;
     grade: string;
-    level: string;
+    level?: string;
     pages: number;
     pdfUrl: string;
     coverUrl?: string;
 }
 
-export function BookCard({ id, title, grade, pages, pdfUrl, coverUrl }: BookCardProps) {
+export function BookCard({ id, fileId, title, grade, pages, pdfUrl, coverUrl }: BookCardProps) {
     const [downloading, setDownloading] = useState(false);
     const [isOfflineReady, setIsOfflineReady] = useState(false);
 

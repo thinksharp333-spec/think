@@ -217,7 +217,7 @@ export default function ReadPage() {
             {/* Header */}
             <header className="bg-white/80 backdrop-blur-md px-4 py-3 shadow-sm flex items-center justify-between sticky top-0 z-20 border-b border-gray-100">
                 <div className="flex items-center gap-3">
-                    <Link href="/" className="p-2 -ml-2 hover:bg-black/5 rounded-full transition-colors">
+                    <Link href="/dashboard" className="p-2 -ml-2 hover:bg-black/5 rounded-full transition-colors">
                         <ArrowLeft className="w-5 h-5 text-gray-700" />
                     </Link>
                     <div className="flex flex-col">
