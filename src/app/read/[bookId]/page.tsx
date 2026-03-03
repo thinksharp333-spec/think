@@ -69,7 +69,10 @@ export default function ReadPage() {
 
         if (pointsForPage > 0) {
             accumulatedPointsRef.current += pointsForPage;
-            console.log(`Page ${currentPage} done: ${durationOnPage.toFixed(1)}s -> ${pointsForPage} pts (Max: ${maxPoints}). Total: ${accumulatedPointsRef.current}`);
+            console.log(`[DEBUG] Page ${currentPage} points awarded: ${pointsForPage}. Total accumulated: ${accumulatedPointsRef.current}`);
+            alert(`[DEBUG] Page ${currentPage} points awarded: ${pointsForPage}. Total: ${accumulatedPointsRef.current}`);
+        } else {
+            console.log(`[DEBUG] Page ${currentPage} - No points awarded. Duration: ${durationOnPage.toFixed(1)}s, MaxPoints: ${maxPoints}`);
         }
 
         // Reset for new page
@@ -101,14 +104,17 @@ export default function ReadPage() {
             // Get the active user (first one in the local DB)
             const allUsers = await db.users.toArray();
             const localUser = allUsers[0];
+            console.log(`[DEBUG] Active user found:`, localUser);
 
             if (!localUser) {
-                console.error("No active user found, cannot save progress properly.");
+                console.error("[DEBUG] No active user found in IndexedDB!");
+                alert("[DEBUG] Error: No active user found. Points cannot be saved.");
                 return;
             }
 
             const endTime = Date.now();
             const userId = localUser.id;
+            console.log(`[DEBUG] Saving progress for user: ${userId}, Session Points: ${totalSessionPoints}`);
 
             // 1. Save Local Reading Session
             await db.readings.add({
