@@ -79,3 +79,10 @@ db.on('populate', async () => {
 
 export { db };
 export type { User, ReadingSession, SyncTask, Book };
+
+/**
+ * Utility to generate a consistent key for syncing books between local and server
+ */
+export function getSyncKey(book: any) {
+    return `${book.title}-${book.grade}-${book.language || 'en'}`.toLowerCase();
+}

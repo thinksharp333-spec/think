@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { BookOpen, Download, Loader2, CheckCircle2 } from "lucide-react";
 import { extractFileId, getThumbnailUrl } from "@/lib/google-drive";
+import { db } from "@/lib/db";
 
 interface BookCardProps {
     id: number;
@@ -18,13 +19,12 @@ interface BookCardProps {
 
 export function BookCard({ id, title, grade, pages, pdfUrl, coverUrl }: BookCardProps) {
     const [downloading, setDownloading] = useState(false);
-    const [isOfflineReady, setIsOfflineReady] = useState(!!pdfBlob);
+    const [isOfflineReady, setIsOfflineReady] = useState(false);
 
     // Update status if prop changes
     useEffect(() => {
-        if (pdfBlob) setIsOfflineReady(true);
-        else checkLocalStore();
-    }, [pdfBlob, id]);
+        checkLocalStore();
+    }, [id]);
 
     async function checkLocalStore() {
         try {

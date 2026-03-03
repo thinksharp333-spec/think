@@ -60,7 +60,10 @@ export default function AdminLayout({
         return <>{children}</>;
     }
 
-    if (!isAuthorized) return null;
+    const handleLogout = () => {
+        document.cookie = "admin_session=; path=/; max-age=0";
+        router.replace("/admin/login");
+    };
 
     return (
         <div className="flex min-h-screen bg-gray-100">
@@ -77,10 +80,13 @@ export default function AdminLayout({
                     </Link>
                 </nav>
 
-                <Link href="/" className="mt-auto flex items-center gap-2 px-4 py-2 text-slate-400 hover:text-white transition-colors">
+                <button
+                    onClick={handleLogout}
+                    className="mt-auto flex items-center gap-2 px-4 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                >
                     <LogOut className="w-5 h-5" />
-                    <span>Exit to App</span>
-                </Link>
+                    <span>Logout Admin</span>
+                </button>
             </aside>
             <main className="flex-1 p-8 overflow-y-auto">
                 {children}

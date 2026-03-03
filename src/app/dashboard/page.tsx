@@ -110,7 +110,6 @@ export default function Dashboard() {
                             <span>{points} pts</span>
                         </div>
 
-<<<<<<< HEAD
                         {user?.id !== 'local-user' ? (
                             <button
                                 onClick={async () => {
@@ -133,8 +132,6 @@ export default function Dashboard() {
                                 <span className="text-sm">Login</span>
                             </Link>
                         )}
-=======
->>>>>>> utsavi
                     </div>
                 </div>
             </header>
@@ -212,8 +209,8 @@ export default function Dashboard() {
                             <button
                                 onClick={() => setSelectedSubject("")}
                                 className={`px-5 py-2.5 rounded-2xl text-sm font-bold whitespace-nowrap transition-all ${selectedSubject === ""
-                                        ? "bg-green-600 text-white shadow-lg shadow-green-100 scale-105"
-                                        : "bg-white border border-gray-100 text-gray-500 hover:bg-gray-50"
+                                    ? "bg-green-600 text-white shadow-lg shadow-green-100 scale-105"
+                                    : "bg-white border border-gray-100 text-gray-500 hover:bg-gray-50"
                                     }`}
                             >
                                 All Subjects
@@ -223,8 +220,8 @@ export default function Dashboard() {
                                     key={sub.value}
                                     onClick={() => setSelectedSubject(sub.value)}
                                     className={`px-5 py-2.5 rounded-2xl text-sm font-bold whitespace-nowrap transition-all ${selectedSubject === sub.value
-                                            ? "bg-green-600 text-white shadow-lg shadow-green-100 scale-105"
-                                            : "bg-white border border-gray-100 text-gray-500 hover:bg-gray-50"
+                                        ? "bg-green-600 text-white shadow-lg shadow-green-100 scale-105"
+                                        : "bg-white border border-gray-100 text-gray-500 hover:bg-gray-50"
                                         }`}
                                 >
                                     {sub.label}
