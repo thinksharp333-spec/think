@@ -35,7 +35,7 @@ export default function SignUpPage() {
     };
 
     const handleSchoolSelect = (schoolId: string, schoolName: string, district: string, taluka: string) => {
-        setFormData(prev => ({ ...prev, schoolId, school: schoolName }));
+        setFormData(prev => ({ ...prev, schoolId, school: schoolName, city: district }));
     };
 
     const handleSignUp = async (e: React.FormEvent) => {
@@ -90,10 +90,10 @@ export default function SignUpPage() {
                                 name: userData.name,
                                 age: userData.age,
                                 mobile: userData.mobile,
+                                city: userData.city,
+                                school: userData.school,
                                 school_id: userData.schoolId,
-                                // Note: We don't necessarily need to duplicate district/taluka/school_name in users table 
-                                // if we have the join, but user might want it for easier export. 
-                                // My schema only had school_id.
+                                password: userData.password,
                                 total_points: 0
                             }
                         ]);
