@@ -121,7 +121,7 @@ export function StudentReportTab() {
                         </div>
                         <div className="text-right">
                             <div className="text-sm text-gray-500">Total Points</div>
-                            <div className="text-2xl font-bold text-green-600">{selectedStudent.total_points || 0}</div>
+                            <div className="text-2xl font-bold text-green-600">{selectedStudent.totalPoints || 0}</div>
                         </div>
                     </div>
 

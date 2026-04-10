@@ -2,37 +2,37 @@
 
 import { useState, useEffect } from "react";
 import { Dropdown } from "@/components/dropdown";
-
-import { SyncStatus } from "@/components/sync-status";
-import { BookOpen, Trophy, Flame, Wifi, WifiOff, Laptop, Smartphone, LogIn, LogOut, Search, Clock, Sparkles } from "lucide-react";
+import { BookOpen, Trophy, Flame, Wifi, WifiOff, LogIn, LogOut, Search, Clock, Sparkles, Star, ArrowRight, User, Menu, X, Download, Loader2 } from "lucide-react";
 import Link from 'next/link';
 import { useUser } from "@/hooks/useUser";
 import { supabase } from "@/lib/supabase";
 import { BookCard } from "@/components/book-card";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
-import { useDeviceType } from "@/hooks/useDeviceType";
 import { useBooks } from "@/hooks/useBooks";
 import { useReadingHistory } from "@/hooks/useReadingHistory";
+import { getThumbnailUrl, extractFileId } from "@/lib/google-drive";
+import { db } from "@/lib/db";
 
 export default function Dashboard() {
     const { user } = useUser();
     const isOnline = useNetworkStatus();
-    const { isMobile } = useDeviceType();
     const { books, syncLibrary } = useBooks();
     const { recentBooks } = useReadingHistory();
 
-    // Sync library from Supabase when online
     useEffect(() => {
-        if (isOnline) {
-            syncLibrary();
-        }
+        if (isOnline) syncLibrary();
     }, [isOnline, syncLibrary]);
 
     const [selectedLevel, setSelectedLevel] = useState("");
     const [selectedSubject, setSelectedSubject] = useState("");
     const [selectedLanguage, setSelectedLanguage] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
-    const [visibleCount, setVisibleCount] = useState(12);
+    const [showSidebar, setShowSidebar] = useState(false);
+    
+    // Bulk Download States
+    const [isDownloadingAll, setIsDownloadingAll] = useState(false);
+    const [downloadProgress, setDownloadProgress] = useState({ current: 0, total: 0 });
+    const [downloadError, setDownloadError] = useState<string | null>(null);
 
     const points = user?.totalPoints || 0;
 
@@ -42,12 +42,9 @@ export default function Dashboard() {
         { value: "Marathi", label: "Marathi" },
         { value: "Marathi-English", label: "Marathi-English" },
     ];
-
-    // Add any other languages found in the database
     const otherLanguages = Array.from(new Set(books?.map(b => b.language) || []))
         .filter(l => l && !languages.find(opt => opt.value === l))
         .map(l => ({ value: l, label: l }));
-
     const combinedLanguages = [...languages, ...otherLanguages];
 
     const levels = [
@@ -58,12 +55,7 @@ export default function Dashboard() {
     ];
 
     const subjects = Array.from(new Set(books?.map(b => b.subject) || []))
-        .filter(Boolean)
-        .sort()
-        .map(s => ({
-            value: s,
-            label: s
-        }));
+        .filter(Boolean).sort().map(s => ({ value: s, label: s }));
 
     const filteredBooks = books?.filter((book) => {
         const languageMatch = selectedLanguage ? book.language === selectedLanguage : true;
@@ -74,242 +66,386 @@ export default function Dashboard() {
     });
 
     const isFilterActive = selectedLevel || selectedSubject || selectedLanguage || searchQuery;
+    const bookSections = Array.from(new Set(filteredBooks?.map(b => b.subject) || [])).sort();
+    const firstName = user?.name?.split(" ")[0] || "Reader";
+
+    // Handle Bulk Download
+    const handleBulkDownload = async () => {
+        if (!selectedLevel || !filteredBooks || filteredBooks.length === 0) return;
+        
+        // Find books that aren't offline yet
+        const booksToDownload = filteredBooks.filter(b => !b.pdfBlob);
+        if (booksToDownload.length === 0) {
+            alert("All books in this level are already offline! 🎉");
+            return;
+        }
+
+        setIsDownloadingAll(true);
+        setDownloadError(null);
+        setDownloadProgress({ current: 0, total: booksToDownload.length });
+
+        let successCount = 0;
+        for (const book of booksToDownload) {
+            try {
+                // Determine source URL (proxy for Drive, direct otherwise)
+                const proxyUrl = book.fileId ? `/api/proxy-pdf?fileId=${book.fileId}` : book.pdfUrl;
+                const response = await fetch(proxyUrl);
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    await db.books.update(book.id!, { pdfBlob: blob });
+                    successCount++;
+                } else {
+                    console.error(`Failed to download ${book.title}: ${response.status}`);
+                }
+            } catch (err) {
+                console.error(`Error downloading ${book.title}:`, err);
+            }
+            setDownloadProgress(prev => ({ ...prev, current: prev.current + 1 }));
+        }
+
+        setIsDownloadingAll(false);
+        if (successCount < booksToDownload.length) {
+            setDownloadError(`Downloaded ${successCount} of ${booksToDownload.length} books. Some may have failed.`);
+        }
+    };
 
     return (
-        <main className={`min-h-screen pb-20 transition-colors duration-500 ${isOnline ? 'bg-gray-50' : 'bg-stone-100'}`}>
-            {/* ... header ... */}
-            <header className={`sticky top-0 z-10 px-4 py-4 shadow-sm transition-colors duration-300 ${isOnline ? 'bg-white' : 'bg-stone-200'}`}>
-                <div className={`flex justify-between items-center mx-auto ${isMobile ? 'max-w-md' : 'max-w-6xl'}`}>
-                    <div className="flex flex-col">
-                        <h1 className={`text-xl font-bold flex items-center gap-2 ${isOnline ? 'text-green-700' : 'text-stone-700'}`}>
-                            <BookOpen className="w-6 h-6" />
-                            EcoLearn
-                        </h1>
-                        {user?.name && (
-                            <span className="text-xs text-gray-500 font-medium ml-8">
-                                Welcome, {user.name.split(' ')[0]}!
-                            </span>
-                        )}
+        <div className="library-shell">
+
+            {/* ── Sticky Header ─────────────────────────────────────────── */}
+            <header className="library-header">
+                <div className="flex items-center justify-between px-5 py-3 md:px-8">
+                    {/* Left: hamburger + logo */}
+                    <div className="flex items-center gap-3">
+                        <button onClick={() => setShowSidebar(!showSidebar)}
+                            className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 transition-all">
+                            <Menu className="h-5 w-5" />
+                        </button>
+                        <Link href="/" className="flex items-center gap-2">
+                            <BookOpen className="h-6 w-6 text-white" />
+                            <span className="comic-title text-xl text-white hidden sm:block">Reading Adventure</span>
+                        </Link>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                        <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full text-xs font-mono text-gray-500">
-                            {isMobile ? <Smartphone className="w-3 h-3" /> : <Laptop className="w-3 h-3" />}
-                            <span>{isMobile ? "Mobile" : "Desktop"}</span>
-                            <span className="w-px h-3 bg-gray-300 mx-1" />
-                            {isOnline ? <Wifi className="w-3 h-3 text-green-500" /> : <WifiOff className="w-3 h-3 text-red-500" />}
-                            <span>{isOnline ? "Online" : "Offline"}</span>
-                        </div>
+                    {/* Center: title */}
+                    <h1 className="comic-title text-lg md:text-2xl text-white uppercase tracking-wide hidden sm:block">
+                        Explore Your Library
+                    </h1>
 
-                        <div className="flex items-center gap-1 text-orange-500 font-bold bg-orange-50 px-2 py-1 rounded-lg">
-                            <Flame className="w-4 h-4 fill-orange-500" />
-                            <span>12</span>
-                        </div>
-                        <div className="flex items-center gap-1 text-yellow-600 font-bold bg-yellow-50 px-2 py-1 rounded-lg">
-                            <Trophy className="w-4 h-4 fill-yellow-500 text-yellow-600" />
-                            <span>{points} pts</span>
-                        </div>
-
+                    {/* Right: status + actions */}
+                    <div className="flex items-center gap-2">
+                        <span className="chip chip-gold text-xs hidden md:flex text-[#111111]">
+                            <Flame className="h-3.5 w-3.5 text-orange-500 fill-orange-500" /> Streak 12
+                        </span>
+                        <span className="chip chip-gold text-xs hidden md:flex text-[#111111]">
+                            <Trophy className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500" /> {points} pts
+                        </span>
+                        <span className={`chip text-xs hidden sm:flex text-[#111111] ${isOnline ? 'bg-[#edf8df]' : 'bg-[#ffece5]'}`}>
+                            {isOnline ? <Wifi className="h-3.5 w-3.5 text-green-600" /> : <WifiOff className="h-3.5 w-3.5 text-red-500" />}
+                            {isOnline ? "Online" : "Offline"}
+                        </span>
+                        <button className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 transition-all">
+                            <Search className="h-5 w-5" />
+                        </button>
+                        <button className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 transition-all">
+                            <User className="h-5 w-5" />
+                        </button>
                         {user?.id !== 'local-user' ? (
-                            <button
-                                onClick={async () => {
-                                    if (supabase) {
-                                        await supabase.auth.signOut();
-                                        window.location.reload();
-                                    }
-                                }}
-                                className="flex items-center gap-1 text-gray-600 hover:text-red-600 transition-colors bg-gray-50 hover:bg-red-50 px-2 py-1 rounded-lg"
-                                title="Sign Out"
-                            >
-                                <LogOut className="w-4 h-4" />
+                            <button onClick={async () => { if (supabase) { await supabase.auth.signOut(); window.location.reload(); } }}
+                                className="chip chip-dark text-xs hidden md:flex">
+                                <LogOut className="h-3.5 w-3.5" /> Logout
                             </button>
                         ) : (
-                            <Link
-                                href="/login"
-                                className="flex items-center gap-1 text-green-700 font-bold bg-green-100 hover:bg-green-200 px-3 py-1 rounded-lg transition-colors"
-                            >
-                                <LogIn className="w-4 h-4" />
-                                <span className="text-sm">Login</span>
+                            <Link href="/login" className="chip chip-dark text-xs hidden md:flex">
+                                <LogIn className="h-3.5 w-3.5" /> Login
                             </Link>
                         )}
                     </div>
                 </div>
+
+                {/* Filter bar */}
+                <div className="px-5 pb-3 md:px-8 flex items-center gap-3 overflow-x-auto no-scrollbar">
+                    <Dropdown label="Age Group" options={levels.map(l => ({ value: l.value, label: `Grade ${l.value}` }))}
+                        value={selectedLevel} onChange={setSelectedLevel} className="filter-btn" />
+                    <Dropdown label="Genre" options={subjects} value={selectedSubject} onChange={setSelectedSubject} className="filter-btn" />
+                    <Dropdown label="Reading Level" options={combinedLanguages} value={selectedLanguage} onChange={setSelectedLanguage} className="filter-btn" />
+                    {isFilterActive && (
+                        <button onClick={() => { setSelectedLevel(""); setSelectedSubject(""); setSelectedLanguage(""); setSearchQuery(""); }}
+                            className="flex-shrink-0 text-white/80 hover:text-white text-xs font-black uppercase tracking-wide bg-white/15 hover:bg-white/25 px-4 py-2 rounded-full transition-all">
+                            ✕ Reset
+                        </button>
+                    )}
+                    {selectedLevel && (
+                        <button 
+                            onClick={handleBulkDownload}
+                            disabled={isDownloadingAll}
+                            className={`flex-shrink-0 flex items-center gap-2 bg-yellow-400 hover:bg-yellow-300 text-yellow-950 text-xs font-black uppercase tracking-wide px-4 py-2 rounded-full transition-all shadow-[0_4px_0_#92400e] active:translate-y-[2px] active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed`}>
+                            {isDownloadingAll ? (
+                                <><Loader2 className="h-4 w-4 animate-spin" /> Downloading...</>
+                            ) : (
+                                <><Download className="h-4 w-4" /> Download Level {selectedLevel}</>
+                            )}
+                        </button>
+                    )}
+                </div>
             </header>
 
-            <div className={`mx-auto px-4 mt-6 space-y-12 ${isMobile ? 'max-w-md' : 'max-w-6xl'}`}>
-                {/* ... Daily Goal & History ... */}
-                {recentBooks && recentBooks.length > 0 && (
-                    <section className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <div className="flex items-center gap-2 mb-4">
-                            <Clock className="w-5 h-5 text-green-600" />
-                            <h2 className="text-lg font-bold text-gray-800">Continue Reading</h2>
-                        </div>
-                        <div className="grid grid-cols-2 lg:grid-cols-3 gap-8">
-                            {recentBooks.map((book) => (
-                                <BookCard
-                                    key={book.id}
-                                    id={book.id!}
-                                    fileId={book.fileId}
-                                    title={book.title}
-                                    grade={book.grade}
-                                    level={book.level}
-                                    pages={book.pages}
-                                    pdfUrl={book.pdfUrl}
-                                    pdfBlob={book.pdfBlob}
-                                    language={book.language}
-                                    coverUrl={book.coverUrl}
-                                />
-                            ))}
-                        </div>
-                    </section>
-                )}
+            {/* ── Body: sidebar + main ───────────────────────────────────── */}
+            <div className="flex flex-1 relative overflow-hidden">
+                {/* Background Graphics */}
+                <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                    <Star className="absolute top-10 left-10 text-yellow-200/20 w-12 h-12 animate-float opacity-30" />
+                    <Star className="absolute bottom-20 right-10 text-red-200/20 w-16 h-16 animate-float-delay opacity-30" />
+                    <Star className="absolute top-1/2 left-1/4 text-yellow-100/10 w-8 h-8 animate-wiggle opacity-20" />
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-red-100/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+                    <div className="absolute bottom-0 left-0 w-96 h-96 bg-yellow-100/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
+                </div>
 
-                {/* Library Grid grouped by Subject */}
-                <section className="space-y-12 pb-20">
-                    <div className="flex flex-col gap-6">
-                        <div className="flex justify-between items-end flex-wrap gap-4">
-                            <div className="space-y-1">
-                                <div className="flex items-center gap-2">
-                                    <Sparkles className="w-5 h-5 text-yellow-500" />
-                                    <h2 className="text-2xl font-black text-gray-900 tracking-tight">
-                                        {selectedLevel ? `Level ${selectedLevel} Library` : "Our Library"}
-                                    </h2>
-                                </div>
-                                <p className="text-sm text-gray-400 font-medium">Explore and learn something new today!</p>
+                {/* Mobile sidebar overlay */}
+                {showSidebar && (
+                    <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setShowSidebar(false)}>
+                        <div className="absolute left-0 top-0 bottom-0 w-72 bg-white shadow-2xl overflow-y-auto" onClick={e => e.stopPropagation()}>
+                            <div className="p-5 border-b-2 border-gray-100 flex items-center justify-between">
+                                <p className="font-black text-[#111] uppercase tracking-widest text-xs">Recently Read</p>
+                                <button onClick={() => setShowSidebar(false)} className="p-2 rounded-full hover:bg-gray-100">
+                                    <X className="h-4 w-4 text-[#555]" />
+                                </button>
                             </div>
-
-                            <div className="flex gap-2 flex-wrap items-center">
-                                <Dropdown
-                                    label="All Languages"
-                                    options={combinedLanguages}
-                                    value={selectedLanguage}
-                                    onChange={setSelectedLanguage}
-                                    className="min-w-[140px]"
-                                />
-                                <Dropdown
-                                    label="All Levels"
-                                    options={levels}
-                                    value={selectedLevel}
-                                    onChange={setSelectedLevel}
-                                    className="min-w-[120px]"
-                                />
-                                {isFilterActive && (
-                                    <button
-                                        onClick={() => { setSelectedLevel(""); setSelectedSubject(""); setSelectedLanguage(""); setSearchQuery(""); }}
-                                        className="text-xs font-bold text-red-500 hover:text-red-600 px-3 py-2 bg-red-50 rounded-lg transition-colors ml-2"
-                                    >
-                                        Reset
-                                    </button>
+                            <div className="p-4 space-y-3">
+                                {recentBooks && recentBooks.length > 0 ? recentBooks.slice(0, 8).map((book) => (
+                                    <Link key={book.id} href={`/read/${book.id}`} onClick={() => setShowSidebar(false)}
+                                        className="flex items-center gap-3 p-2 rounded-2xl hover:bg-[#fff3ef] transition-colors group">
+                                        <div className="h-14 w-11 flex-shrink-0 rounded-xl border-2 border-[#111] overflow-hidden shadow-[0_4px_0_#111] bg-[#fff4ef]">
+                                            {book.coverUrl ? (
+                                                <img src={book.coverUrl.includes('drive.google.com') ? getThumbnailUrl(extractFileId(book.coverUrl)) : book.coverUrl}
+                                                    alt={book.title} className="w-full h-full object-cover" loading="lazy" />
+                                            ) : <div className="w-full h-full flex items-center justify-center text-[#e63329]"><BookOpen className="w-5 h-5" /></div>}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-black text-[#111] line-clamp-2 group-hover:text-[#e63329] transition-colors">{book.title}</p>
+                                            {book.avgRating && book.avgRating > 0 && (
+                                                <div className="flex items-center gap-1 mt-0.5">
+                                                    <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                                                    <span className="text-[10px] font-black text-[#777]">{book.avgRating.toFixed(1)}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </Link>
+                                )) : (
+                                    <div className="text-center py-8">
+                                        <BookOpen className="w-10 h-10 text-[#ddd] mx-auto mb-2" />
+                                        <p className="text-xs font-bold text-[#999] uppercase tracking-wide">Start reading to see history</p>
+                                    </div>
                                 )}
                             </div>
                         </div>
+                    </div>
+                )}
 
-                        {/* Subject Quick Bubbles */}
-                        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide no-scrollbar">
-                            <button
-                                onClick={() => setSelectedSubject("")}
-                                className={`px-5 py-2.5 rounded-2xl text-sm font-bold whitespace-nowrap transition-all ${selectedSubject === ""
-                                    ? "bg-green-600 text-white shadow-lg shadow-green-100 scale-105"
-                                    : "bg-white border border-gray-100 text-gray-500 hover:bg-gray-50"
-                                    }`}
-                            >
+                {/* Fixed desktop sidebar */}
+                <aside className="sidebar hidden xl:block">
+                    <div className="p-5 border-b-2 border-gray-100 sticky top-0 bg-white">
+                        <p className="font-black text-[#111] uppercase tracking-widest text-xs flex items-center gap-2">
+                            <Clock className="h-3.5 w-3.5 text-[#e63329]" /> Recently Read
+                        </p>
+                    </div>
+                    <div className="p-4 space-y-2">
+                        {recentBooks && recentBooks.length > 0 ? recentBooks.slice(0, 8).map((book) => (
+                            <Link key={book.id} href={`/read/${book.id}`}
+                                className="flex items-center gap-3 p-2.5 rounded-2xl hover:bg-[#fff3ef] transition-colors group">
+                                <div className="h-14 w-11 flex-shrink-0 rounded-xl border-2 border-[#111] overflow-hidden shadow-[0_4px_0_#111] bg-[#fff4ef]">
+                                    {book.coverUrl ? (
+                                        <img src={book.coverUrl.includes('drive.google.com') ? getThumbnailUrl(extractFileId(book.coverUrl)) : book.coverUrl}
+                                            alt={book.title} className="w-full h-full object-cover" loading="lazy" />
+                                    ) : <div className="w-full h-full flex items-center justify-center text-[#e63329]"><BookOpen className="w-5 h-5" /></div>}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-black text-[#111] line-clamp-2 group-hover:text-[#e63329] transition-colors leading-tight">{book.title}</p>
+                                    {book.avgRating && book.avgRating > 0 && (
+                                        <div className="flex items-center gap-1 mt-1">
+                                            <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                                            <span className="text-[10px] font-black text-[#777]">{book.avgRating.toFixed(1)}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </Link>
+                        )) : (
+                            <div className="text-center py-10">
+                                <BookOpen className="w-10 h-10 text-[#ddd] mx-auto mb-2" />
+                                <p className="text-[10px] font-bold text-[#999] uppercase tracking-wider">No history yet</p>
+                            </div>
+                        )}
+                    </div>
+                </aside>
+
+                {/* ── Main content ───────────────────────────────────────── */}
+                <main className="flex-1 min-w-0 overflow-y-auto">
+                    <div className="px-5 py-6 md:px-8 space-y-8">
+
+                        {/* Welcome banner */}
+                        <div className="relative overflow-hidden rounded-3xl border-3 border-[#111] shadow-[0_8px_0_#111] bg-gradient-to-r from-[#e63329] to-[#b91c1c] p-6 md:p-8">
+                            <div className="absolute -right-10 -top-10 w-48 h-48 rounded-full bg-white/5" />
+                            <div className="absolute right-4 bottom-0 w-32 h-32 rounded-full bg-white/5" />
+                            <div className="relative flex items-center justify-between flex-wrap gap-4">
+                                <div>
+                                    <p className="text-white/70 text-sm font-black uppercase tracking-widest mb-1">
+                                        <Sparkles className="inline h-4 w-4 mr-1" />Welcome Back
+                                    </p>
+                                    <h2 className="comic-title text-4xl md:text-5xl text-white">
+                                        {firstName}&apos;s Quest!
+                                    </h2>
+                                    <p className="text-white/80 font-bold mt-2 max-w-sm">
+                                        Browse story worlds, keep your streak alive, and jump back into books you started.
+                                    </p>
+                                </div>
+                                <div className="flex gap-4 flex-wrap">
+                                    <div className="bg-white/15 rounded-2xl px-5 py-4 text-center border border-white/20 backdrop-blur">
+                                        <p className="comic-title text-3xl text-white">{books?.length || 0}</p>
+                                        <p className="text-white/70 text-xs font-black uppercase tracking-wider">Books</p>
+                                    </div>
+                                    <div className="bg-white/15 rounded-2xl px-5 py-4 text-center border border-white/20 backdrop-blur">
+                                        <p className="comic-title text-3xl text-yellow-300">{points}</p>
+                                        <p className="text-white/70 text-xs font-black uppercase tracking-wider">Points</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="mt-5 flex gap-3 flex-wrap">
+                                <Link href="/leaderboard" className="btn-dark text-sm py-3 px-6">
+                                    View Leaderboard <ArrowRight className="h-4 w-4" />
+                                </Link>
+                                <span className="chip chip-gold text-xs">
+                                    <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />IMDb Style Reviews Live
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Subject filter pills */}
+                        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                            <button onClick={() => setSelectedSubject("")}
+                                className={`filter-btn flex-shrink-0 ${selectedSubject === "" ? "!bg-[#e63329]" : ""}`}>
                                 All Subjects
                             </button>
                             {subjects.map((sub) => (
-                                <button
-                                    key={sub.value}
-                                    onClick={() => setSelectedSubject(sub.value)}
-                                    className={`px-5 py-2.5 rounded-2xl text-sm font-bold whitespace-nowrap transition-all ${selectedSubject === sub.value
-                                        ? "bg-green-600 text-white shadow-lg shadow-green-100 scale-105"
-                                        : "bg-white border border-gray-100 text-gray-500 hover:bg-gray-50"
-                                        }`}
-                                >
+                                <button key={sub.value} onClick={() => setSelectedSubject(sub.value)}
+                                    className={`filter-btn flex-shrink-0 ${selectedSubject === sub.value ? "!bg-[#e63329]" : ""}`}>
                                     {sub.label}
                                 </button>
                             ))}
                         </div>
 
-                        {/* Search Bar */}
-                        <div className="relative group">
-                            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300 w-5 h-5 group-focus-within:text-green-500 transition-colors" />
-                            <input
-                                type="text"
-                                placeholder="Search by title, subject or level..."
-                                className="w-full pl-14 pr-6 py-4 bg-white border border-gray-100 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] focus:outline-none focus:ring-2 focus:ring-green-500/10 focus:border-green-200 transition-all text-sm placeholder:text-gray-300"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                            />
+                        {/* Search bar */}
+                        <div className="relative">
+                            <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-[#aaa]" />
+                            <input type="text" placeholder="Search by title, subject or level..."
+                                className="comic-input pl-14 text-sm font-bold"
+                                value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                         </div>
-                    </div>
 
-                    {Array.from(new Set(filteredBooks?.map(b => b.subject) || [])).sort().map(subject => (
-                        <div key={subject} className="space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
-                            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                                <h3 className="text-xl font-bold text-gray-800 flex items-center gap-3">
-                                    <div className="w-2 h-8 bg-green-500 rounded-full shadow-[0_0_12px_rgba(34,197,94,0.3)]" />
-                                    {subject || "General"}
-                                </h3>
-                                <div className="flex items-center gap-2">
-                                    <span className="px-3 py-1 bg-gray-100 text-gray-500 rounded-full text-[10px] font-black uppercase tracking-widest">
+                        {/* Book sections by subject */}
+                        {bookSections.length > 0 ? bookSections.map(subject => (
+                            <section key={subject} className="space-y-5">
+                                <div className="flex items-center justify-between border-b-[3px] border-[#111] pb-3">
+                                    <h3 className="flex items-center gap-3 text-xl font-black text-[#111] md:text-2xl">
+                                        <span className="w-2 h-7 rounded-full bg-[#e63329] inline-block" />
+                                        {subject || "General"}
+                                    </h3>
+                                    <span className="chip text-[10px]">
                                         {filteredBooks?.filter(b => b.subject === subject).length} Books
                                     </span>
                                 </div>
+                                <div className="book-grid">
+                                    {filteredBooks?.filter(b => b.subject === subject).map((book) => (
+                                        <BookCard key={book.id} id={book.id!} fileId={book.fileId} title={book.title}
+                                            grade={book.grade} level={book.level} pages={book.pages} pdfUrl={book.pdfUrl}
+                                            coverUrl={book.coverUrl} avgRating={book.avgRating} reviewCount={book.reviewCount}
+                                            hasQuiz={!!(book.questions && book.questions.length > 0)} />
+                                    ))}
+                                </div>
+                            </section>
+                        )) : filteredBooks?.length === 0 ? (
+                            <div className="card py-24 text-center">
+                                <Search className="mx-auto h-16 w-16 text-[#f2d7cd] mb-4" />
+                                <h3 className="font-black text-2xl text-[#111] mb-2">No books found</h3>
+                                <p className="font-bold text-[#777] mb-6 max-w-xs mx-auto">Try adjusting your filters or search terms.</p>
+                                <button onClick={() => { setSelectedLevel(""); setSelectedSubject(""); setSelectedLanguage(""); setSearchQuery(""); }}
+                                    className="btn-red mx-auto px-8 py-3 text-sm">
+                                    Show All Books
+                                </button>
                             </div>
-
-                            <div className="grid grid-cols-2 lg:grid-cols-3 gap-8">
-                                {filteredBooks?.filter(b => b.subject === subject).map((book) => (
-                                    <BookCard
-                                        key={book.id}
-                                        id={book.id!}
-                                        fileId={book.fileId}
-                                        title={book.title}
-                                        grade={book.grade}
-                                        level={book.level}
-                                        pages={book.pages}
-                                        pdfUrl={book.pdfUrl}
-                                        pdfBlob={book.pdfBlob}
-                                        language={book.language}
-                                        coverUrl={book.coverUrl}
-                                    />
-                                ))}
+                        ) : (
+                            <div className="card py-16 text-center">
+                                <Sparkles className="mx-auto h-12 w-12 text-[#f2d7cd] mb-4 animate-pulse" />
+                                <p className="font-black text-[#777] uppercase tracking-wide text-sm">Loading your library...</p>
                             </div>
-                        </div>
-                    ))}
-
-                    {filteredBooks?.length === 0 && (
-                        <div className="text-center py-32 bg-white rounded-[2rem] border-2 border-dashed border-gray-100 shadow-inner">
-                            <div className="relative inline-block mb-6">
-                                <Search className="w-20 h-20 text-gray-50 mx-auto" />
-                                <Sparkles className="w-8 h-8 text-yellow-400 absolute -top-2 -right-2 animate-pulse" />
-                            </div>
-                            <h3 className="text-2xl font-black text-gray-900 mb-2 tracking-tight">No books found</h3>
-                            <p className="text-gray-400 max-w-xs mx-auto text-sm mb-8 font-medium">Try adjusting your filters or search terms to explore more of our library.</p>
-                            <button
-                                onClick={() => { setSelectedLevel(""); setSelectedSubject(""); setSelectedLanguage(""); setSearchQuery(""); }}
-                                className="px-8 py-3 bg-green-600 text-white rounded-2xl font-black hover:bg-green-700 active:scale-95 transition-all shadow-xl shadow-green-100"
-                            >
-                                Show All Books
-                            </button>
-                        </div>
-                    )}
-                </section>
+                        )}
+                    </div>
+                </main>
             </div>
 
-            <SyncStatus />
+            {/* Bulk Download Progress Overlay */}
+            {isDownloadingAll && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6">
+                    <div className="bg-white rounded-[32px] border-4 border-[#111] shadow-[0_12px_0_#111] p-8 max-w-sm w-full text-center space-y-4 animate-pop-in">
+                        <div className="relative w-20 h-20 mx-auto">
+                            <div className="absolute inset-0 rounded-full border-4 border-gray-100" />
+                            <div className="absolute inset-0 rounded-full border-4 border-[#e63329] border-t-transparent animate-spin" />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <Download className="w-8 h-8 text-[#e63329]" />
+                            </div>
+                        </div>
+                        <h3 className="comic-title text-2xl text-[#111]">Downloading Books</h3>
+                        <p className="font-bold text-[#777] text-sm uppercase tracking-wide">
+                            Level {selectedLevel} Adventure Pack
+                        </p>
+                        <div className="space-y-2">
+                            <div className="w-full h-4 bg-gray-100 rounded-full overflow-hidden border-2 border-[#111]">
+                                <div 
+                                    className="h-full bg-[#e63329] transition-all duration-300" 
+                                    style={{ width: `${(downloadProgress.current / downloadProgress.total) * 100}%` }} 
+                                />
+                            </div>
+                            <p className="font-black text-[#111] text-xs">
+                                {downloadProgress.current} / {downloadProgress.total} BOOKS READY
+                            </p>
+                        </div>
+                        <p className="text-[10px] font-bold text-[#999]">DON'T CLOSE THIS PAGE UNTIL DONE</p>
+                    </div>
+                </div>
+            )}
 
-            {/* Bottom Nav */}
-            <nav className={`fixed bottom-0 left-0 right-0 border-t py-3 px-6 transition-colors duration-300 ${isOnline ? 'bg-white border-gray-200' : 'bg-stone-100 border-stone-200'}`}>
-                <div className={`mx-auto flex justify-around ${isMobile ? 'max-w-md' : 'max-w-6xl'}`}>
-                    <button className={`flex flex-col items-center ${isOnline ? 'text-green-600' : 'text-stone-600'}`}>
+            {downloadError && (
+                <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 bg-[#111] text-white px-6 py-3 rounded-full font-black text-xs uppercase tracking-widest flex items-center gap-3 border-2 border-red-500 shadow-xl">
+                    <X className="w-4 h-4 text-red-500 cursor-pointer" onClick={() => setDownloadError(null)} />
+                    {downloadError}
+                </div>
+            )}
+
+            {/* Bottom nav (mobile) */}
+            <nav className="fixed bottom-0 left-0 right-0 z-30 bg-white border-t-[3px] border-[#111] md:hidden">
+                <div className="flex justify-around px-4 py-3">
+                    <button className="flex flex-col items-center text-[#e63329]">
                         <BookOpen className="w-6 h-6" />
-                        <span className="text-[10px] mt-1 font-medium">Library</span>
+                        <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Library</span>
                     </button>
-                    <Link href="/leaderboard" className="flex flex-col items-center text-gray-400 hover:text-green-600 transition-colors">
+                    <Link href="/leaderboard" className="flex flex-col items-center text-[#777] hover:text-[#e63329] transition-colors">
                         <Trophy className="w-6 h-6" />
-                        <span className="text-[10px] mt-1 font-medium">Rank</span>
+                        <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Rank</span>
                     </Link>
+                    {user?.id !== 'local-user' ? (
+                        <button onClick={async () => { if (supabase) { await supabase.auth.signOut(); window.location.reload(); } }}
+                            className="flex flex-col items-center text-[#777] hover:text-[#e63329] transition-colors">
+                            <LogOut className="w-6 h-6" />
+                            <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Logout</span>
+                        </button>
+                    ) : (
+                        <Link href="/login" className="flex flex-col items-center text-[#777] hover:text-[#e63329] transition-colors">
+                            <LogIn className="w-6 h-6" />
+                            <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Login</span>
+                        </Link>
+                    )}
                 </div>
             </nav>
-        </main>
+        </div>
     );
 }

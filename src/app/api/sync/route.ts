@@ -26,34 +26,34 @@ export async function POST(request: Request) {
         // Common Helper: Ensure User Exists
         const { data: userData } = await supabase
             .from('users')
-            .select('total_points, name')
+            .select('totalPoints, name')
             .eq('id', targetUserId)
             .single();
 
-        let currentPoints = userData?.total_points || 0;
+        let currentPoints = userData?.totalPoints || 0;
 
         // If user doesn't exist remotely yet
         if (!userData) {
             const { error: createError } = await supabase.from('users').insert({
                 id: targetUserId,
                 name: 'Student', // Default
-                total_points: 0
+                totalPoints: 0
             });
             if (createError) console.error("Error creating user stub:", createError);
         }
 
         if (type === 'READ_LOG') {
             // Update Points
-            const newTotal = currentPoints + payload.pointsEarned;
+            const newTotal = currentPoints + (payload.pointsEarned || 0);
 
             const { error: userError } = await supabase
                 .from('users')
-                .upsert({
-                    id: targetUserId,
-                    total_points: newTotal,
+                .update({
+                    totalPoints: newTotal,
                     // Preserve existing name if possible, else default
                     name: userData?.name || 'Student'
-                });
+                })
+                .eq('id', targetUserId);
 
             if (userError) {
                 console.error('[API] Error updating user:', userError);
@@ -66,10 +66,11 @@ export async function POST(request: Request) {
                 .insert({
                     user_id: targetUserId,
                     book_id: payload.bookId,
-                    duration: payload.duration,
-                    points_earned: payload.pointsEarned,
-                    start_time: Date.now() - (payload.duration * 1000),
-                    end_time: Date.now()
+                    book_title: payload.bookTitle || 'Unknown Book',
+                    duration_seconds: payload.duration || 0,
+                    pages_read: payload.pagesRead || 0,
+                    start_time: new Date(payload.startTime || (Date.now() - (payload.duration * 1000))).toISOString(),
+                    end_time: new Date(payload.endTime || Date.now()).toISOString()
                 });
 
             if (sessionError) {
@@ -80,10 +81,10 @@ export async function POST(request: Request) {
         } else if (type === 'UPDATE_POINTS') {
             // Merging local points to cloud
             const pointsToAdd = payload.pointsEarned || 0; // if merging strictly, or we might be sending totalPoints directly. Wait, payload sends totalPoints
-            
+
             // The payload currently sends `totalPoints` and `booksRead`. It's not a delta.
             const newTotal = payload.totalPoints !== undefined ? payload.totalPoints : (currentPoints + pointsToAdd);
-            
+
             const updatePayload: any = { total_points: newTotal };
             if (payload.booksRead !== undefined) {
                 updatePayload.books_read = payload.booksRead;

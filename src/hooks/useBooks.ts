@@ -16,33 +16,34 @@ export function useBooks() {
 
             const { data, error } = await supabase
                 .from('books')
-                .select('*');
+                .select('id, title, "fileId", grade, pages, "pdfUrl", level, subject, language, "coverUrl", questions, avg_rating, review_count');
 
             if (error) throw error;
             if (data) {
-                console.log(`[Sync] Found ${data.length} books on server.`);
+                console.log(`[Sync] Found ${data.length} books on server. Samples:`, data.slice(0, 2).map(b => ({ title: b.title, rating: b.avg_rating })));
 
                 const serverKeys = new Set(data.map(getSyncKey));
-                const localBooks = await db.books.toArray();
+                let localBooks = await db.books.toArray();
 
-                // 1. Purge local books that are definitely not on the server
-                // Only purge if we actually got a healthy response from the server
-                if (data.length > 0) {
-                    for (const localBook of localBooks) {
-                        if (!serverKeys.has(getSyncKey(localBook))) {
-                            console.log(`[Sync] Removing orphaned local book: ${localBook.title}`);
-                            await db.books.delete(localBook.id!);
-                        }
-                    }
+                // 1. CLEAR ORPHANS: If we have books that don't match server IDs, wipe and re-sync once
+                // This fix ensures local ID 1, 2, 3 matches Supabase ID 1, 2, 3
+                const serverIds = new Set(data.map(b => b.id));
+                const orphans = localBooks.filter(lb => !serverIds.has(lb.id));
+                if (orphans.length > 0) {
+                    console.log("[Sync] Detected ID mismatch/orphans. Clearing local library for clean re-sync.");
+                    await db.books.clear();
+                    // Refetch localBooks as it's now empty
+                    localBooks = [];
                 }
 
                 // 2. Add or Update books from server
                 for (const book of data) {
                     const sKey = getSyncKey(book);
-                    // Find existing by normalized composite match
-                    const existingBook = localBooks.find(lb => getSyncKey(lb) === sKey);
 
+                    // VERY IMPORTANT: Use the server's 'id' as the local 'id'
+                    // This ensures that reviews and reading logs link to the correct row in Supabase
                     const bookData = {
+                        id: book.id, // THE UNIFIER
                         title: book.title,
                         fileId: book.fileId,
                         grade: book.grade,
@@ -51,26 +52,31 @@ export function useBooks() {
                         level: book.level,
                         subject: book.subject,
                         language: book.language,
-                        coverUrl: book.coverUrl
+                        coverUrl: book.coverUrl,
+                        avgRating: book.avg_rating || 0,
+                        reviewCount: book.review_count || 0,
+                        questions: (book.questions && book.questions.length > 0)
+                            ? book.questions
+                            : (localBooks.find(lb => getSyncKey(lb) === sKey)?.questions || [])
                     };
 
-                    if (existingBook) {
-                        // Update existing book if anything changed (metadata refresh)
-                        // This uses PUT to overwrite while preserving ID and local pdfBlob
-                        await db.books.put({
-                            ...bookData,
-                            id: existingBook.id,
-                            pdfBlob: existingBook.pdfBlob // Keep the precious download!
-                        });
-                    } else {
-                        // Add as a new book - only if we didn't just find it
-                        await db.books.add(bookData);
-                    }
+                    // We use put() which handles both add and update since we define the 'id'
+                    // We also preserve the local pdfBlob if it exists
+                    const existingLocal = localBooks.find(lb => lb.id === book.id);
+                    await db.books.put({
+                        ...bookData,
+                        pdfBlob: existingLocal?.pdfBlob
+                    });
                 }
                 console.log("[Sync] Sync complete.");
             }
         } catch (err: any) {
-            console.error("[Sync] Error during sync:", err.message || JSON.stringify(err), err.details || "");
+            console.error("[Sync] Error during library sync:", {
+                message: err.message,
+                details: err.details,
+                hint: err.hint,
+                code: err.code
+            });
         } finally {
             syncingRef.current = false;
         }

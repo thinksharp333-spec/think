@@ -21,7 +21,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="appearance-none w-full bg-white border border-gray-300 hover:border-gray-400 px-4 py-2 pr-8 rounded shadow leading-tight focus:outline-none focus:shadow-outline text-gray-700 font-medium text-sm cursor-pointer"
+        className="w-full cursor-pointer rounded-2xl border-none bg-[#111111] px-4 py-3 pr-10 text-sm font-black uppercase tracking-wide text-white appearance-none outline-none"
       >
         <option value="">{label}</option>
         {options.map((option) => (
@@ -30,7 +30,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
           </option>
         ))}
       </select>
-      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-white">
         <ChevronDown className="h-4 w-4" />
       </div>
     </div>

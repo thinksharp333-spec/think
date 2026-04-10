@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase, type School } from "@/lib/supabase";
 import { MapPin, School as SchoolIcon, Building2 } from "lucide-react";
 
@@ -12,7 +12,6 @@ interface SchoolSelectorProps {
 export function SchoolSelector({ onSelect, selectedSchoolId }: SchoolSelectorProps) {
     const [schools, setSchools] = useState<School[]>([]);
     const [districts, setDistricts] = useState<string[]>([]);
-    const [talukas, setTalukas] = useState<string[]>([]);
 
     // Selection states
     const [selectedDistrict, setSelectedDistrict] = useState("");
@@ -21,8 +20,6 @@ export function SchoolSelector({ onSelect, selectedSchoolId }: SchoolSelectorPro
 
     const [isLoading, setIsLoading] = useState(true);
 
-    // Fetch all schools initially (optimized for small dataset < 1000 rows)
-    // For larger datasets, we would fetch districts first, then talukas, etc.
     useEffect(() => {
         async function fetchSchools() {
             if (!supabase) return;
@@ -39,33 +36,47 @@ export function SchoolSelector({ onSelect, selectedSchoolId }: SchoolSelectorPro
 
             if (data) {
                 setSchools(data as School[]);
-                // Extract unique districts
                 const uniqueDistricts = Array.from(new Set(data.map(s => s.district))).sort();
                 setDistricts(uniqueDistricts);
+
+                if (selectedSchoolId) {
+                    const preselected = data.find((school) => school.id === selectedSchoolId);
+                    if (preselected) {
+                        setSelectedDistrict(preselected.district);
+                        setSelectedTaluka(preselected.taluka);
+                        setSelectedSchool(preselected.id);
+                    }
+                }
             }
             setIsLoading(false);
         }
 
         fetchSchools();
-    }, []);
+    }, [selectedSchoolId]);
 
-    // Update talukas when district changes
-    useEffect(() => {
-        if (selectedDistrict) {
-            const filteredTalukas = Array.from(new Set(
+    const talukas = useMemo(() => {
+        if (!selectedDistrict) return [];
+
+        return Array.from(
+            new Set(
                 schools
-                    .filter(s => s.district === selectedDistrict)
-                    .map(s => s.taluka)
-            )).sort();
-            setTalukas(filteredTalukas);
-            setSelectedTaluka(""); // Reset taluka
-            setSelectedSchool(""); // Reset school
-        } else {
-            setTalukas([]);
-        }
-    }, [selectedDistrict, schools]);
+                    .filter((school) => school.district === selectedDistrict)
+                    .map((school) => school.taluka)
+            )
+        ).sort();
+    }, [schools, selectedDistrict]);
 
-    // Handle school selection
+    const handleDistrictChange = (district: string) => {
+        setSelectedDistrict(district);
+        setSelectedTaluka("");
+        setSelectedSchool("");
+    };
+
+    const handleTalukaChange = (taluka: string) => {
+        setSelectedTaluka(taluka);
+        setSelectedSchool("");
+    };
+
     const handleSchoolChange = (schoolId: string) => {
         setSelectedSchool(schoolId);
         const school = schools.find(s => s.id === schoolId);
@@ -75,26 +86,26 @@ export function SchoolSelector({ onSelect, selectedSchoolId }: SchoolSelectorPro
     };
 
     if (isLoading) {
-        return <div className="text-sm text-gray-500 animate-pulse">Loading schools...</div>;
+        return <div className="comic-card animate-pulse p-4 text-sm font-black uppercase tracking-wide text-[#5f5852]">Loading schools...</div>;
     }
 
     if (!supabase) {
-        return <div className="text-red-500 text-xs">Database connection not available.</div>;
+        return <div className="comic-card bg-[#fff0ef] p-4 text-sm font-black text-[#db3125]">Database connection not available.</div>;
     }
 
     return (
         <div className="space-y-4">
             {/* District Selector */}
             <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                <label className="mb-2 block text-xl font-extrabold text-[#111111]">
                     District
                 </label>
-                <div className="relative group">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 group-focus-within:text-green-500 transition-colors" />
+                <div className="relative">
+                    <MapPin className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#111111]" />
                     <select
                         value={selectedDistrict}
-                        onChange={(e) => setSelectedDistrict(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-100 focus:border-green-500 outline-none transition-all bg-gray-50 focus:bg-white text-sm text-black appearance-none"
+                        onChange={(e) => handleDistrictChange(e.target.value)}
+                        className="comic-input comic-select pl-12 text-lg font-bold"
                     >
                         <option value="">Select District</option>
                         {districts.map(d => (
@@ -106,16 +117,16 @@ export function SchoolSelector({ onSelect, selectedSchoolId }: SchoolSelectorPro
 
             {/* Taluka Selector (Disabled until District selected) */}
             <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                <label className="mb-2 block text-xl font-extrabold text-[#111111]">
                     Taluka
                 </label>
-                <div className="relative group">
-                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 group-focus-within:text-green-500 transition-colors" />
+                <div className="relative">
+                    <Building2 className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#111111]" />
                     <select
                         value={selectedTaluka}
-                        onChange={(e) => setSelectedTaluka(e.target.value)}
+                        onChange={(e) => handleTalukaChange(e.target.value)}
                         disabled={!selectedDistrict}
-                        className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-100 focus:border-green-500 outline-none transition-all bg-gray-50 focus:bg-white text-sm text-black appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="comic-input comic-select pl-12 text-lg font-bold disabled:cursor-not-allowed disabled:opacity-50"
                     >
                         <option value="">Select Taluka</option>
                         {talukas.map(t => (
@@ -127,16 +138,16 @@ export function SchoolSelector({ onSelect, selectedSchoolId }: SchoolSelectorPro
 
             {/* School Selector (Disabled until Taluka selected) */}
             <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                <label className="mb-2 block text-xl font-extrabold text-[#111111]">
                     School
                 </label>
-                <div className="relative group">
-                    <SchoolIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 group-focus-within:text-green-500 transition-colors" />
+                <div className="relative">
+                    <SchoolIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#111111]" />
                     <select
                         value={selectedSchool}
                         onChange={(e) => handleSchoolChange(e.target.value)}
                         disabled={!selectedTaluka}
-                        className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-100 focus:border-green-500 outline-none transition-all bg-gray-50 focus:bg-white text-sm text-black appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="comic-input comic-select pl-12 text-lg font-bold disabled:cursor-not-allowed disabled:opacity-50"
                     >
                         <option value="">Select School</option>
                         {schools
