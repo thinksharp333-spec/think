@@ -79,12 +79,19 @@ export async function POST(request: Request) {
 
         } else if (type === 'UPDATE_POINTS') {
             // Merging local points to cloud
-            const pointsToAdd = payload.pointsEarned;
-            const newTotal = currentPoints + pointsToAdd;
+            const pointsToAdd = payload.pointsEarned || 0; // if merging strictly, or we might be sending totalPoints directly. Wait, payload sends totalPoints
+            
+            // The payload currently sends `totalPoints` and `booksRead`. It's not a delta.
+            const newTotal = payload.totalPoints !== undefined ? payload.totalPoints : (currentPoints + pointsToAdd);
+            
+            const updatePayload: any = { total_points: newTotal };
+            if (payload.booksRead !== undefined) {
+                updatePayload.books_read = payload.booksRead;
+            }
 
             const { error: updateError } = await supabase
                 .from('users')
-                .update({ total_points: newTotal })
+                .update(updatePayload)
                 .eq('id', targetUserId);
 
             if (updateError) {

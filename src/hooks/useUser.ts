@@ -5,8 +5,8 @@ import { supabase } from "@/lib/supabase";
 
 export function useUser() {
     const users = useLiveQuery(() => db.users.toArray());
-    // Try to find 'local-user' first, otherwise take the first available
-    const user = users?.find(u => u.id === 'local-user') || users?.[0];
+    // Pick whichever local user exists (could be 'local-user', 'local-admin', or a real ID)
+    const user = users?.[0];
 
     // Listen for Supabase Auth Changes
     useEffect(() => {

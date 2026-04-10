@@ -12,6 +12,7 @@ interface User {
     schoolId?: string; // ID from schools table
     password?: string;
     totalPoints: number;
+    booksRead?: number;
     lastLogin?: number;
 }
 
@@ -55,8 +56,8 @@ const db = new Dexie('AdaptivePlatformDB') as Dexie & {
 };
 
 // Schema definition
-db.version(7).stores({ // Incremented version to apply changes
-    users: 'id, name, mobile, isVerified, schoolId, totalPoints',
+db.version(8).stores({ // Incremented version to apply changes
+    users: 'id, name, mobile, isVerified, schoolId, totalPoints, booksRead',
     readings: '++id, bookId, synced, startTime',
     syncQueue: '++id, type, createdAt',
     books: '++id, title, grade, level, subject, language'
@@ -70,6 +71,7 @@ db.on('populate', async () => {
         mobile: '1234567890',
         password: 'admin',
         totalPoints: 0,
+        booksRead: 0,
         isVerified: true,
         school: 'ThinkSharp School',
         city: 'Mumbai',

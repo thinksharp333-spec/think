@@ -1,0 +1,9 @@
+{
+  "hasError": true,
+  "errorCode": null,
+  "errorMessage": "TypeError: fetch failed",
+  "errorHint": null,
+  "errorDetails": "TypeError: fetch failed\n\nCaused by: Error: getaddrinfo ENOTFOUND mewjyfehpeuwfplxqhhl.supabase.co (ENOTFOUND)\nError: getaddrinfo ENOTFOUND mewjyfehpeuwfplxqhhl.supabase.co\n    at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:120:26)",
+  "dataCount": null,
+  "data": null
+}

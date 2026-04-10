@@ -23,7 +23,9 @@ export default function ReadPage() {
 
     // State for tracking per-page time
     const [currentPage, setCurrentPage] = useState(1);
+    const currentPageRef = useRef(1);
     const [totalPages, setTotalPages] = useState(0);
+    const totalPagesRef = useRef(0);
     const pageStartTimeRef = useRef(Date.now());
     const accumulatedPointsRef = useRef(0);
 
@@ -59,6 +61,7 @@ export default function ReadPage() {
 
     const handleLoadSuccess = (numPages: number) => {
         setTotalPages(numPages);
+        totalPagesRef.current = numPages;
     };
 
     const handlePageChange = (newPage: number) => {
@@ -79,6 +82,7 @@ export default function ReadPage() {
 
         pageStartTimeRef.current = now;
         setCurrentPage(newPage);
+        currentPageRef.current = newPage;
     };
 
     const handleWordCount = (page: number, count: number) => {
@@ -88,7 +92,12 @@ export default function ReadPage() {
     const saveProgress = async () => {
         const now = Date.now();
         const durationOnFinalPage = (now - pageStartTimeRef.current) / 1000;
-        const maxPointsFinal = getMaxPointsForPage(currentPage);
+        
+        // Use Refs to bypass the stale closure during useEffect cleanup
+        const finalPage = currentPageRef.current;
+        const totalNumPages = totalPagesRef.current;
+
+        const maxPointsFinal = getMaxPointsForPage(finalPage);
         const pointsForFinalPage = Math.min(Math.floor(durationOnFinalPage / 10), maxPointsFinal);
 
         const totalSessionPoints =
@@ -98,7 +107,8 @@ export default function ReadPage() {
             (now - startTimeRef.current) / 1000
         );
 
-        if (totalSessionPoints === 0 && totalDuration < 5) return;
+        const mayHaveCompleted = finalPage === totalNumPages && totalNumPages > 0;
+        if (totalSessionPoints === 0 && totalDuration < 5 && !mayHaveCompleted) return;
 
         console.log(
             `Saving session for book ${bookIdString}: ${totalDuration}s, Points: ${totalSessionPoints}`
@@ -117,33 +127,43 @@ export default function ReadPage() {
             }
 
             const endTime = Date.now();
-            const userId =
-                (localUser as any).student_id ||
+            // Always use localUser.id — after login it's 'local-user'
+            const userId = localUser.id;
+            // Also grab the real remote ID if one was stashed during login
+            const remoteUserId = (localUser as any).student_id || 
                 (localUser.id !== 'local-user' ? localUser.id : null);
+
+            const isCompleted = finalPage === totalNumPages && totalNumPages > 0;
+            let newlyCompleted = false;
+
+            if (isCompleted) {
+                // Determine if this is the first time finishing this book
+                const existingSessions = await db.readings.where({ bookId: bookIdString }).toArray();
+                const alreadyCompleted = existingSessions.some(s => s.userId === userId && (s as any).completed);
+                if (!alreadyCompleted) {
+                    newlyCompleted = true;
+                }
+            }
 
             await db.readings.add({
                 bookId: bookIdString,
-                userId: userId || 'local-user',
+                userId: userId,
                 startTime: startTimeRef.current,
                 endTime: endTime,
-                synced: 0
-            });
+                synced: 0,
+                completed: isCompleted
+            } as any);
 
             // 2. Update Local User Points & Book Word Counts
             const newTotalPoints = (localUser.totalPoints || 0) + totalSessionPoints;
-            await db.users.update(userId, {
-                totalPoints: newTotalPoints
-            });
+            const newBooksRead = (localUser.booksRead || 0) + (newlyCompleted ? 1 : 0);
 
-            // Also update 'local-user' specifically if it still exists and is different
-            if (userId !== 'local-user') {
-                const guest = await db.users.get('local-user');
-                if (guest) {
-                    await db.users.update('local-user', {
-                        totalPoints: newTotalPoints
-                    });
-                }
-            }
+            console.log(`[DEBUG] Updating user "${userId}": points=${newTotalPoints}, booksRead=${newBooksRead}, newlyCompleted=${newlyCompleted}`);
+
+            await db.users.update(userId, {
+                totalPoints: newTotalPoints,
+                booksRead: newBooksRead
+            });
 
             // Save any newly discovered word counts to the book
             if (book && Object.keys(discoveredWordCountsRef.current).length > 0) {
@@ -156,7 +176,7 @@ export default function ReadPage() {
                 });
             }
 
-            if (supabase && userId) {
+            if (supabase && remoteUserId) {
                 const bookTitle = ({
                     1: 'Sample Book',
                     2: 'Science Book',
@@ -164,32 +184,43 @@ export default function ReadPage() {
                     4: 'History'
                 } as any)[bookIdNum] || 'Unknown Book';
 
-                // const isCompleted =
-                //     completedRef.current ||
-                //     (currentPage === totalPages && totalPages > 0);
-
                 const { error } = await supabase
                     .from('reading_sessions')
                     .insert([{
-                        user_id: userId,
+                        user_id: remoteUserId,
                         book_id: bookIdNum,
                         book_title: bookTitle,
                         start_time: new Date(startTimeRef.current).toISOString(),
                         end_time: new Date(endTime).toISOString(),
                         duration_seconds: totalDuration,
-                        pages_read: currentPage,
-                        // completed: isCompleted
+                        pages_read: finalPage,
+                        completed: isCompleted
                     }]);
 
                 if (error) {
-                    console.warn("Supabase error:", error.message);
+                    console.warn("Supabase reading_sessions error:", error.message);
+                }
+
+                // Also directly update user points + books_read in Supabase
+                const { error: updateError } = await supabase
+                    .from('users')
+                    .update({ 
+                        "totalPoints": newTotalPoints,
+                        books_read: newBooksRead 
+                    })
+                    .eq('id', remoteUserId);
+                
+                if (updateError) {
+                    console.warn("Supabase user update error:", updateError.message);
+                } else {
+                    console.log(`[DEBUG] Supabase user updated: points=${newTotalPoints}, books_read=${newBooksRead}`);
                 }
             }
 
             await db.syncQueue.add({
                 type: 'READ_LOG',
                 payload: {
-                    userId: userId || 'local-user',
+                    userId: remoteUserId || userId,
                     bookId: bookIdNum,
                     startTime: startTimeRef.current,
                     endTime: endTime
@@ -200,8 +231,9 @@ export default function ReadPage() {
             await db.syncQueue.add({
                 type: 'UPDATE_POINTS',
                 payload: {
-                    userId: userId || 'local-user',
-                    totalPoints: newTotalPoints
+                    userId: remoteUserId || userId,
+                    totalPoints: newTotalPoints,
+                    booksRead: newBooksRead
                 },
                 createdAt: Date.now()
             });
@@ -245,6 +277,7 @@ export default function ReadPage() {
                     bookIdNum={bookIdNum}
                     onPageChange={handlePageChange}
                     onWordCount={handleWordCount}
+                    onLoadSuccess={handleLoadSuccess}
                 />
             </main>
         </div>

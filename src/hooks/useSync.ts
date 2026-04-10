@@ -50,11 +50,17 @@ export function useSync() {
                         if (error) throw error;
                     }
                     else if (task.type === 'UPDATE_POINTS') {
-                        // Payload should contain { userId, points }
-                        const { userId, totalPoints } = task.payload;
+                        // Payload should contain { userId, totalPoints, booksRead }
+                        const { userId, totalPoints, booksRead } = task.payload;
+                        
+                        const updateData: any = { "totalPoints": totalPoints };
+                        if (booksRead !== undefined) {
+                            updateData.books_read = booksRead;
+                        }
+
                         const { error } = await supabase
                             .from('users')
-                            .update({ totalPoints })
+                            .update(updateData)
                             .eq('id', userId);
 
                         if (error) throw error;

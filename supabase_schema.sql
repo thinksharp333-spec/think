@@ -1,3 +1,15 @@
+-- Create Schools Table
+CREATE TABLE IF NOT EXISTS schools (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    school_name TEXT NOT NULL,
+    district TEXT NOT NULL,
+    taluka TEXT NOT NULL,
+    state TEXT DEFAULT 'Maharashtra',
+    cluster TEXT,
+    block TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
 -- Create Users Table
 CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
@@ -8,6 +20,7 @@ CREATE TABLE IF NOT EXISTS users (
     mobile TEXT, -- Added mobile number
     password TEXT, -- Note: In a real app, use Supabase Auth. This is for the demo to match Dexie.
     "totalPoints" INTEGER DEFAULT 0,
+    books_read INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 

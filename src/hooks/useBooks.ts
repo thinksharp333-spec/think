@@ -69,8 +69,8 @@ export function useBooks() {
                 }
                 console.log("[Sync] Sync complete.");
             }
-        } catch (err) {
-            console.error("[Sync] Error during sync:", err);
+        } catch (err: any) {
+            console.error("[Sync] Error during sync:", err.message || JSON.stringify(err), err.details || "");
         } finally {
             syncingRef.current = false;
         }

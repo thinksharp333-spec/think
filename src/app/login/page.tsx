@@ -47,9 +47,19 @@ export default function LoginPage() {
                     } else {
                         user = data;
                         // SYNC DOWN: Update local DB with latest cloud data
+                        // Map Supabase snake_case columns to local camelCase
                         await db.users.put({
-                            ...data,
-                            id: data.id
+                            id: 'local-user',
+                            name: data.name || 'Student',
+                            mobile: data.mobile || '',
+                            password: data.password,
+                            totalPoints: data.totalPoints || data.total_points || 0,
+                            booksRead: data.books_read || data.booksRead || 0,
+                            isVerified: data.isVerified || data.is_verified,
+                            school: data.school,
+                            city: data.city,
+                            age: data.age,
+                            schoolId: data.schoolId || data.school_id,
                         });
                     }
                 }
@@ -66,8 +76,17 @@ export default function LoginPage() {
                     // Set as current local user session
                     await db.users.delete('local-user');
                     await db.users.put({
-                        ...user,
-                        id: 'local-user'
+                        id: 'local-user',
+                        name: user.name || 'Student',
+                        mobile: user.mobile || '',
+                        password: user.password,
+                        totalPoints: user.totalPoints || user.total_points || 0,
+                        booksRead: user.books_read || user.booksRead || 0,
+                        isVerified: user.isVerified || user.is_verified,
+                        school: user.school,
+                        city: user.city,
+                        age: user.age,
+                        schoolId: user.schoolId || user.school_id,
                     });
 
                     // Set session cookie for middleware

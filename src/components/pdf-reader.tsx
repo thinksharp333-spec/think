@@ -18,9 +18,10 @@ interface PdfReaderProps {
     bookIdNum?: number;
     onPageChange?: (page: number) => void;
     onWordCount?: (page: number, count: number) => void;
+    onLoadSuccess?: (numPages: number) => void;
 }
 
-export function PdfReader({ url, book, bookIdNum, onPageChange, onWordCount }: PdfReaderProps) {
+export function PdfReader({ url, book, bookIdNum, onPageChange, onWordCount, onLoadSuccess }: PdfReaderProps) {
     const [numPages, setNumPages] = useState<number>(0);
     const [pageNumber, setPageNumber] = useState<number>(1);
     const [loading, setLoading] = useState(true);
@@ -65,6 +66,7 @@ export function PdfReader({ url, book, bookIdNum, onPageChange, onWordCount }: P
         setNumPages(numPages);
         setLoading(false);
         setError(null);
+        onLoadSuccess?.(numPages);
     }
 
     function onDocumentLoadError(err: Error) {
