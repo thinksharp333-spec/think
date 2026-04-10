@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BookOpen, User, Lock, ArrowRight, ArrowLeft, Phone, Calendar, School } from "lucide-react";
+import { User, Lock, ArrowRight, ArrowLeft, Phone, Calendar, WifiOff, Sparkles, WandSparkles, Footprints } from "lucide-react";
 import { db } from "@/lib/db";
 
 import { useSync } from "@/hooks/useSync";
@@ -22,11 +22,11 @@ export default function SignUpPage() {
         city: "",
         school: "",
         schoolId: "",
+        grade: "",
         customSchool: "",
         password: "",
         confirmPassword: ""
     });
-    const [showCustomSchool, setShowCustomSchool] = useState(false);
     const [error, setError] = useState("");
     const [isLoading, setIsLoading] = useState(false);
 
@@ -35,7 +35,13 @@ export default function SignUpPage() {
     };
 
     const handleSchoolSelect = (schoolId: string, schoolName: string, district: string, taluka: string) => {
+        void taluka;
         setFormData(prev => ({ ...prev, schoolId, school: schoolName, city: district }));
+    };
+
+    const getErrorMessage = (err: unknown) => {
+        if (err instanceof Error) return err.message;
+        return "Failed to create account. Please try again.";
     };
 
     const handleSignUp = async (e: React.FormEvent) => {
@@ -74,6 +80,8 @@ export default function SignUpPage() {
                 city: formData.city,
                 school: finalSchoolName,
                 schoolId: formData.schoolId,
+                grade: formData.grade,
+                role: 'student',
                 password: formData.password,
                 totalPoints: 0,
                 isVerified: false
@@ -93,8 +101,10 @@ export default function SignUpPage() {
                                 city: userData.city,
                                 school: userData.school,
                                 school_id: userData.schoolId,
+                                grade: userData.grade,
+                                role: userData.role,
                                 password: userData.password,
-                                total_points: 0
+                                totalPoints: 0
                             }
                         ]);
 
@@ -104,9 +114,9 @@ export default function SignUpPage() {
                     } else {
                         console.log("Supabase insert successful!");
                     }
-                } catch (cloudErr: any) {
+                } catch (cloudErr: unknown) {
                     console.error("Cloud connection error:", cloudErr);
-                    throw new Error(cloudErr.message || "Cloud connection failed");
+                    throw new Error(getErrorMessage(cloudErr) || "Cloud connection failed");
                 }
             } else {
                 console.warn("Supabase not configured.");
@@ -129,68 +139,104 @@ export default function SignUpPage() {
             // Redirect to OTP verification
             router.push(`/verify-otp?mobile=${formData.mobile}&mode=signup`);
 
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Signup failed", err);
-            setError(err.message || "Failed to create account. Please try again.");
+            setError(getErrorMessage(err));
         } finally {
             setIsLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex flex-col items-center justify-center p-4">
-
-            {!isOnline && (
-                <div className="absolute top-0 w-full bg-red-500 text-white text-center py-2 text-sm font-medium z-50">
-                    You are currently offline. Please connect to the internet to sign up.
-                </div>
-            )}
-
-            {/* Back to Home Link */}
-            <div className="absolute top-6 left-6">
-                <Link href="/" className="flex items-center gap-2 text-gray-500 hover:text-green-600 transition-colors font-medium text-sm group">
-                    <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-                    Back to Home
-                </Link>
-            </div>
-
-            <div className="bg-white max-w-md w-full rounded-2xl shadow-xl overflow-hidden border border-gray-100 transition-all my-8">
-
-                {/* Header Section */}
-                <div className="bg-green-600 p-8 text-center relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-full h-full bg-green-700 opacity-20 transform -skew-y-6 origin-top-left"></div>
-
-                    <div className="relative z-10">
-                        <div className="bg-white/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-sm border border-white/30 shadow-inner">
-                            <BookOpen className="w-8 h-8 text-white" />
+        <main className="min-h-screen overflow-hidden bg-[#fffaf1] px-4 py-5 md:px-8 md:py-8">
+            <div className="mx-auto max-w-7xl">
+                <div className="mb-6 flex items-center justify-between">
+                    <Link href="/" className="comic-chip inline-flex items-center gap-2 px-4 py-2 text-sm font-black uppercase tracking-wide text-[#111111]">
+                        <ArrowLeft className="h-4 w-4" />
+                        Back Home
+                    </Link>
+                    {!isOnline && (
+                        <div className="comic-chip inline-flex items-center gap-2 bg-[#ffefef] px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-[#db3125]">
+                            <WifiOff className="h-4 w-4" />
+                            Connect to sign up
                         </div>
-                        <h2 className="text-2xl font-bold text-white tracking-wide">
-                            Create Account
-                        </h2>
-                        <p className="text-green-100 text-sm mt-2 opacity-90">
-                            Join ThinkSharp and start learning today!
-                        </p>
-                    </div>
+                    )}
                 </div>
 
-                {/* Content Section */}
-                <div className="p-8">
+                <h1 className="comic-title text-center text-4xl leading-none text-[#db3125] md:text-7xl">
+                    Join the Reading Club
+                </h1>
+
+                <div className="mt-8 grid items-start gap-8 lg:grid-cols-[1fr_170px_1fr]">
+                    <section className="px-2 lg:px-6">
+                        <div className="mx-auto max-w-md">
+                            <h2 className="text-4xl font-extrabold leading-tight text-[#111111] md:text-5xl">
+                                Pick Your Hero Profile!
+                            </h2>
+                            <div className="mt-6 space-y-5">
+                                <div className="comic-card bg-[linear-gradient(180deg,#fff2ef_0%,#fff8f0_100%)] p-5">
+                                    <p className="text-xl font-extrabold text-[#111111]">Quest Map: Step 2 of 3</p>
+                                    <div className="mt-4 flex items-center justify-between gap-3">
+                                        <div className="text-center">
+                                            <div className="mx-auto h-12 w-12 rounded-full border-[3px] border-[#111111] bg-[#ff4d3d]" />
+                                            <p className="mt-2 text-xl font-bold">Sign Up</p>
+                                        </div>
+                                        <div className="h-[3px] flex-1 bg-[#111111]" />
+                                        <div className="text-center">
+                                            <div className="mx-auto h-12 w-12 rounded-full border-[3px] border-[#111111] bg-[#ffdf6b]" />
+                                            <p className="mt-2 text-xl font-bold">Choose Avatar</p>
+                                        </div>
+                                        <div className="h-[3px] flex-1 bg-[#111111]" />
+                                        <div className="text-center">
+                                            <div className="mx-auto h-12 w-12 rounded-full border-[3px] border-[#111111] bg-white" />
+                                            <p className="mt-2 text-xl font-bold">Start Reading!</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div className="comic-card flex flex-col items-center gap-3 bg-[#fff0ec] p-4 text-center">
+                                        <Sparkles className="h-8 w-8 text-[#db3125]" />
+                                        <p className="text-sm font-black uppercase">Dreamer</p>
+                                    </div>
+                                    <div className="comic-card flex flex-col items-center gap-3 bg-[#fff7da] p-4 text-center">
+                                        <WandSparkles className="h-8 w-8 text-[#db3125]" />
+                                        <p className="text-sm font-black uppercase">Wizard</p>
+                                    </div>
+                                    <div className="comic-card flex flex-col items-center gap-3 bg-[#edf8df] p-4 text-center">
+                                        <Footprints className="h-8 w-8 text-[#db3125]" />
+                                        <p className="text-sm font-black uppercase">Explorer</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <div className="relative hidden h-full min-h-[720px] items-center justify-center lg:flex">
+                        <div className="comic-zigzag h-[620px] w-[150px] border-[5px] border-[#111111] bg-[linear-gradient(180deg,#ff5a49_0%,#d92f22_100%)] shadow-[0_16px_35px_rgba(0,0,0,0.18)]" />
+                        <div className="comic-burst absolute left-1 top-14 h-20 w-20 bg-[#111111]" />
+                        <div className="comic-burst absolute right-2 top-72 h-16 w-16 bg-[#ff4d3d] opacity-90" />
+                        <div className="comic-burst absolute left-5 bottom-10 h-20 w-20 bg-[#111111]" />
+                    </div>
+
+                    <section className="px-2 lg:px-6">
+                        <div className="mx-auto max-w-xl">
                     <form onSubmit={handleSignUp} className="space-y-4">
                         {error && (
-                            <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg text-center font-medium">
+                            <div className="comic-card bg-[#fff0ef] p-3 text-center text-sm font-black text-[#db3125]">
                                 {error}
                             </div>
                         )}
 
                         <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Full Name</label>
-                            <div className="relative group">
-                                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 group-focus-within:text-green-500 transition-colors" />
+                            <label className="mb-2 block text-xl font-extrabold text-[#111111]">Your Name</label>
+                            <div className="relative">
+                                <User className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#111111]" />
                                 <input
                                     type="text"
                                     name="name"
-                                    placeholder="Enter your full name"
-                                    className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-100 focus:border-green-500 outline-none transition-all bg-gray-50 focus:bg-white text-sm text-black placeholder:text-gray-400"
+                                    placeholder="Pick a Username"
+                                    className="comic-input pl-12 text-xl font-bold"
                                     value={formData.name}
                                     onChange={handleChange}
                                     required
@@ -198,16 +244,16 @@ export default function SignUpPage() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-4 md:grid-cols-3">
                             <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Age</label>
-                                <div className="relative group">
-                                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 group-focus-within:text-green-500 transition-colors" />
+                                <label className="mb-2 block text-xl font-extrabold text-[#111111]">Age</label>
+                                <div className="relative">
+                                    <Calendar className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#111111]" />
                                     <input
                                         type="number"
                                         name="age"
-                                        placeholder="Age"
-                                        className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-100 focus:border-green-500 outline-none transition-all bg-gray-50 focus:bg-white text-sm text-black placeholder:text-gray-400"
+                                        placeholder="Your Age"
+                                        className="comic-input pl-12 text-xl font-bold"
                                         value={formData.age}
                                         onChange={handleChange}
                                         required
@@ -217,14 +263,29 @@ export default function SignUpPage() {
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Mobile</label>
-                                <div className="relative group">
-                                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 group-focus-within:text-green-500 transition-colors" />
+                                <label className="mb-2 block text-xl font-extrabold text-[#111111]">Grade</label>
+                                <select
+                                    name="grade"
+                                    className="comic-input comic-select px-4 text-xl font-bold"
+                                    value={formData.grade}
+                                    onChange={(e) => setFormData((prev) => ({ ...prev, grade: e.target.value }))}
+                                    required
+                                >
+                                    <option value="">Select</option>
+                                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(g => (
+                                        <option key={g} value={g}>Class {g}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="mb-2 block text-xl font-extrabold text-[#111111]">Mobile</label>
+                                <div className="relative">
+                                    <Phone className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#111111]" />
                                     <input
                                         type="tel"
                                         name="mobile"
-                                        placeholder="Mobile Number"
-                                        className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-100 focus:border-green-500 outline-none transition-all bg-gray-50 focus:bg-white text-sm text-black placeholder:text-gray-400"
+                                        placeholder="Mobile"
+                                        className="comic-input pl-12 text-lg font-bold"
                                         value={formData.mobile}
                                         onChange={handleChange}
                                         required
@@ -241,17 +302,16 @@ export default function SignUpPage() {
                             />
                         </div>
 
-
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-4 md:grid-cols-2">
                             <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Password</label>
-                                <div className="relative group">
-                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 group-focus-within:text-green-500 transition-colors" />
+                                <label className="mb-2 block text-xl font-extrabold text-[#111111]">Password</label>
+                                <div className="relative">
+                                    <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#111111]" />
                                     <input
                                         type="password"
                                         name="password"
-                                        placeholder="******"
-                                        className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-100 focus:border-green-500 outline-none transition-all bg-gray-50 focus:bg-white text-sm text-black placeholder:text-gray-400"
+                                        placeholder="Create a password"
+                                        className="comic-input pl-12 text-lg font-bold"
                                         value={formData.password}
                                         onChange={handleChange}
                                         required
@@ -259,14 +319,14 @@ export default function SignUpPage() {
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Confirm</label>
-                                <div className="relative group">
-                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 group-focus-within:text-green-500 transition-colors" />
+                                <label className="mb-2 block text-xl font-extrabold text-[#111111]">Confirm</label>
+                                <div className="relative">
+                                    <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#111111]" />
                                     <input
                                         type="password"
                                         name="confirmPassword"
-                                        placeholder="******"
-                                        className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-100 focus:border-green-500 outline-none transition-all bg-gray-50 focus:bg-white text-sm text-black placeholder:text-gray-400"
+                                        placeholder="Confirm password"
+                                        className="comic-input pl-12 text-lg font-bold"
                                         value={formData.confirmPassword}
                                         onChange={handleChange}
                                         required
@@ -274,29 +334,23 @@ export default function SignUpPage() {
                                 </div>
                             </div>
                         </div>
-
-
                         <button
                             type="submit"
                             disabled={!isOnline || isLoading}
-                            className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl shadow-lg shadow-green-200 hover:shadow-green-300 transform active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-sm mt-4"
+                            className="comic-button-dark mt-6 flex w-full items-center justify-center gap-3 px-8 py-4 text-3xl font-black disabled:cursor-not-allowed disabled:opacity-60"
                         >
                             {isLoading ? "Creating Account..." : (!isOnline ? "Offline - Connect to Sign Up" : "Create Account")}
-                            {!isLoading && isOnline && <ArrowRight className="w-4 h-4" />}
+                            {!isLoading && isOnline && <ArrowRight className="h-6 w-6" />}
                         </button>
 
-                        <div className="pt-4 border-t border-gray-100 text-center text-xs text-gray-400">
-                            Already have an account? <Link href="/login" className="text-green-600 font-bold hover:underline">Sign In</Link>
+                        <div className="pt-4 text-center text-base font-bold text-[#5f5852]">
+                            Already have an account? <Link href="/login" className="font-black uppercase text-[#db3125] hover:underline">Sign In</Link>
                         </div>
                     </form>
+                        </div>
+                    </section>
                 </div>
             </div>
-
-            {/* Footer Note */}
-            <p className="mt-8 text-xs text-gray-400 font-medium">
-                &copy; 2024 ThinkSharp Foundation
-            </p>
-
-        </div>
+        </main>
     );
 }

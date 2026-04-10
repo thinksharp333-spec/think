@@ -28,7 +28,7 @@ export interface DBUser {
     mobile: string;
     school_id: string;
     grade?: string;
-    total_points: number;
+    totalPoints: number;
     is_verified: boolean;
     created_at?: string;
 }

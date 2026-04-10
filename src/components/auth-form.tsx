@@ -28,7 +28,10 @@ export function AuthForm({ mode }: AuthFormProps) {
         if (localUser && localUser.totalPoints > 0) {
             await db.syncQueue.add({
                 type: 'UPDATE_POINTS',
-                payload: { pointsEarned: localUser.totalPoints },
+                payload: {
+                    userId,
+                    totalPoints: localUser.totalPoints
+                },
                 createdAt: Date.now()
             });
         }
@@ -69,7 +72,7 @@ export function AuthForm({ mode }: AuthFormProps) {
                         id: data.user.id,
                         name: name,
                         role: userType,
-                        total_points: 0
+                        totalPoints: 0
                     });
                     await mergeLocalData(data.user.id);
                 }

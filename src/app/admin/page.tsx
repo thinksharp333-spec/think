@@ -6,10 +6,11 @@ import { useState, useEffect } from "react";
 import { generateCoverFromPdf } from "@/lib/pdf-utils";
 import { useLiveQuery } from "dexie-react-hooks";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Trash2, Plus, BookOpen, GraduationCap, MapPin, Search, Cloud, Download, Loader2, LayoutDashboard } from "lucide-react";
+import { Trash2, Plus, BookOpen, GraduationCap, MapPin, Search, Cloud, Download, Loader2, LayoutDashboard, BrainCircuit } from "lucide-react";
 import { Dropdown } from "@/components/dropdown";
-import { fetchDriveFolder, getDirectDownloadUrl, DriveFile } from "@/lib/google-drive";
+import { fetchDriveContents, fetchDriveItem, getDirectDownloadUrl, DriveItem } from "@/lib/google-drive";
 import Link from "next/link";
+import { supabase } from "@/lib/supabase";
 
 
 export default function AdminDashboard() {
@@ -25,6 +26,8 @@ export default function AdminDashboard() {
         language: "English",
         coverUrl: ""
     });
+
+    const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
 
     // Google Drive Import State
     const [folderId, setFolderId] = useState("");
@@ -56,6 +59,110 @@ export default function AdminDashboard() {
         checkStatus();
     }, []);
 
+    // Background Quiz Generation State
+    const [generatingBackgroundTitle, setGeneratingBackgroundTitle] = useState<string | null>(null);
+
+    // Background Quiz Worker
+    useEffect(() => {
+        let isRunning = false;
+        
+        const processQuizQueue = async () => {
+            if (isRunning) return;
+            isRunning = true;
+            try {
+                const books = await db.books.toArray();
+                const pending = books.filter(b => (!b.questions || b.questions.length === 0));
+                
+                if (pending.length > 0) {
+                    const book = pending[0];
+                    setGeneratingBackgroundTitle(book.title);
+
+                    let extractedText = "";
+                    try {
+                        const { pdfjs } = await import('react-pdf');
+                        pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+                        
+                        let targetUrl = book.pdfUrl || "";
+                        if (book.fileId) {
+                            targetUrl = `/api/proxy-pdf?fileId=${book.fileId}`;
+                        } else if (!targetUrl.startsWith('/')) {
+                            targetUrl = `/api/proxy-pdf?fileId=${encodeURIComponent(targetUrl)}`;
+                        }
+                        
+                        const fetchRes = await fetch(targetUrl);
+                        if (fetchRes.ok) {
+                            const pdfBlob = await fetchRes.blob();
+                            const arrayBuffer = await pdfBlob.arrayBuffer();
+                            const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+                            const pdf = await loadingTask.promise;
+                            const numPagesToExtract = Math.min(5, pdf.numPages);
+                            for (let i = 1; i <= numPagesToExtract; i++) {
+                                const page = await pdf.getPage(i);
+                                const textContent = await page.getTextContent();
+                                const pageText = textContent.items.map((item: any) => item.str).join(' ');
+                                extractedText += pageText + " ";
+                            }
+                        }
+                    } catch (e) {
+                         console.error("BG text extraction fail:", e);
+                    }
+
+                    if (extractedText.trim().length > 0) {
+                        const reqBody = {
+                             text: extractedText,
+                             pages: Number(book.pages || 10),
+                             title: book.title,
+                             grade: book.grade || "Grade 10",
+                             level: book.level || "1",
+                             subject: book.subject || "General"
+                        };
+
+                        let res = await fetch('/api/generate-questions', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(reqBody)
+                        });
+                        
+                        if (res.status === 429) {
+                            console.warn("BG Queue Rate limited (429). Retrying after 60s...");
+                            await new Promise(r => setTimeout(r, 62000));
+                            res = await fetch('/api/generate-questions', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(reqBody)
+                            });
+                        }
+
+                        if (res.ok) {
+                            const data = await res.json();
+                            const questions = data.questions || [];
+                            if (questions.length > 0) {
+                                await db.books.update(book.id!, { questions });
+                                if (supabase) {
+                                    await supabase.from('books').update({ questions }).eq('id', book.id);
+                                }
+                            }
+                        }
+                        
+                        // Respect free tier RPM limit between background generations
+                        await new Promise(r => setTimeout(r, 6000));
+                    } else {
+                         // Missing PDF access entirely, dummy out questions to prevent endless loop block
+                         await db.books.update(book.id!, { questions: [{ text: "Placeholder fallback", options: ["A", "B", "C", "D"], correctAnswer: "A" }] });
+                    }
+                } else {
+                    setGeneratingBackgroundTitle(null);
+                }
+            } catch (err) {
+                console.error("Background quiz error:", err);
+            } finally {
+                isRunning = false;
+            }
+        };
+
+        const intervalId = setInterval(processQuizQueue, 8000);
+        return () => clearInterval(intervalId);
+    }, []);
 
     // Student Reporting State
     const [selectedState, setSelectedState] = useState("");
@@ -102,36 +209,125 @@ export default function AdminDashboard() {
         setSelectedSector("");
         setSelectedSchool("");
     };
+
     const handleSectorChange = (val: string) => {
         setSelectedSector(val);
         setSelectedSchool("");
     };
 
-
-
     const handleAddBook = async (e: React.FormEvent) => {
         e.preventDefault();
         if (newBook.title && newBook.pages) {
-            await addBook({
-                title: newBook.title,
-                grade: newBook.grade || "Grade 10",
-                pages: Number(newBook.pages),
-                pdfUrl: newBook.pdfUrl || "/sample.pdf",
-                level: newBook.level || "1",
-                subject: newBook.subject || "Science",
-                language: newBook.language || "English",
-                coverUrl: newBook.coverUrl || ""
-            } as Book);
-            setNewBook({
-                title: "",
-                grade: "Grade 10",
-                pages: 0,
-                pdfUrl: "/sample.pdf",
-                level: "1",
-                subject: "Science",
-                language: "English",
-                coverUrl: ""
-            });
+            setIsGeneratingQuestions(true);
+            try {
+                let questions = [];
+                let extractedText = "";
+                let finalCoverUrl = newBook.coverUrl || "";
+                
+                if (newBook.pdfUrl) {
+                    try {
+                        const { pdfjs } = await import('react-pdf');
+                        pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+                        
+                        // Text extraction
+                        const loadingTask = pdfjs.getDocument(newBook.pdfUrl);
+                        const pdf = await loadingTask.promise;
+                        const numPagesToExtract = Math.min(5, pdf.numPages);
+                        for (let i = 1; i <= numPagesToExtract; i++) {
+                            const page = await pdf.getPage(i);
+                            const textContent = await page.getTextContent();
+                            const pageText = textContent.items.map((item: any) => item.str).join(' ');
+                            extractedText += pageText + " ";
+                        }
+
+                        // Auto-generate Cover if missing
+                        if (!finalCoverUrl) {
+                            try {
+                                const isLocal = newBook.pdfUrl.startsWith('/');
+                                const targetUrl = isLocal ? newBook.pdfUrl : `/api/proxy-pdf?fileId=${encodeURIComponent(newBook.pdfUrl)}`;
+                                const fetchRes = await fetch(targetUrl);
+                                if (fetchRes.ok) {
+                                    const pdfBlob = await fetchRes.blob();
+                                    const coverBlob = await generateCoverFromPdf(pdfBlob);
+                                    if (coverBlob && supabase) {
+                                        const coverName = `covers/manual_${Date.now()}.jpg`;
+                                        const { data: cData } = await supabase.storage.from('books').upload(coverName, coverBlob, { contentType: 'image/jpeg' });
+                                        if (cData) {
+                                            const { data: { publicUrl } } = supabase.storage.from('books').getPublicUrl(coverName);
+                                            finalCoverUrl = publicUrl;
+                                        }
+                                    }
+                                }
+                            } catch (ce) {
+                                console.error("Auto cover generation failed:", ce);
+                            }
+                        }
+                    } catch (e) {
+                         console.error("PDF Text Extraction failed:", e);
+                    }
+                }
+
+                const res = await fetch('/api/generate-questions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                         text: extractedText,
+                         pages: Number(newBook.pages),
+                         title: newBook.title,
+                         grade: newBook.grade || "Grade 10",
+                         level: newBook.level || "1",
+                         subject: newBook.subject || "Science"
+                    })
+                });
+
+                if (res.ok) {
+                     const data = await res.json();
+                     questions = data.questions || [];
+                } else {
+                     console.error("Failed to generate questions");
+                }
+
+                await addBook({
+                    title: newBook.title,
+                    grade: newBook.grade || "Grade 10",
+                    pages: Number(newBook.pages),
+                    pdfUrl: newBook.pdfUrl || "/sample.pdf",
+                    level: newBook.level || "1",
+                    subject: newBook.subject || "Science",
+                    language: newBook.language || "English",
+                    coverUrl: finalCoverUrl,
+                    questions: questions
+                } as Book);
+
+                // Global Sharing: Upload to Supabase so the sync worker doesn't delete it
+                if (supabase) {
+                    await supabase.from('books').upsert({
+                        title: newBook.title,
+                        fileId: "", // Manual uploads don't have a Google Drive fileId
+                        grade: newBook.grade || "Grade 10",
+                        pages: Number(newBook.pages),
+                        pdfUrl: newBook.pdfUrl || "/sample.pdf",
+                        level: newBook.level || "1",
+                        subject: newBook.subject || "Science",
+                        language: newBook.language || "English",
+                        coverUrl: finalCoverUrl
+                        // Background processor will sync 'questions' if not available
+                    }, { onConflict: 'title,level,language,subject' });
+                }
+
+                setNewBook({
+                    title: "",
+                    grade: "Grade 10",
+                    pages: 0,
+                    pdfUrl: "/sample.pdf",
+                    level: "1",
+                    subject: "Science",
+                    language: "English",
+                    coverUrl: ""
+                });
+            } finally {
+                setIsGeneratingQuestions(false);
+            }
         }
     };
 
@@ -305,10 +501,13 @@ export default function AdminDashboard() {
                 const sKey = getSyncKey(book);
                 const localBooks = await db.books.toArray();
                 const existing = localBooks.find(lb => getSyncKey(lb) === sKey);
+                
+                let questions = existing?.questions || [];
 
                 await db.books.put({
                     ...book,
                     id: existing?.id,
+                    questions: questions,
                     pdfBlob: storeLocally ? (pdfBlob || existing?.pdfBlob) : undefined
                 });
 
@@ -323,12 +522,12 @@ export default function AdminDashboard() {
                         setScanStatus(`Generating Cover: ${book.title}...`);
                         const coverBlob = await generateCoverFromPdf(pdfBlob);
                         if (coverBlob) {
-                            const coverName = `covers/${book.fileId || Date.now()}.jpg`;
+                            const coverName = `covers/${book.fileId || 'v'}_${Date.now()}.jpg`;
                             const { data: cData, error: cError } = await supabase.storage
                                 .from('books')
                                 .upload(coverName, coverBlob, {
                                     contentType: 'image/jpeg',
-                                    upsert: true
+                                    upsert: false
                                 });
 
                             if (cData) {
@@ -344,12 +543,12 @@ export default function AdminDashboard() {
 
                     // 2. Upload PDF to Storage
                     if (pdfBlob) {
-                        const fileName = `${book.fileId || Date.now()}.pdf`;
+                        const fileName = `${book.fileId || 'v'}_${Date.now()}.pdf`;
                         const { data, error: uploadError } = await supabase.storage
                             .from('books')
                             .upload(fileName, pdfBlob, {
                                 contentType: 'application/pdf',
-                                upsert: true
+                                upsert: false
                             });
 
                         if (data && supabase) {
@@ -375,6 +574,8 @@ export default function AdminDashboard() {
                             subject: book.subject,
                             language: book.language,
                             coverUrl: finalCoverUrl
+                            // Omit 'questions' here to avoid Schema cache crash if SQL isn't run.
+                            // The Background Quiz Processor will sync it to Supabase later!
                         }, { onConflict: 'title,level,language,subject' }); // Match composite unique constraint
 
                     if (dbError) {
@@ -711,8 +912,9 @@ export default function AdminDashboard() {
                                 <option value="Marathi-English">Marathi-English</option>
                             </select>
 
-                            <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 flex items-center justify-center gap-2">
-                                <Plus className="w-4 h-4" /> Add Book
+                            <button type="submit" disabled={isGeneratingQuestions} className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                                {isGeneratingQuestions ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} 
+                                {isGeneratingQuestions ? "Generating Questions..." : "Add Book"}
                             </button>
                         </form>
                     </div>
@@ -739,12 +941,20 @@ export default function AdminDashboard() {
                                             </td>
                                             <td className="p-3 text-gray-500">{book.language}</td>
                                             <td className="p-3 text-right">
-                                                <button
-                                                    onClick={() => book.id && removeBook(book.id)}
-                                                    className="text-red-500 hover:text-red-700 p-1"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
+                                                <div className="flex justify-end gap-2">
+                                                    {(book.questions && book.questions.length > 0) && (
+                                                        <span title="Quiz Auto-Generated" className="p-1 text-green-500">
+                                                            <GraduationCap className="w-4 h-4" />
+                                                        </span>
+                                                    )}
+                                                    <button
+                                                        onClick={() => book.id && removeBook(book.id)}
+                                                        title="Delete Book"
+                                                        className="text-red-500 hover:text-red-700 p-1"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}

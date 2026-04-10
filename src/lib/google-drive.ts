@@ -48,8 +48,28 @@ export async function fetchDriveContents(folderId: string): Promise<DriveItem[]>
 export async function fetchDriveItem(fileId: string): Promise<DriveItem> {
     if (!API_KEY) throw new Error("API_KEY not defined");
     const url = `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,name,mimeType&key=${API_KEY}&supportsAllDrives=true`;
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Failed to fetch item ${fileId}`);
+    
+    let response;
+    try {
+        response = await fetch(url);
+    } catch (e: any) {
+        throw new Error(`Browser network request to Google Drive failed entirely! Check your Wi-Fi, disable ad-blockers/shields, or ensure you aren't offline. Raw Error: ${e.message}`);
+    }
+
+    if (!response.ok) {
+        let errorMsg = `Failed to fetch item ${fileId}`;
+        try {
+            const errorData = await response.json();
+            if (response.status === 404) {
+                errorMsg = `File not found (${fileId}). Please ensure the folder is shared as 'Anyone with the link can view' or check the ID.`;
+            } else {
+                errorMsg += `: ${errorData.error?.message || response.statusText}`;
+            }
+        } catch (e) {
+            errorMsg += `: ${response.statusText}`;
+        }
+        throw new Error(errorMsg);
+    }
     return await response.json();
 }
 
