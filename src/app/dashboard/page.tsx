@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useUser } from "@/hooks/useUser";
 import { supabase } from "@/lib/supabase";
 import { BookCard } from "@/components/book-card";
-import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import { useSync } from "@/hooks/useSync";
 import { useBooks } from "@/hooks/useBooks";
 import { useReadingHistory } from "@/hooks/useReadingHistory";
 import { getThumbnailUrl, extractFileId } from "@/lib/google-drive";
@@ -15,7 +15,7 @@ import { db } from "@/lib/db";
 
 export default function Dashboard() {
     const { user } = useUser();
-    const isOnline = useNetworkStatus();
+    const { isOnline } = useSync();
     const { books, syncLibrary } = useBooks();
     const { recentBooks } = useReadingHistory();
 
@@ -314,9 +314,6 @@ export default function Dashboard() {
                                 <Link href="/leaderboard" className="btn-dark text-sm py-3 px-6">
                                     View Leaderboard <ArrowRight className="h-4 w-4" />
                                 </Link>
-                                <span className="chip chip-gold text-xs">
-                                    <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />IMDb Style Reviews Live
-                                </span>
                             </div>
                         </div>
 

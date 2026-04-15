@@ -3,7 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { User, Lock, ArrowRight, ArrowLeft, Phone, Calendar, WifiOff, Sparkles, WandSparkles, Footprints } from "lucide-react";
+import { User, Lock, ArrowRight, ArrowLeft, Phone, Calendar, WifiOff, CheckCircle2 } from "lucide-react";
+import { AVATARS, getAvatarUrl } from "@/lib/avatar";
+import { AvatarStageImage } from "@/components/avatar-stage-image";
 import { db } from "@/lib/db";
 
 import { useSync } from "@/hooks/useSync";
@@ -27,6 +29,7 @@ export default function SignUpPage() {
         password: "",
         confirmPassword: ""
     });
+    const [selectedAvatarId, setSelectedAvatarId] = useState<string>("");
     const [error, setError] = useState("");
     const [isLoading, setIsLoading] = useState(false);
 
@@ -53,6 +56,11 @@ export default function SignUpPage() {
             return;
         }
 
+        if (!selectedAvatarId) {
+            setError("Please choose your avatar character.");
+            return;
+        }
+
         if (!formData.schoolId) {
             setError("Please select your school.");
             return;
@@ -72,6 +80,8 @@ export default function SignUpPage() {
 
             const finalSchoolName = formData.schoolId === "other" ? formData.customSchool : formData.school;
 
+            const initialAvatarUrl = getAvatarUrl(selectedAvatarId, 0);
+
             const userData = {
                 id,
                 name: formData.name,
@@ -84,7 +94,12 @@ export default function SignUpPage() {
                 role: 'student',
                 password: formData.password,
                 totalPoints: 0,
-                isVerified: false
+                isVerified: false,
+                // Avatar system
+                avatarBaseId:       selectedAvatarId,
+                currentAvatarStage: 0,
+                currentAvatarUrl:   initialAvatarUrl,
+                totalBooksRead:     0,
             };
 
             // 1. Save to Cloud (Supabase)
@@ -94,17 +109,21 @@ export default function SignUpPage() {
                         .from('users')
                         .insert([
                             {
-                                id: userData.id,
-                                name: userData.name,
-                                age: userData.age,
-                                mobile: userData.mobile,
-                                city: userData.city,
-                                school: userData.school,
-                                school_id: userData.schoolId,
-                                grade: userData.grade,
-                                role: userData.role,
-                                password: userData.password,
-                                totalPoints: 0
+                                id:                   userData.id,
+                                name:                 userData.name,
+                                age:                  userData.age,
+                                mobile:               userData.mobile,
+                                city:                 userData.city,
+                                school:               userData.school,
+                                school_id:            userData.schoolId,
+                                grade:                userData.grade,
+                                role:                 userData.role,
+                                password:             userData.password,
+                                totalPoints:          0,
+                                avatar_base_id:       userData.avatarBaseId,
+                                current_avatar_stage: 0,
+                                current_avatar_url:   userData.currentAvatarUrl,
+                                total_books_read:     0,
                             }
                         ]);
 
@@ -174,6 +193,7 @@ export default function SignUpPage() {
                                 Pick Your Hero Profile!
                             </h2>
                             <div className="mt-6 space-y-5">
+                                {/* ── Quest Map step tracker ── */}
                                 <div className="comic-card bg-[linear-gradient(180deg,#fff2ef_0%,#fff8f0_100%)] p-5">
                                     <p className="text-xl font-extrabold text-[#111111]">Quest Map: Step 2 of 3</p>
                                     <div className="mt-4 flex items-center justify-between gap-3">
@@ -194,20 +214,106 @@ export default function SignUpPage() {
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-3 gap-3">
-                                    <div className="comic-card flex flex-col items-center gap-3 bg-[#fff0ec] p-4 text-center">
-                                        <Sparkles className="h-8 w-8 text-[#db3125]" />
-                                        <p className="text-sm font-black uppercase">Dreamer</p>
-                                    </div>
-                                    <div className="comic-card flex flex-col items-center gap-3 bg-[#fff7da] p-4 text-center">
-                                        <WandSparkles className="h-8 w-8 text-[#db3125]" />
-                                        <p className="text-sm font-black uppercase">Wizard</p>
-                                    </div>
-                                    <div className="comic-card flex flex-col items-center gap-3 bg-[#edf8df] p-4 text-center">
-                                        <Footprints className="h-8 w-8 text-[#db3125]" />
-                                        <p className="text-sm font-black uppercase">Explorer</p>
-                                    </div>
+                                {/* ── Avatar Picker ── */}
+                                <p className="text-sm font-black uppercase tracking-widest text-[#db3125]">
+                                    Choose your companion — it evolves as you read!
+                                </p>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {AVATARS.map((avatar) => {
+                                        const isSelected = selectedAvatarId === avatar.id;
+                                        return (
+                                            <button
+                                                key={avatar.id}
+                                                type="button"
+                                                onClick={() => setSelectedAvatarId(avatar.id)}
+                                                className="comic-card relative overflow-hidden flex flex-col text-left transition-all hover:scale-[1.02] active:scale-[0.98]"
+                                                style={{
+                                                    border: isSelected ? `3px solid ${avatar.color}` : '3px solid #111',
+                                                    boxShadow: isSelected ? `0 6px 0 ${avatar.color}` : '0 4px 0 #111',
+                                                    padding: 0,
+                                                }}
+                                            >
+                                                {/* Selected checkmark */}
+                                                {isSelected && (
+                                                    <span className="absolute top-2 right-2 z-10 flex h-6 w-6 items-center justify-center rounded-full border-[2px] border-[#111] shadow"
+                                                        style={{ background: avatar.color }}>
+                                                        <CheckCircle2 className="h-4 w-4 text-white" />
+                                                    </span>
+                                                )}
+
+                                                {/* Evolution sheet banner — full 3-stage panorama */}
+                                                <div
+                                                    className="w-full"
+                                                    style={{
+                                                        height: 90,
+                                                        backgroundImage: `url(${avatar.sheetUrl})`,
+                                                        backgroundSize: 'cover',
+                                                        backgroundPosition: 'center',
+                                                        backgroundRepeat: 'no-repeat',
+                                                        backgroundColor: avatar.bgColor,
+                                                    }}
+                                                />
+
+                                                {/* Label row */}
+                                                <div className="flex items-center gap-2 px-3 py-2"
+                                                    style={{ backgroundColor: isSelected ? avatar.bgColor : '#fafafa' }}>
+                                                    {/* Stage 0 avatar thumbnail */}
+                                                    <AvatarStageImage
+                                                        avatarBaseId={avatar.id}
+                                                        stage={0}
+                                                        size={36}
+                                                        style={{ border: `2px solid ${avatar.color}` }}
+                                                    />
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-black uppercase leading-none"
+                                                            style={{ color: isSelected ? avatar.color : '#111' }}>
+                                                            {avatar.name}
+                                                        </p>
+                                                        <p className="mt-0.5 text-[10px] font-bold text-[#777] leading-tight truncate">
+                                                            {avatar.description}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
                                 </div>
+
+                                {/* ── Evolution path for selected avatar ── */}
+                                {selectedAvatarId && (() => {
+                                    const av = AVATARS.find(a => a.id === selectedAvatarId)!;
+                                    const milestones = ['Start', '50 books', '120 books', '200 books'];
+                                    return (
+                                        <div className="comic-card overflow-hidden" style={{ border: `3px solid ${av.color}` }}>
+                                            <div className="px-4 py-2" style={{ backgroundColor: av.color }}>
+                                                <p className="text-xs font-black uppercase tracking-widest text-white">
+                                                    {av.name} Evolution Path
+                                                </p>
+                                            </div>
+                                            <div className="flex items-stretch divide-x-[2px] divide-[#eee]"
+                                                style={{ backgroundColor: av.bgColor }}>
+                                                {av.stageNames.map((stageName, i) => (
+                                                    <div key={i} className="flex flex-1 flex-col items-center gap-1.5 px-1 py-3">
+                                                        <AvatarStageImage
+                                                            avatarBaseId={av.id}
+                                                            stage={i}
+                                                            size={44}
+                                                            style={{
+                                                                border: `2px solid ${i === 0 ? av.color : '#ddd'}`,
+                                                                opacity: i === 0 ? 1 : 0.75,
+                                                            }}
+                                                        />
+                                                        <p className="text-[9px] font-black text-center leading-tight"
+                                                            style={{ color: i === 0 ? av.color : '#555' }}>
+                                                            {stageName}
+                                                        </p>
+                                                        <p className="text-[8px] text-[#999] font-bold">{milestones[i]}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         </div>
                     </section>

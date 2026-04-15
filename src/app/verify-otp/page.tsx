@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Smartphone, ArrowRight, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { db } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 
-export default function VerifyOtpPage() {
+function VerifyOtpContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const mode = searchParams.get("mode") || "signup"; // signup or reset
@@ -191,5 +191,13 @@ export default function VerifyOtpPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function VerifyOtpPage() {
+    return (
+        <Suspense fallback={null}>
+            <VerifyOtpContent />
+        </Suspense>
     );
 }

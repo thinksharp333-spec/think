@@ -1,21 +1,25 @@
 {
-  "name": "EcoLearn Adaptive",
-  "short_name": "EcoLearn",
+  "name": "ThinkSharp Digital Library",
+  "short_name": "BookQuest",
+  "description": "Gamified reading & adaptive learning for students",
   "icons": [
     {
       "src": "/icon-192x192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "/icon-512x512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ],
-  "theme_color": "#000000",
-  "background_color": "#ffffff",
+  "theme_color": "#d9342a",
+  "background_color": "#2e2e2e",
   "start_url": "/",
   "display": "standalone",
-  "orientation": "portrait"
+  "orientation": "portrait",
+  "categories": ["education", "books"]
 }

@@ -16,6 +16,11 @@ interface User {
     totalPoints: number;
     booksRead?: number;
     lastLogin?: number;
+    // ── Avatar system ──────────────────────────────────────────
+    avatarBaseId?: string;       // Character lineage: "dreamer" | "wizard" | "explorer"
+    currentAvatarStage?: number; // 0 = Starter, 1 = 50 books, 2 = 120 books, 3 = Final
+    currentAvatarUrl?: string;   // e.g. /avatars/dreamer_v0.png
+    totalBooksRead?: number;     // Count of fully-completed books
 }
 
 interface ReadingSession {
@@ -43,6 +48,9 @@ interface Book {
     questions?: any[]; // Generated questions from LLM
     avgRating?: number; // Cached average rating
     reviewCount?: number; // Cached total feedback count
+    // ── Quiz text cache ──────────────────────────────────────────
+    extractedText?: string; // Cached PDF text — avoids re-fetching PDF for quiz generation
+    extractedWordCount?: number; // Word count of extractedText
 }
 
 interface BookReview {
@@ -55,11 +63,23 @@ interface BookReview {
     synced: 0 | 1;
 }
 
+interface QuizAttempt {
+    id?: number;
+    bookId: number;
+    userId: string;
+    score: number;
+    totalQuestions: number;
+    answers: { questionIndex: number; selected: string; correct: boolean }[];
+    completedAt: number;
+    synced: 0 | 1;
+}
+
 interface SyncTask {
     id?: number;
-    type: 'UPDATE_POINTS' | 'READ_LOG' | 'SUBMIT_REVIEW';
+    type: 'UPDATE_POINTS' | 'READ_LOG' | 'SUBMIT_REVIEW' | 'SUBMIT_QUIZ' | 'BOOK_QUIZ';
     payload: any;
     createdAt: number;
+    retryCount?: number; // GAP-03: max 3 attempts before task is dropped
 }
 
 const db = new Dexie('AdaptivePlatformDB') as Dexie & {
@@ -68,15 +88,64 @@ const db = new Dexie('AdaptivePlatformDB') as Dexie & {
     syncQueue: EntityTable<SyncTask, 'id'>;
     books: EntityTable<Book, 'id'>;
     bookReviews: EntityTable<BookReview, 'id'>;
+    quizAttempts: EntityTable<QuizAttempt, 'id'>;
 };
 
-// Schema definition
-db.version(8).stores({ // Incremented version to apply changes
-    users: 'id, name, mobile, isVerified, schoolId, totalPoints, grade, role, booksRead',
+// Schema definition — version 9 is the baseline (no structural change for v10, retryCount is a non-indexed field)
+db.version(9).stores({
+    users: 'id, name, mobile, isVerified, schoolId, totalPoints, grade, role',
+
     readings: '++id, bookId, synced, startTime',
     syncQueue: '++id, type, createdAt',
     books: '++id, title, grade, level, subject, language',
     bookReviews: '++id, bookId, userId, synced, createdAt'
+});
+
+// GAP-04: v10 migration — seeds retryCount:0 on any existing orphaned sync tasks
+db.version(10).stores({
+    users: 'id, name, mobile, isVerified, schoolId, totalPoints, grade, role',
+    readings: '++id, bookId, synced, startTime',
+    syncQueue: '++id, type, createdAt',
+    books: '++id, title, grade, level, subject, language',
+    bookReviews: '++id, bookId, userId, synced, createdAt'
+}).upgrade(async tx => {
+    await tx.table('syncQueue').toCollection().modify(task => {
+        if (task.retryCount === undefined) task.retryCount = 0;
+    });
+});
+
+// v11 migration — adds avatar fields to users (non-indexed, no structural change needed)
+db.version(11).stores({
+    users: 'id, name, mobile, isVerified, schoolId, totalPoints, grade, role',
+    readings: '++id, bookId, synced, startTime',
+    syncQueue: '++id, type, createdAt',
+    books: '++id, title, grade, level, subject, language',
+    bookReviews: '++id, bookId, userId, synced, createdAt'
+}).upgrade(async tx => {
+    await tx.table('users').toCollection().modify(user => {
+        if (user.totalBooksRead === undefined) user.totalBooksRead = 0;
+        if (user.currentAvatarStage === undefined) user.currentAvatarStage = 0;
+    });
+});
+
+// v12 migration — adds quizAttempts table for offline quiz score storage
+db.version(12).stores({
+    users: 'id, name, mobile, isVerified, schoolId, totalPoints, grade, role',
+    readings: '++id, bookId, synced, startTime',
+    syncQueue: '++id, type, createdAt',
+    books: '++id, title, grade, level, subject, language',
+    bookReviews: '++id, bookId, userId, synced, createdAt',
+    quizAttempts: '++id, bookId, userId, synced, completedAt'
+});
+
+// v13 migration — adds extractedText + extractedWordCount fields to books (non-indexed)
+db.version(13).stores({
+    users: 'id, name, mobile, isVerified, schoolId, totalPoints, grade, role',
+    readings: '++id, bookId, synced, startTime',
+    syncQueue: '++id, type, createdAt',
+    books: '++id, title, grade, level, subject, language',
+    bookReviews: '++id, bookId, userId, synced, createdAt',
+    quizAttempts: '++id, bookId, userId, synced, completedAt'
 });
 
 // Seed default user
@@ -96,7 +165,7 @@ db.on('populate', async () => {
 });
 
 export { db };
-export type { User, ReadingSession, SyncTask, Book, BookReview };
+export type { User, ReadingSession, SyncTask, Book, BookReview, QuizAttempt };
 
 /**
  * Utility to generate a consistent key for syncing books between local and server

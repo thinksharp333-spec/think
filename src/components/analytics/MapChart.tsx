@@ -38,8 +38,8 @@ export function MapChart({ data }: MapChartProps) {
                 className="w-full h-full"
             >
                 <Geographies geography={MAHARASHTRA_TOPO_JSON}>
-                    {({ geographies }) =>
-                        geographies.map((geo) => {
+                    {({ geographies }: { geographies: any[] }) =>
+                        geographies.map((geo: any) => {
                             // TopoJSON properties usually have NAME property
                             const districtName = geo.properties?.NAME || geo.properties?.name || "Unknown";
                             const value = data[districtName] || 0;

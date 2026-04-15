@@ -1,63 +1,50 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { db } from '@/lib/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { supabase } from '@/lib/supabase';
 import { getBookRatingStats } from '@/lib/book-ratings';
 
-export function useSync() {
-    const getErrorDetails = (error: unknown) => error as {
-        code?: string;
-        status?: number;
-        message?: string;
-    };
+const MAX_TASK_RETRIES = 3;
 
+// IDs that must never be synced to Supabase
+const GUEST_IDS = ['local-user', 'local-admin', 'local_user', 'undefined', 'null'];
+
+type ErrorDetails = { code?: string; status?: number; message?: string };
+
+function getErrorDetails(error: unknown): ErrorDetails {
+    return error as ErrorDetails;
+}
+
+export function useSync() {
     const [isOnline, setIsOnline] = useState(true);
     const [isSyncing, setIsSyncing] = useState(false);
+    // Ref-based mutex prevents double-sync when state updates are batched
+    const isSyncingRef = useRef(false);
     const syncQueueCount = useLiveQuery(() => db.syncQueue.count()) || 0;
 
-    useEffect(() => {
-        // Check initial status
-        setIsOnline(navigator.onLine);
-
-        const handleOnline = () => {
-            setIsOnline(true);
-            attemptSync(); // Auto-sync when coming online
-        };
-        const handleOffline = () => setIsOnline(false);
-
-        window.addEventListener('online', handleOnline);
-        window.addEventListener('offline', handleOffline);
-
-        return () => {
-            window.removeEventListener('online', handleOnline);
-            window.removeEventListener('offline', handleOffline);
-        };
-    }, []);
-
-    // Auto-sync whenever the queue count increases
-    useEffect(() => {
-        if (syncQueueCount > 0 && isOnline && !isSyncing) {
-            console.log(`[Sync] Queue changed (${syncQueueCount}), triggering auto-sync...`);
-            attemptSync();
-        }
-    }, [syncQueueCount, isOnline]);
+    // attemptSync is stable via ref so event listeners never capture a stale copy
+    const attemptSyncRef = useRef<(() => Promise<void>) | undefined>(undefined);
 
     const attemptSync = async () => {
-        console.log(`[Sync] Attempting sync. Online: ${navigator.onLine}, Queue: ${syncQueueCount}, Syncing: ${isSyncing}`);
-        if (!navigator.onLine || syncQueueCount === 0) return;
+        if (!navigator.onLine || isSyncingRef.current) return;
 
+        isSyncingRef.current = true;
         setIsSyncing(true);
         try {
             const pendingTasks = await db.syncQueue.toArray();
-            console.log(`[Sync] Found ${pendingTasks.length} pending tasks`);
+            if (pendingTasks.length === 0) return;
 
-            // Process tasks sequentially
             for (const task of pendingTasks) {
-                console.log(`[Sync] Processing task ${task.id}`, task);
+                // GAP-03: Drop tasks that have exceeded the retry budget
+                if ((task.retryCount ?? 0) >= MAX_TASK_RETRIES) {
+                    console.warn(`[Sync] Task ${task.id} (${task.type}) exceeded ${MAX_TASK_RETRIES} retries. Dropping.`);
+                    if (task.id) await db.syncQueue.delete(task.id);
+                    continue;
+                }
+
                 try {
                     if (!supabase) throw new Error("Supabase client not initialized");
 
-                    // CRITICAL: Ensure payload exists
                     if (!task.payload) {
                         console.warn(`[Sync] Task ${task.id} has no payload, deleting.`);
                         if (task.id) await db.syncQueue.delete(task.id);
@@ -65,11 +52,8 @@ export function useSync() {
                     }
 
                     if (task.type === 'READ_LOG') {
-                        // Guest and Admin sessions cannot be synced to Supabase
                         const userId = task.payload?.userId;
-                        const skipIds = ['local-user', 'local-admin', 'local_user', 'undefined', 'null'];
-                        if (!userId || skipIds.includes(String(userId))) {
-                            console.log(`[Sync] Skipping/Cleaning remote log for ${userId || 'unknown user'}`);
+                        if (!userId || GUEST_IDS.includes(String(userId))) {
                             if (task.id) await db.syncQueue.delete(task.id);
                             continue;
                         }
@@ -85,25 +69,78 @@ export function useSync() {
                                 duration_seconds: task.payload?.duration || 0,
                                 pages_read: task.payload?.pagesRead || 0,
                                 points_earned: task.payload?.pointsEarned || 0,
+                                completed: task.payload?.completed || false,
                             }]);
 
                         if (error) throw error;
                     }
                     else if (task.type === 'UPDATE_POINTS') {
-                        // Payload should contain { userId, totalPoints, booksRead }
-                        const { userId, totalPoints, booksRead } = task.payload;
+                        const userId = task.payload?.userId;
+                        if (!userId || GUEST_IDS.includes(String(userId))) {
+                            if (task.id) await db.syncQueue.delete(task.id);
+                            continue;
+                        }
 
-                        const updateData: any = { "totalPoints": totalPoints };
-                        if (booksRead !== undefined) {
-                            updateData.books_read = booksRead;
+                        // BUG-06 FIX: Use pointsDelta (additive) instead of totalPoints (absolute).
+                        // Legacy tasks may still have totalPoints — handle both during transition.
+                        if (task.payload?.pointsDelta !== undefined) {
+                            const delta = task.payload.pointsDelta as number;
+
+                            // Fetch current value from Supabase, then increment by delta.
+                            // This is safe for sequential sync and avoids last-write-wins.
+                            const { data: userData, error: fetchError } = await supabase
+                                .from('users')
+                                .select('"totalPoints"')
+                                .eq('id', userId)
+                                .single();
+
+                            if (fetchError) throw fetchError;
+
+                            const currentPoints = (userData as any)?.totalPoints ?? 0;
+                            const { error } = await supabase
+                                .from('users')
+                                .update({ "totalPoints": currentPoints + delta })
+                                .eq('id', userId);
+
+                            if (error) throw error;
+                        } else {
+                            // Legacy absolute totalPoints path (backwards compat)
+                            const totalPoints = task.payload?.totalPoints ?? 0;
+                            const { error } = await supabase
+                                .from('users')
+                                .update({ "totalPoints": totalPoints })
+                                .eq('id', userId);
+
+                            if (error) throw error;
+                        }
+                    }
+                    else if (task.type === 'SUBMIT_QUIZ') {
+                        const { bookId, userId, score, totalQuestions, answers, completedAt, localAttemptId } = task.payload;
+
+                        const sanitizedUserId = String(userId || 'guest-user');
+                        if (GUEST_IDS.includes(sanitizedUserId)) {
+                            if (task.id) await db.syncQueue.delete(task.id);
+                            continue;
                         }
 
                         const { error } = await supabase
-                            .from('users')
-                            .update(updateData)
-                            .eq('id', userId);
+                            .from('quiz_attempts')
+                            .insert([{
+                                book_id: String(bookId),
+                                user_id: sanitizedUserId,
+                                score,
+                                total_questions: totalQuestions,
+                                answers: answers || [],
+                                completed_at: new Date(completedAt).toISOString(),
+                            }]);
+
 
                         if (error) throw error;
+
+                        // Mark local attempt as synced
+                        if (localAttemptId) {
+                            await db.quizAttempts.update(localAttemptId, { synced: 1 });
+                        }
                     }
                     else if (task.type === 'SUBMIT_REVIEW') {
                         const { bookId, userId, rating, reviewText, originalReviewId } = task.payload;
@@ -117,10 +154,8 @@ export function useSync() {
                             continue;
                         }
 
-                        console.log(`[Sync] Attempting Review Sync:`, { book_id: bIdNum, user_id: sanitizedUserId, rating });
+                        const { error } = await supabase
 
-                        // Upsert logic for distinct user reviews
-                        const { data: upsertData, error } = await supabase
                             .from('book_reviews')
                             .upsert([{
                                 book_id: bIdNum,
@@ -130,10 +165,9 @@ export function useSync() {
                             }], { onConflict: 'book_id,user_id' });
 
                         if (error) {
-                            console.error(`[Sync] Review Upsert FAILED:`, JSON.stringify(error, null, 2));
+                            console.error(`[Sync] Review upsert failed:`, JSON.stringify(error, null, 2));
                             throw error;
                         }
-                        console.log(`[Sync] Review Upsert SUCCESS:`, upsertData);
 
                         const { data: syncedReviews, error: reviewsError } = await supabase
                             .from('book_reviews')
@@ -169,60 +203,88 @@ export function useSync() {
                             await db.bookReviews.update(originalReviewId, { synced: 1 });
                         }
                     }
+                    else if (task.type === 'BOOK_QUIZ') {
+                        const { bookId, questions } = task.payload;
+                        const { error } = await supabase
+                            .from('books')
+                            .update({ questions })
+                            .eq('id', bookId);
+                        if (error) throw error;
+                    }
 
-                    // Remove from queue on success
+                    // Success — remove from queue
                     if (task.id) await db.syncQueue.delete(task.id);
-
-                    console.log(`[Sync] Successfully synced task ${task.id}`);
 
                 } catch (err: unknown) {
                     const error = getErrorDetails(err);
                     const errorCode = error?.code;
 
-                    // Special Handling for Foreign Key Violations (23503)
-                    // This happens if the User ID or Book ID doesn't exist in Supabase yet.
+                    // Foreign key violation — missing user or book in Supabase. Drop permanently.
                     if (errorCode === '23503') {
                         const errorMsg = error?.message || "";
                         const missingType = errorMsg.includes('book_id') ? 'Book' : 'User';
                         const missingId = missingType === 'Book' ? task.payload?.bookId : task.payload?.userId;
-
-                        console.warn(`[Sync] Permanent Failure (FK) on Task ${task.id}: Missing ${missingType} (${missingId}). Deleting.`);
+                        console.warn(`[Sync] Permanent FK failure on task ${task.id}: Missing ${missingType} (${missingId}). Deleting.`);
                         if (task.id) await db.syncQueue.delete(task.id);
                         continue;
                     }
 
-                    // If it's a "Table not found" or "Schema cache" error (PGRST205),
-                    // or any other 4xx error (not 429), it might be a permanent configuration issue or it might resolve.
-                    // However, we shouldn't discard the user's data (like reviews) if it's a server-side cache issue.
-
-                    const isPermanentError = ["PGRST204", "42P01"].includes(errorCode); // Table not found or missing
+                    // Schema/table error — stop all sync until fixed server-side
+                    const isPermanentError = ["PGRST204", "42P01"].includes(errorCode ?? "");
 
                     if (isPermanentError) {
-                        console.error(`[Sync] CRITICAL: Database schema issue. Task ${task.id} remains in queue. Run 'NOTIFY pgrst, reload schema' in Supabase.`);
-                        setIsSyncing(false); // Stop sync loop
-                        return; // STOP the entire sync process until fixed
+                        console.error(`[Sync] CRITICAL: Database schema issue on task ${task.id}. Run 'NOTIFY pgrst, reload schema' in Supabase.`);
+                        return;
                     }
 
-                    const errorInfo = {
-                        message: error?.message || String(err) || "Unknown error",
-                        code: errorCode || "No code",
-                        taskType: task.type,
-                    };
-
-                    console.error(`[Sync] Task ${task.id} Failed:`, errorInfo);
-
-                    // If it's NOT a constraint error, we stop and wait for next attempt instead of deleting.
-                    // This ensures we dont LOSE data like user reviews if the server is just down.
-                    setIsSyncing(false);
-                    return; // Exit the loop entirely to retry later
+                    // GAP-03 FIX: Transient error — increment retry count and continue.
+                    // Don't block the rest of the queue for one failing task.
+                    const newRetryCount = (task.retryCount ?? 0) + 1;
+                    console.warn(`[Sync] Task ${task.id} (${task.type}) failed — attempt ${newRetryCount}/${MAX_TASK_RETRIES}.`, {
+                        message: error?.message || String(err),
+                        code: errorCode,
+                    });
+                    if (task.id) {
+                        await db.syncQueue.update(task.id, { retryCount: newRetryCount } as any);
+                    }
+                    // Continue to next task instead of returning
                 }
             }
         } catch (error) {
             console.error("[Sync] Sync failed:", error);
         } finally {
+            isSyncingRef.current = false;
             setIsSyncing(false);
         }
     };
+
+    attemptSyncRef.current = attemptSync;
+
+    useEffect(() => {
+        setIsOnline(navigator.onLine);
+
+        const handleOnline = () => {
+            setIsOnline(true);
+            attemptSyncRef.current?.();
+        };
+        const handleOffline = () => setIsOnline(false);
+
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
+
+    // Auto-sync whenever the queue grows while online
+    useEffect(() => {
+        if (syncQueueCount > 0 && isOnline && !isSyncingRef.current) {
+            attemptSync();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [syncQueueCount, isOnline]);
 
     return { isOnline, isSyncing, syncQueueCount, attemptSync };
 }

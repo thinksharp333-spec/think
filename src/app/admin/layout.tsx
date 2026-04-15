@@ -3,7 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { LayoutDashboard, BookOpen, LogOut, Loader2 } from "lucide-react";
+import {
+    LayoutDashboard,
+    BookOpen,
+    LogOut,
+    Loader2,
+    BarChart3,
+    ChevronRight,
+} from "lucide-react";
 
 export default function AdminLayout({
     children,
@@ -19,29 +26,19 @@ export default function AdminLayout({
 
     useEffect(() => {
         if (isLoginPage) {
-            console.log("[AdminLayout] On login page, skipping check.");
             setChecking(false);
             return;
         }
 
-        // Double check session in client side
         const cookieStr = document.cookie;
         const adminSession = cookieStr
             .split("; ")
             .find((row) => row.startsWith("admin_session="))
             ?.split("=")[1];
 
-        console.log("[AdminLayout] Cookie check:", {
-            hasCookie: !!adminSession,
-            val: adminSession,
-            allCookies: cookieStr
-        });
-
         if (!adminSession || adminSession !== "true") {
-            console.log("[AdminLayout] Not authorized, redirecting...");
             router.replace("/admin/login");
         } else {
-            console.log("[AdminLayout] Authorized.");
             setIsAuthorized(true);
         }
         setChecking(false);
@@ -49,13 +46,12 @@ export default function AdminLayout({
 
     if (checking) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            <div className="min-h-screen flex items-center justify-center bg-[#f7f8fa]">
+                <Loader2 className="w-5 h-5 animate-spin text-zinc-400" />
             </div>
         );
     }
 
-    // If it's the login page, just render it without the sidebar layout
     if (isLoginPage) {
         return <>{children}</>;
     }
@@ -65,30 +61,66 @@ export default function AdminLayout({
         router.replace("/admin/login");
     };
 
-    return (
-        <div className="flex min-h-screen bg-gray-100">
-            <aside className="w-64 bg-slate-900 text-white min-h-screen p-4 flex flex-col">
-                <h1 className="text-xl font-bold mb-8 flex items-center gap-2">
-                    <LayoutDashboard className="w-6 h-6" />
-                    Admin Panel
-                </h1>
+    const navItems = [
+        { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+        { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+    ];
 
-                <nav className="flex-1 space-y-2">
-                    <Link href="/admin" className="flex items-center gap-3 px-4 py-2 bg-slate-800 rounded-lg hover:bg-slate-700 transition-colors">
-                        <BookOpen className="w-5 h-5" />
-                        <span>Dashboard</span>
-                    </Link>
+    return (
+        <div className="flex min-h-screen bg-[#f7f8fa]" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
+            {/* Sidebar */}
+            <aside className="w-56 bg-white border-r border-zinc-100 min-h-screen flex flex-col shrink-0">
+                {/* Logo */}
+                <div className="px-5 py-5 border-b border-zinc-100">
+                    <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 bg-zinc-900 rounded-lg flex items-center justify-center">
+                            <BookOpen className="w-3.5 h-3.5 text-white" />
+                        </div>
+                        <div>
+                            <p className="text-xs font-semibold text-zinc-900 leading-none">ThinkSharp</p>
+                            <p className="text-[10px] text-zinc-400 mt-0.5">Admin Console</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Nav */}
+                <nav className="flex-1 px-3 py-4 space-y-0.5">
+                    {navItems.map(({ href, label, icon: Icon }) => {
+                        const isActive = pathname === href || (href !== "/admin" && pathname.startsWith(href));
+                        return (
+                            <Link
+                                key={href}
+                                href={href}
+                                className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors group ${
+                                    isActive
+                                        ? "bg-zinc-100 text-zinc-900 font-medium"
+                                        : "text-zinc-500 hover:text-zinc-800 hover:bg-zinc-50"
+                                }`}
+                            >
+                                <Icon className="w-4 h-4 shrink-0" />
+                                <span>{label}</span>
+                                {isActive && (
+                                    <ChevronRight className="w-3 h-3 ml-auto text-zinc-400" />
+                                )}
+                            </Link>
+                        );
+                    })}
                 </nav>
 
-                <button
-                    onClick={handleLogout}
-                    className="mt-auto flex items-center gap-2 px-4 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
-                >
-                    <LogOut className="w-5 h-5" />
-                    <span>Logout Admin</span>
-                </button>
+                {/* Logout */}
+                <div className="px-3 py-4 border-t border-zinc-100">
+                    <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-zinc-400 hover:text-zinc-700 hover:bg-zinc-50 rounded-md transition-colors"
+                    >
+                        <LogOut className="w-4 h-4" />
+                        <span>Sign out</span>
+                    </button>
+                </div>
             </aside>
-            <main className="flex-1 p-8 overflow-y-auto">
+
+            {/* Main content */}
+            <main className="flex-1 overflow-y-auto">
                 {children}
             </main>
         </div>

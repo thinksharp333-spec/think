@@ -19,7 +19,7 @@ export function SchoolReportTab() {
     // Search Schools
     useEffect(() => {
         async function searchSchools() {
-            if (!searchTerm || searchTerm.length < 3) return;
+            if (!searchTerm || searchTerm.length < 3 || !supabase) return;
             const { data } = await supabase
                 .from('schools')
                 .select('*')
@@ -35,7 +35,7 @@ export function SchoolReportTab() {
 
     useEffect(() => {
         async function fetchSchoolDetails() {
-            if (!selectedSchool) return;
+            if (!selectedSchool || !supabase) return;
             setLoading(true);
             try {
                 // 1. Basic Stats (Total Students, Active)

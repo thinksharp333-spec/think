@@ -1,106 +1,112 @@
 import { NextResponse } from 'next/server';
 
+function getQuestionCount(wordCount: number, pages: number): number {
+    if (wordCount > 0) {
+        if (wordCount >= 3000) return 10;
+        if (wordCount >= 1500) return 8;
+        if (wordCount >= 800)  return 7;
+        if (wordCount >= 300)  return 5;
+        return 3;
+    }
+    if (pages >= 50) return 10;
+    if (pages >= 20) return 7;
+    return 5;
+}
+
+function parseAndValidateQuestions(raw: string): any[] {
+    try {
+        const clean = raw.replace(/```json/g, '').replace(/```/g, '').trim();
+        const parsed = JSON.parse(clean);
+        return (Array.isArray(parsed) ? parsed : []).filter((q: any) =>
+            q &&
+            typeof q.question === 'string' &&
+            Array.isArray(q.options) &&
+            q.options.length === 4 &&
+            typeof q.correctAnswer === 'string' &&
+            q.options.includes(q.correctAnswer)
+        );
+    } catch {
+        return [];
+    }
+}
+
 export async function POST(req: Request) {
     try {
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) {
-            return NextResponse.json({ error: "GEMINI_API_KEY is missing in environment variables" }, { status: 500 });
+            return NextResponse.json({ error: "GEMINI_API_KEY is missing" }, { status: 500 });
         }
 
-        const { text, pages, title, grade, level, subject } = await req.json();
+        const { text, pages, title, grade, level, subject, wordCount } = await req.json();
 
-        // Determine question count based on book pages
-        let count = 5;
-        if (pages >= 50) count = 10;
-        else if (pages >= 20) count = 7;
+        const count = getQuestionCount(wordCount || 0, pages || 10);
 
-        let promptText = text;
-        if (!promptText || promptText.length < 50) {
-            // Fallback if PDF text extraction fails or text is too short
-            promptText = `This book is titled "${title}". It is a ${subject} book.`;
+        let promptText = (text || "").trim();
+        if (promptText.length < 80) {
+            promptText = `Book title: "${title}". Subject: ${subject}. Grade: ${grade}. Level: ${level}. (Full text could not be extracted.)`;
+        }
+        if (promptText.length > 12000) {
+            const third = Math.floor(12000 / 3);
+            const mid = Math.floor(promptText.length / 2);
+            promptText =
+                promptText.slice(0, third) +
+                " ... " +
+                promptText.slice(mid - Math.floor(third / 2), mid + Math.floor(third / 2)) +
+                " ... " +
+                promptText.slice(-third);
         }
 
-        // Limit extracted text to roughly 5000 characters to save tokens/context limit
-        if (promptText.length > 5000) {
-            promptText = promptText.substring(0, 5000);
-        }
+        const systemPrompt = `You are an expert educational quiz author creating reading comprehension questions for Indian school students.
 
-        const systemPrompt = `You are an educational assistant that generates high-quality reading comprehension questions for students.
-You must return only a valid JSON array of objects, with no markdown formatting or extra text.
-Each object must have exactly three keys: "question" (string), "options" (an array of 4 distinct strings where one is the correct answer), and "correctAnswer" (string exactly matching one of the options).`;
+RULES:
+- Generate ONLY a valid JSON array — no markdown, no extra text, no code fences.
+- Each element must have exactly three keys:
+    "question"     – a clear, specific question about the actual content of the text
+    "options"      – an array of exactly 4 distinct answer strings
+    "correctAnswer"– a string that exactly matches one element of "options"
+- Questions must be grounded in the actual text provided, not generic.
+- Options must be plausible and varied (no obviously wrong distractors).
+- Difficulty should match Grade ${grade}, Level ${level}.
+- Do NOT generate meta-questions like "What is the title?" or "How many pages?".`;
 
-        const userPrompt = `Generate exactly ${count} reading comprehension questions based on the text below. 
-The questions should be appropriate for a student in ${grade} reading a level ${level} ${subject} book.
-Return ONLY the raw JSON array.
+        const userPrompt = `Generate exactly ${count} reading comprehension questions based on the following text excerpt from the book "${title}" (${subject}, ${grade}, Level ${level}).
 
 Text:
-${promptText}`;
+${promptText}
 
-        const requestBody = {
-            contents: [{ parts: [{ text: userPrompt }] }],
-            systemInstruction: { parts: [{ text: systemPrompt }] },
-            generationConfig: {
-                responseMimeType: "application/json",
-                temperature: 0.3
+Return ONLY the raw JSON array, starting with [ and ending with ].`;
+
+        const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: userPrompt }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        temperature: 0.4,
+                        topP: 0.9,
+                    }
+                })
             }
-        };
-
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(requestBody)
-        });
+        );
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error("Gemini Error:", errorText);
-            
-            if (response.status === 429) {
-                console.warn("Gemini Quota Exhausted! Falling back to Mock Quiz for UI Demonstration!");
-                const mockQuestions = [
-                    {
-                        question: `What is the primary topic discussed in the book "${title}"?`,
-                        options: [subject, "Mathematics", "Physical Education", "Music"],
-                        correctAnswer: subject
-                    },
-                    {
-                        question: "How many pages does this section cover?",
-                        options: ["5 pages", `${pages} pages`, "15 pages", "20 pages"],
-                        correctAnswer: `${pages} pages`
-                    },
-                    {
-                        question: "What level of difficulty is this book designed for?",
-                        options: ["Beginner", `Level ${level}`, "Advanced", "Expert"],
-                        correctAnswer: `Level ${level}`
-                    }
-                ];
-                return NextResponse.json({ questions: mockQuestions, raw: "mock" });
-            }
-
-            return NextResponse.json({ error: "Failed to generate questions from Gemini" }, { status: response.status });
+            console.error("[Quiz] Gemini error:", response.status, errorText.slice(0, 300));
+            return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
         }
 
         const result = await response.json();
-        const content = result.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
-        
-        let questions = [];
-        let cleanContent = "";
-        try {
-            // Sometimes the LLM returns wrapped in markdown like ```json ... ```
-            cleanContent = content.replace(/```json/g, '').replace(/```/g, '').trim();
-            questions = JSON.parse(cleanContent);
-        } catch (e) {
-            console.error("Failed to parse questions JSON:", content);
-            // Fallback empty array
-            questions = [];
-        }
+        const raw = result.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
+        const questions = parseAndValidateQuestions(raw);
 
-        return NextResponse.json({ questions, raw: content });
+        return NextResponse.json({ questions, wordCount: wordCount || 0, provider: 'gemini' });
 
     } catch (error: any) {
-        console.error("Generate questions API Error:", error);
+        console.error("Generate questions error:", error);
         return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
     }
 }

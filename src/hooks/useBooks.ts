@@ -12,7 +12,6 @@ export function useBooks() {
 
         try {
             syncingRef.current = true;
-            console.log("[Sync] Starting library synchronization...");
 
             const { data, error } = await supabase
                 .from('books')
@@ -20,30 +19,25 @@ export function useBooks() {
 
             if (error) throw error;
             if (data) {
-                console.log(`[Sync] Found ${data.length} books on server. Samples:`, data.slice(0, 2).map(b => ({ title: b.title, rating: b.avg_rating })));
-
-                const serverKeys = new Set(data.map(getSyncKey));
                 let localBooks = await db.books.toArray();
 
-                // 1. CLEAR ORPHANS: If we have books that don't match server IDs, wipe and re-sync once
-                // This fix ensures local ID 1, 2, 3 matches Supabase ID 1, 2, 3
+                // Clear orphans: if local IDs don't match server IDs, wipe and re-sync
+                // This ensures local ID 1, 2, 3 always matches Supabase ID 1, 2, 3
                 const serverIds = new Set(data.map(b => b.id));
                 const orphans = localBooks.filter(lb => !serverIds.has(lb.id));
                 if (orphans.length > 0) {
-                    console.log("[Sync] Detected ID mismatch/orphans. Clearing local library for clean re-sync.");
                     await db.books.clear();
-                    // Refetch localBooks as it's now empty
                     localBooks = [];
                 }
 
-                // 2. Add or Update books from server
+                // Add or update books from server
                 for (const book of data) {
                     const sKey = getSyncKey(book);
 
-                    // VERY IMPORTANT: Use the server's 'id' as the local 'id'
-                    // This ensures that reviews and reading logs link to the correct row in Supabase
+                    // Use the server's 'id' as the local 'id' — the unifier between local and remote
+
                     const bookData = {
-                        id: book.id, // THE UNIFIER
+                        id: book.id,
                         title: book.title,
                         fileId: book.fileId,
                         grade: book.grade,
@@ -55,23 +49,36 @@ export function useBooks() {
                         coverUrl: book.coverUrl,
                         avgRating: book.avg_rating || 0,
                         reviewCount: book.review_count || 0,
-                        questions: (book.questions && book.questions.length > 0)
-                            ? book.questions
-                            : (localBooks.find(lb => getSyncKey(lb) === sKey)?.questions || [])
+                        // Merge questions: prefer whichever side has real (non-dummy) questions.
+                        // Never overwrite a good local quiz with an empty/dummy server value.
+                        questions: (() => {
+                            const serverQ = book.questions;
+                            const localQ  = localBooks.find(lb => lb.id === book.id)?.questions
+                                         ?? localBooks.find(lb => getSyncKey(lb) === sKey)?.questions;
+                            const isDummy = (q: any[] | undefined) =>
+                                !q || q.length === 0 ||
+                                q.some((item: any) =>
+                                    !item?.question ||
+                                    String(item.question).includes("primary topic discussed in the book") ||
+                                    String(item.question).includes("Placeholder fallback")
+                                );
+                            if (!isDummy(localQ))  return localQ;   // local is good — keep it
+                            if (!isDummy(serverQ)) return serverQ;  // server is good — use it
+                            return localQ ?? serverQ ?? [];          // both dummy — keep local
+                        })()
+
                     };
 
-                    // We use put() which handles both add and update since we define the 'id'
-                    // We also preserve the local pdfBlob if it exists
+                    // put() handles both add and update; preserve local pdfBlob
                     const existingLocal = localBooks.find(lb => lb.id === book.id);
                     await db.books.put({
                         ...bookData,
                         pdfBlob: existingLocal?.pdfBlob
                     });
                 }
-                console.log("[Sync] Sync complete.");
             }
         } catch (err: any) {
-            console.error("[Sync] Error during library sync:", {
+            console.error("[Sync] Library sync failed:", {
                 message: err.message,
                 details: err.details,
                 hint: err.hint,

@@ -387,12 +387,23 @@ a, button { cursor: pointer; }
 /* ─── Login ───────────────────────────────────────────────────── */
 .login-shell {
   min-height: 100vh;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
+.login-header {
+  background: var(--cream);
+  border-bottom: 4px solid var(--black);
+  padding: 18px 24px;
+  text-align: center;
+}
+.login-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
 @media (max-width: 900px) {
-  .login-shell { grid-template-columns: 1fr; }
+  .login-body { grid-template-columns: 1fr; }
 }
 .login-left  { background: var(--cream); display: flex; flex-direction: column; justify-content: center; padding: 40px; }
 .login-right { background: var(--black); display: flex; flex-direction: column; justify-content: center; padding: 40px; }

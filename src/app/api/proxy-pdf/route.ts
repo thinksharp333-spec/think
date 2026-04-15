@@ -8,35 +8,54 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'fileId is required' }, { status: 400 });
     }
 
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY;
-    if (!apiKey) {
-        return NextResponse.json({ error: 'API key not configured' }, { status: 500 });
-    }
-
     try {
-        // Use the user-content download endpoint which is often more reliable for public files
-        const driveUrl = `https://docs.google.com/uc?export=download&id=${fileId}&key=${apiKey}`;
+        let fetchUrl: string;
+        const fetchHeaders: Record<string, string> = {};
 
-        const response = await fetch(driveUrl);
+        // If it looks like a full URL (Supabase storage, direct HTTPS, etc.) fetch it directly.
+        // The proxy runs server-side so there are no CORS restrictions here.
+        if (fileId.startsWith('http://') || fileId.startsWith('https://')) {
+            fetchUrl = fileId;
+            // Add Supabase auth headers so storage requests work regardless of bucket policy
+            if (fetchUrl.includes('.supabase.co/storage/')) {
+                const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+                if (anonKey) {
+                    fetchHeaders['apikey'] = anonKey;
+                    fetchHeaders['Authorization'] = `Bearer ${anonKey}`;
+                }
+            }
+        } else {
+            // Treat as a Google Drive file ID
+            const apiKey = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY;
+            if (!apiKey) {
+                return NextResponse.json({ error: 'Google Drive API key not configured' }, { status: 500 });
+            }
+            fetchUrl = `https://docs.google.com/uc?export=download&id=${fileId}&key=${apiKey}`;
+        }
+
+        const response = await fetch(fetchUrl, {
+            headers: fetchHeaders,
+            signal: AbortSignal.timeout(30000),
+        });
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error(`[ProxyAPI] Google API Error (${response.status}):`, errorText.substring(0, 200));
-            throw new Error(`Google Drive API responded with ${response.status}`);
+            console.error(`[ProxyPDF] Fetch error (${response.status}) for: ${fetchUrl.slice(0, 80)}`, errorText.slice(0, 200));
+            return NextResponse.json(
+                { error: `Upstream responded with ${response.status}` },
+                { status: response.status }
+            );
         }
 
         const blob = await response.blob();
         const headers = new Headers();
         headers.set('Content-Type', 'application/pdf');
-        // Allow caching of the response
         headers.set('Cache-Control', 'public, max-age=31536000, immutable');
 
-        return new NextResponse(blob, {
-            status: 200,
-            headers,
-        });
+        return new NextResponse(blob, { status: 200, headers });
+
     } catch (error: any) {
-        console.error('[ProxyAPI] Error:', error);
+        console.error('[ProxyPDF] Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

@@ -1,11 +1,14 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 
 export function useUser() {
     // 1. Get all users
     const users = useLiveQuery(() => db.users.toArray()) || [];
+    // Watch sync queue — when it drains to 0, points have been pushed to Supabase
+    const syncQueueCount = useLiveQuery(() => db.syncQueue.count()) ?? 0;
+    const prevSyncCount = useRef(syncQueueCount);
 
     // 2. Determine active user: 
     // - Priority 1: A user that is NOT local-user or local-admin (the real signed-in account)
@@ -15,11 +18,6 @@ export function useUser() {
         || users.find(u => u.id === 'local-user')
         || users[0];
 
-    useEffect(() => {
-        if (user) {
-            console.log(`[useUser] Reactive update: ${user.name} now has ${user.totalPoints} pts`);
-        }
-    }, [user?.totalPoints, user?.id]);
 
     // Sync user profile from Supabase
     const fetchUserProfile = async (userId: string) => {
@@ -40,18 +38,22 @@ export function useUser() {
                 throw error;
             }
             if (data) {
-                console.log("[User] Syncing profile from server:", data);
-
                 const localUser = await db.users.get(userId);
-                const serverPoints = data.totalPoints || 0;
-                const localPoints = localUser?.totalPoints || 0;
+                const serverPoints    = data.totalPoints || 0;
+                const localPoints     = localUser?.totalPoints || 0;
+                const serverBooksRead = data.total_books_read || 0;
+                const localBooksRead  = localUser?.totalBooksRead || 0;
 
-                // Defensive update: Only overwrite points if server has MORE. 
-                // This prevents local un-synced progress from being lost.
+                // Defensive update: keep the higher value to protect un-synced progress.
                 await db.users.update(userId, {
-                    name: data.name,
-                    mobile: data.mobile,
-                    totalPoints: Math.max(serverPoints, localPoints)
+                    name:               data.name,
+                    mobile:             data.mobile,
+                    totalPoints:        Math.max(serverPoints, localPoints),
+                    totalBooksRead:     Math.max(serverBooksRead, localBooksRead),
+                    // Avatar fields — always trust server as source of truth
+                    ...(data.avatar_base_id       && { avatarBaseId:       data.avatar_base_id }),
+                    ...(data.current_avatar_stage != null && { currentAvatarStage: data.current_avatar_stage }),
+                    ...(data.current_avatar_url   && { currentAvatarUrl:   data.current_avatar_url }),
                 });
             }
         } catch (err: any) {
@@ -59,14 +61,27 @@ export function useUser() {
         }
     };
 
+    // Re-fetch user profile from Supabase when sync queue drains (points just synced)
+    useEffect(() => {
+        const wasNonZero = prevSyncCount.current > 0;
+        prevSyncCount.current = syncQueueCount;
+        if (wasNonZero && syncQueueCount === 0 && navigator.onLine) {
+            const refresh = async () => {
+                const all = await db.users.toArray();
+                const current = all.find(u => u.id !== 'local-user' && u.id !== 'local-admin');
+                if (current) fetchUserProfile(current.id);
+            };
+            refresh();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [syncQueueCount]);
+
     // Listen for Supabase Auth Changes
     useEffect(() => {
         if (!supabase) return;
 
         const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (event === 'SIGNED_IN' && session?.user) {
-                console.log("[Auth] User Signed In:", session.user.id);
-
                 // 1. Get current local user (usually 'local-user')
                 const localUser = await db.users.get('local-user');
 
@@ -77,6 +92,7 @@ export function useUser() {
                         id: session.user.id,
                         name: session.user.user_metadata.full_name || localUser.name,
                         mobile: session.user.phone || localUser.mobile || '',
+                        school: localUser.school || '',
                         totalPoints: localUser.totalPoints // Preserve local points
                     });
                 } else {
@@ -87,6 +103,7 @@ export function useUser() {
                             id: session.user.id,
                             name: session.user.user_metadata.full_name || 'Student',
                             mobile: session.user.phone || '',
+                            school: '',
                             totalPoints: 0
                         });
                     }
@@ -94,13 +111,13 @@ export function useUser() {
                 // Fetch latest from server after sign-in/init
                 fetchUserProfile(session.user.id);
             } else if (event === 'SIGNED_OUT') {
-                console.log("[Auth] User Signed Out");
                 await db.users.clear();
                 // Re-create guest
                 await db.users.add({
                     id: 'local-user',
                     name: 'Student',
                     mobile: '',
+                    school: '',
                     totalPoints: 0
                 });
             }
@@ -116,17 +133,17 @@ export function useUser() {
         const initUser = async () => {
             const count = await db.users.count();
             if (count === 0) {
-                console.log("[User] Creating default local user");
                 await db.users.add({
                     id: 'local-user',
                     name: 'Student',
                     mobile: '',
+                    school: '',
                     totalPoints: 0
                 });
             } else {
                 // If we have a user, and it's not local-user, try to sync it
                 const all = await db.users.toArray();
-                const current = all.find(u => u.id !== 'local-user');
+                const current = all.find(u => u.id !== 'local-user' && u.id !== 'local-admin');
                 if (current && navigator.onLine) {
                     fetchUserProfile(current.id);
                 }

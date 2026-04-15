@@ -24,6 +24,13 @@ interface LeaderboardBook {
     weighted_rating: number;
 }
 
+interface BooksReadEntry {
+    userId: string;
+    name: string;
+    booksRead: number;
+    rank?: number;
+}
+
 // Reader title badges by rank
 const RANK_BADGES = [
     { label: "Book Wizard", color: "#f59e0b", bg: "#fff4ba", emoji: "🧙" },
@@ -87,10 +94,10 @@ function PodiumAvatar({ rank, name }: { rank: number; name: string }) {
 
 export default function LeaderboardPage() {
     const { user: currentUser } = useUser();
-    const [activeTab, setActiveTab] = useState<'students' | 'books'>('students');
-    const [filter, setFilter] = useState<'daily' | 'weekly' | 'all'>('weekly');
+    const [activeTab, setActiveTab] = useState<'students' | 'books' | 'booksRead'>('students');
     const [leaderboard, setLeaderboard] = useState<LeaderboardUser[]>([]);
     const [topBooks, setTopBooks] = useState<LeaderboardBook[]>([]);
+    const [booksRead, setBooksRead] = useState<BooksReadEntry[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -105,6 +112,31 @@ export default function LeaderboardPage() {
                 }
                 const { data: booksData } = await supabase.from('books').select('id, title, "coverUrl", avg_rating, review_count');
                 const { data: reviewsData } = await supabase.from('book_reviews').select('book_id, user_id, rating, created_at');
+                // ── Books Read leaderboard ──────────────────────────────
+                const { data: sessionsData } = await supabase
+                    .from('reading_sessions')
+                    .select('user_id, book_id')
+                    .eq('completed', true);
+                if (sessionsData) {
+                    // Count unique books per user
+                    const booksByUser = new Map<string, Set<string>>();
+                    for (const s of sessionsData) {
+                        if (!booksByUser.has(s.user_id)) booksByUser.set(s.user_id, new Set());
+                        booksByUser.get(s.user_id)!.add(String(s.book_id));
+                    }
+                    // Build display list joined with user names
+                    const { data: usersForBooks } = await supabase
+                        .from('users')
+                        .select('id, name')
+                        .in('id', Array.from(booksByUser.keys()));
+                    const nameMap = new Map((usersForBooks || []).map(u => [u.id, u.name || 'Anonymous']));
+                    const entries: BooksReadEntry[] = Array.from(booksByUser.entries())
+                        .map(([userId, books]) => ({ userId, name: nameMap.get(userId) || 'Anonymous', booksRead: books.size }))
+                        .sort((a, b) => b.booksRead - a.booksRead)
+                        .map((e, i) => ({ ...e, rank: i + 1 }));
+                    setBooksRead(entries);
+                }
+
                 if (booksData) {
                     const reviewMap = new Map<number, Array<{ userId: string; rating: number; createdAt: number }>>();
                     for (const r of reviewsData || []) {
@@ -163,7 +195,10 @@ export default function LeaderboardPage() {
                     <button onClick={() => setActiveTab('books')}
                         className={`px-6 py-2.5 rounded-full font-black text-sm uppercase tracking-wide transition-all border-2 ${activeTab === 'books' ? 'bg-yellow-400 text-[#111] border-yellow-400 shadow-[0_4px_0_rgba(0,0,0,0.3)]' : 'bg-white/10 text-white border-white/20 hover:bg-white/20'}`}>
                         <Star className="inline w-4 h-4 mr-1 -mt-0.5 fill-current" /> Top Books
-                        <span className="ml-1.5 bg-[#111] text-yellow-400 text-[9px] px-1.5 py-0.5 rounded font-black uppercase">IMDb</span>
+                    </button>
+                    <button onClick={() => setActiveTab('booksRead')}
+                        className={`px-6 py-2.5 rounded-full font-black text-sm uppercase tracking-wide transition-all border-2 ${activeTab === 'booksRead' ? 'bg-yellow-400 text-[#111] border-yellow-400 shadow-[0_4px_0_rgba(0,0,0,0.3)]' : 'bg-white/10 text-white border-white/20 hover:bg-white/20'}`}>
+                        <BookOpen className="inline w-4 h-4 mr-1 -mt-0.5" /> Books Read
                     </button>
                 </div>
             </header>
@@ -280,6 +315,9 @@ export default function LeaderboardPage() {
                                                         ) : null}
                                                     </div>
                                                 </div>
+
+                                                    </div>
+                                                </div>
                                             );
                                         })}
                                     </div>
@@ -291,11 +329,122 @@ export default function LeaderboardPage() {
                                         </div>
                                     )}
                                 </div>
-                            </>
-                        )}
-                    </>
-                )
-            }
+                            </div>
+
+                            {/* ── All Readers List ─────────────────── */}
+                            <div className="flex-1 bg-[#fffbf3] rounded-t-[36px] mt-0 px-4 pt-8 pb-20 md:px-8">
+                                <h3 className="comic-title text-2xl text-[#111] text-center mb-6 uppercase">
+                                    All Readers
+                                </h3>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl mx-auto">
+                                    {leaderboard.map((u) => {
+                                        const badge = RANK_BADGES[(u.rank! - 1) % RANK_BADGES.length];
+                                        const isMe = u.id === currentUser?.id;
+                                        return (
+                                            <div key={u.id}
+                                                className={`flex items-center gap-3 p-3 rounded-[20px] border-[3px] ${isMe ? 'border-[#e63329] bg-[#fff3ef]' : 'border-[#111] bg-white'} shadow-[0_5px_0_#111] transition-all hover:-translate-y-0.5`}>
+                                                {/* Rank number */}
+                                                <div className="w-8 text-center font-black text-[#e63329] text-sm flex-shrink-0">
+                                                    #{u.rank}
+                                                </div>
+                                                {/* Avatar */}
+                                                <div className="w-10 h-10 rounded-full border-[2.5px] border-[#111] flex-shrink-0 flex items-center justify-center font-black text-sm shadow-[0_3px_0_#111]"
+                                                    style={{ background: badge.bg, color: badge.color }}>
+                                                    {u.name.substring(0, 2).toUpperCase()}
+                                                </div>
+                                                {/* Name + badge */}
+                                                <div className="flex-1 min-w-0">
+                                                    <p className={`font-black text-sm leading-tight truncate ${isMe ? 'text-[#e63329]' : 'text-[#111]'}`}>
+                                                        {u.name}{isMe ? ' (YOU)' : ''}
+                                                    </p>
+                                                    <span className="text-[10px] font-black uppercase tracking-wide" style={{ color: badge.color }}>
+                                                        {badge.label}
+                                                    </span>
+                                                </div>
+                                                {/* Points */}
+                                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                    <div className="flex flex-col items-center bg-[#fff4ba] border-2 border-[#111] rounded-xl px-3 py-1.5 shadow-[0_3px_0_#111]">
+                                                        <span className="font-black text-[#111] text-base leading-none">{u.totalPoints}</span>
+                                                        <span className="text-[9px] font-black uppercase tracking-wide text-[#777]">pts</span>
+                                                    </div>
+                                                    {u.rank! <= 6 && (
+                                                        <Medal className="w-5 h-5" style={{ color: u.rank! <= 3 ? '#f59e0b' : u.rank! <= 5 ? '#9ca3af' : '#cd7c2f' }} />
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                {!loading && leaderboard.length === 0 && (
+                                    <div className="text-center py-16 opacity-50">
+                                        <Trophy className="w-12 h-12 mx-auto mb-3 text-[#aaa]" />
+                                        <p className="font-bold text-[#777] uppercase tracking-wide text-sm">No active students yet</p>
+                                    </div>
+                                )}
+                            </div>
+
+
+            {/* ── Books Read Tab ───────────────────────────────────────── */}
+            {activeTab === 'booksRead' && (
+                <div className="flex-1 bg-[#fffbf3] rounded-t-[36px] mt-8 px-4 pt-8 pb-20 md:px-8">
+                    <h3 className="comic-title text-2xl text-[#111] text-center mb-2 uppercase">Books Read</h3>
+                    <p className="text-center text-[#777] font-bold text-xs uppercase tracking-wide mb-6">
+                        Completed = reached the last third of the book
+                    </p>
+
+                    {loading ? (
+                        <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 animate-spin text-[#e63329]" /></div>
+                    ) : booksRead.length === 0 ? (
+                        <div className="card py-16 text-center max-w-md mx-auto">
+                            <BookOpen className="w-14 h-14 text-[#f2d7cd] mx-auto mb-4" />
+                            <h2 className="comic-title text-2xl text-[#111] mb-2">No Books Completed Yet!</h2>
+                            <p className="text-[#777] font-bold">Students who reach the last third of a book will appear here.</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl mx-auto">
+                            {booksRead.map((entry) => {
+                                const badge = RANK_BADGES[(entry.rank! - 1) % RANK_BADGES.length];
+                                const isMe = entry.userId === currentUser?.id;
+                                return (
+                                    <div key={entry.userId}
+                                        className={`flex items-center gap-3 p-3 rounded-[20px] border-[3px] ${isMe ? 'border-[#e63329] bg-[#fff3ef]' : 'border-[#111] bg-white'} shadow-[0_5px_0_#111] transition-all hover:-translate-y-0.5`}>
+                                        {/* Rank */}
+                                        <div className="w-8 text-center font-black text-[#e63329] text-sm flex-shrink-0">
+                                            #{entry.rank}
+                                        </div>
+                                        {/* Avatar */}
+                                        <div className="w-10 h-10 rounded-full border-[2.5px] border-[#111] flex-shrink-0 flex items-center justify-center font-black text-sm shadow-[0_3px_0_#111]"
+                                            style={{ background: badge.bg, color: badge.color }}>
+                                            {entry.name.substring(0, 2).toUpperCase()}
+                                        </div>
+                                        {/* Name + badge */}
+                                        <div className="flex-1 min-w-0">
+                                            <p className={`font-black text-sm leading-tight truncate ${isMe ? 'text-[#e63329]' : 'text-[#111]'}`}>
+                                                {entry.name.split(' ')[0]}{isMe ? ' (YOU)' : ''}
+                                            </p>
+                                            <span className="text-[10px] font-black uppercase tracking-wide" style={{ color: badge.color }}>
+                                                {badge.emoji} {badge.label}
+                                            </span>
+                                        </div>
+                                        {/* Books count */}
+                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                            <div className="flex flex-col items-center bg-[#fff4ba] border-2 border-[#111] rounded-xl px-3 py-1.5 shadow-[0_3px_0_#111]">
+                                                <span className="font-black text-[#111] text-lg leading-none">{entry.booksRead}</span>
+                                                <span className="text-[9px] font-black uppercase tracking-wide text-[#777]">
+                                                    {entry.booksRead === 1 ? 'book' : 'books'}
+                                                </span>
+                                            </div>
+                                            <BookOpen className="w-5 h-5 text-[#e63329]" />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* ── Top Books Tab ─────────────────────────────────────────── */}
             {

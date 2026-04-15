@@ -114,14 +114,16 @@ export function BookCard({ id, fileId, title, grade, pages, pdfUrl, coverUrl, ha
 
                     {/* Share + Download + Quiz — bottom right of cover */}
                     <div className="absolute bottom-2 right-2 flex gap-1.5 items-end">
-                        {hasQuiz && (
-                            <button
-                                onClick={(e) => { e.preventDefault(); window.location.href = `/read/${id}#quiz`; }}
-                                className="flex items-center gap-1 bg-[#e63329] text-white text-[10px] font-black px-2.5 py-2 rounded-full border-2 border-white/30 hover:bg-[#b91c1c] transition-all shadow-lg hover:-translate-y-0.5"
-                            >
-                                <Trophy className="w-3.5 h-3.5" /> Quiz
-                            </button>
-                        )}
+                        <button
+                            onClick={(e) => { e.preventDefault(); window.location.href = `/read/${id}#quiz`; }}
+                            className={`flex items-center gap-1 text-[10px] font-black px-2.5 py-2 rounded-full border-2 transition-all shadow-lg hover:-translate-y-0.5 ${
+                                hasQuiz
+                                    ? 'bg-[#e63329] text-white border-white/30 hover:bg-[#b91c1c]'
+                                    : 'bg-white/80 text-[#666] border-[#ccc] hover:bg-white'
+                            }`}
+                        >
+                            <Trophy className={`w-3.5 h-3.5 ${hasQuiz ? '' : 'text-[#999]'}`} /> Quiz
+                        </button>
                         <button onClick={(e) => {
                             e.preventDefault();
                             if (navigator.share) {

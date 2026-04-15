@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Wifi, WifiOff, Phone, Loader2, Rocket, Bot, Sparkles, Footprints, WandSparkles, ChevronRight, BookOpen } from "lucide-react";
+import { ArrowLeft, Wifi, WifiOff, Phone, Loader2, BookOpen, ChevronRight } from "lucide-react";
 import { db } from "@/lib/db";
 import { useSync } from "@/hooks/useSync";
 import { supabase } from "@/lib/supabase";
@@ -23,6 +23,7 @@ export default function LoginPage() {
         { icon: Footprints, color: "bg-[#9ed86d]", label: "Dino" },
         { icon: WandSparkles, color: "bg-[#6fa7ff]", label: "Wizard" },
     ];
+
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -102,6 +103,14 @@ export default function LoginPage() {
     return (
         <div className="login-shell">
 
+            {/* ── Top Header ────────────────────────────────────────── */}
+            <div className="login-header">
+                <h1 className="comic-title text-3xl md:text-4xl text-[#e63329]">Join the Reading Club</h1>
+            </div>
+
+            {/* ── Two-panel body ────────────────────────────────────── */}
+            <div className="login-body">
+
             {/* ── LEFT PANEL: Login form ─────────────────────────────── */}
             <div className="login-left relative overflow-hidden">
                 {/* Background decoration */}
@@ -163,20 +172,8 @@ export default function LoginPage() {
                             </div>
 
                             <div>
-                                <p className="font-black text-[#111] uppercase tracking-wide text-sm mb-3">Pick Your Emoji Password</p>
-                                <div className="flex gap-3 flex-wrap">
-                                    {emojiPasswordChoices.map(({ icon: Icon, color, label }, index) => (
-                                        <button key={index} type="button" onClick={() => setPassword(String(index + 1))}
-                                            className={`${color} h-16 w-16 flex items-center justify-center rounded-2xl border-[3px] border-[#111] shadow-[0_6px_0_#111] transition-all hover:-translate-y-1 active:translate-y-1 ${password === String(index + 1) ? 'ring-4 ring-[#111]' : ''}`}
-                                            title={label}>
-                                            <Icon className="h-8 w-8 text-[#111]" />
-                                        </button>
-                                    ))}
-                                </div>
-                                <div className="mt-3">
-                                    <input type="password" placeholder="Or type your password" className="comic-input text-base font-bold"
-                                        value={password} onChange={(e) => setPassword(e.target.value)} />
-                                </div>
+                                <input type="password" placeholder="Password" className="comic-input text-base font-bold"
+                                    value={password} onChange={(e) => setPassword(e.target.value)} required />
                                 <button type="button" onClick={() => setShowForgotPassword(true)}
                                     className="mt-2 text-sm font-black uppercase tracking-wide text-[#e63329] hover:underline">
                                     Forgot password?
@@ -276,6 +273,8 @@ export default function LoginPage() {
                     </div>
                 </div>
             </div>
+
+            </div>{/* end login-body */}
         </div>
     );
 }

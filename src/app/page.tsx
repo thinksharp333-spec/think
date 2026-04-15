@@ -124,10 +124,6 @@ export default function LandingPage() {
                 <p className="text-xs font-black uppercase tracking-wider text-[#555]">Young Readers</p>
               </div>
               <div className="card-flat px-6 py-4">
-                <p className="comic-title text-4xl" style={{ color: "var(--red)" }}>IMDb</p>
-                <p className="text-xs font-black uppercase tracking-wider text-[#555]">Style Ratings</p>
-              </div>
-              <div className="card-flat px-6 py-4">
                 <p className="comic-title text-4xl" style={{ color: "var(--red)" }}>700+</p>
                 <p className="text-xs font-black uppercase tracking-wider text-[#555]">Books Available</p>
               </div>

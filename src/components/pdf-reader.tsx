@@ -1,54 +1,120 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
-import { ChevronLeft, ChevronRight, Loader2, Trophy, Download } from 'lucide-react';
+import { Loader2, Download } from 'lucide-react';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import 'react-pdf/dist/esm/Page/TextLayer.css';
 import { db, Book } from '@/lib/db';
 
-// Configure worker globally for reliability
-if (typeof window !== 'undefined') {
-    pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
-}
+// Set worker once at module level — never reset
+pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+
+// GAP-02 FIX: Use locally-hosted cmaps (public/cmaps/) instead of unpkg CDN.
+// This ensures non-Latin PDFs (Hindi, Marathi, etc.) render correctly offline.
+const PDF_OPTIONS = {
+    cMapUrl: '/cmaps/',
+    cMapPacked: true,
+};
 
 interface PdfReaderProps {
     url: string;
     book?: Book;
     bookIdNum?: number;
-    onPageChange?: (page: number) => void;
+    pageNumber: number;
+    twoPageView?: boolean;
+    onNumPagesChange?: (n: number) => void;
     onWordCount?: (page: number, count: number) => void;
     onLoadSuccess?: (numPages: number) => void;
 }
 
-export function PdfReader({ url, book, bookIdNum, onPageChange, onWordCount, onLoadSuccess }: PdfReaderProps) {
-    const [numPages, setNumPages] = useState<number>(0);
-    const [pageNumber, setPageNumber] = useState<number>(1);
+export function PdfReader({
+    url,
+    book,
+    bookIdNum,
+    pageNumber,
+    twoPageView = false,
+    onNumPagesChange,
+    onWordCount,
+}: PdfReaderProps) {
+
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [numPages, setNumPages] = useState(0);
     const [blobUrl, setBlobUrl] = useState<string | null>(null);
     const [isOfflineReady, setIsOfflineReady] = useState(false);
+    const [downloading, setDownloading] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [pageWidth, setPageWidth] = useState(400);
+    const stableWidth = useRef(400);
+    // Natural aspect ratio (w/h) of the PDF page — unknown until first page renders
+    const pageAspectRef = useRef<number | null>(null);
 
-    // Reset state when URL changes
-    useEffect(() => {
-        setNumPages(0);
-        setPageNumber(1);
-        setLoading(true);
-        setError(null);
-
-        // If we have a blob in the database, use it!
-        if (book?.pdfBlob) {
-            const url = URL.createObjectURL(book.pdfBlob);
-            setBlobUrl(url);
-            setIsOfflineReady(true);
-            return () => {
-                URL.revokeObjectURL(url);
-            };
+    const computeWidth = () => {
+        if (!containerRef.current) return;
+        const w = containerRef.current.clientWidth;
+        const h = containerRef.current.clientHeight;
+        let effective: number;
+        if (twoPageView) {
+            effective = Math.floor((w - 6) / 2);
         } else {
-            setBlobUrl(null);
-            setIsOfflineReady(false);
+            // Fit within both dimensions using known aspect ratio (fall back to full width until known)
+            const aspect = pageAspectRef.current;
+            const maxWFromHeight = aspect && h > 0 ? Math.floor(h * aspect) : w;
+            effective = Math.min(w, maxWFromHeight);
         }
+        if (effective > 0 && Math.abs(effective - stableWidth.current) > 10) {
+            stableWidth.current = effective;
+            setPageWidth(effective);
+        }
+    };
+
+    useEffect(() => {
+        const t = setTimeout(computeWidth, 100);
+        let raf: number;
+        const onResize = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(computeWidth); };
+        window.addEventListener('resize', onResize);
+        return () => { clearTimeout(t); cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [twoPageView]);
+
+    useEffect(() => {
+        setLoading(true);
+        pageAspectRef.current = null; // reset so new book remeasures
+        stableWidth.current = 400;
+        if (book?.pdfBlob) {
+            const objUrl = URL.createObjectURL(book.pdfBlob);
+            setBlobUrl(objUrl);
+            setIsOfflineReady(true);
+            return () => URL.revokeObjectURL(objUrl);
+        }
+        setBlobUrl(null);
+        setIsOfflineReady(false);
     }, [url, book?.pdfBlob]);
+
+    // BUG-05 FIX: Auto-download PDF in the background when online and no blob stored.
+    // Runs 4 seconds after the reader opens so it doesn't compete with initial render.
+    // Next time the student opens the book offline it will load from IndexedDB.
+    useEffect(() => {
+        if (book?.pdfBlob || bookIdNum === undefined) return;
+        if (!navigator.onLine) return;
+
+        const timer = setTimeout(async () => {
+            try {
+                const proxyUrl = book?.fileId ? `/api/proxy-pdf?fileId=${book.fileId}` : url;
+                const response = await fetch(proxyUrl);
+                if (response.ok) {
+                    const blob = await response.blob();
+                    await db.books.update(bookIdNum, { pdfBlob: blob });
+                    // isOfflineReady will update automatically via the pdfBlob effect above
+                }
+            } catch {
+                // Silent — background download failing must never interrupt reading
+            }
+        }, 4000);
+
+        return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [bookIdNum, url, book?.fileId]);
 
     const activeUrl = useMemo(() => {
         if (blobUrl) return blobUrl;
@@ -56,236 +122,228 @@ export function PdfReader({ url, book, bookIdNum, onPageChange, onWordCount, onL
         return url;
     }, [blobUrl, book?.fileId, url]);
 
-    const pdfOptions = useMemo(() => ({
-        workerSrc: '/pdf.worker.min.mjs',
-        cMapUrl: 'https://unpkg.com/pdfjs-dist@4.4.168/cmaps/',
-        cMapPacked: true,
-    }), []);
-
-    function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
-        setNumPages(numPages);
+        setNumPages(n);
+        onNumPagesChange?.(n);
         setLoading(false);
-        setError(null);
-        onLoadSuccess?.(numPages);
-    }
-
-    function onDocumentLoadError(err: Error) {
-        console.error("PDF Load Error:", err);
-        setLoading(false);
-        setError(err.message);
-        // onLoadSuccess?.(numPages);
 
     }
 
-    // Notify parent of page change safely
-    useEffect(() => {
-        onPageChange?.(pageNumber);
-    }, [pageNumber, onPageChange]);
-
-    function changePage(offset: number) {
-        setPageNumber(prev => {
-            return Math.min(Math.max(prev + offset, 1), numPages);
-        });
+    async function onPageLoadSuccess(page: any) {
+        // Capture aspect ratio on first page so width fits height correctly
+        if (pageAspectRef.current === null) {
+            try {
+                const vp = page.getViewport({ scale: 1 });
+                if (vp.width > 0 && vp.height > 0) {
+                    pageAspectRef.current = vp.width / vp.height;
+                    computeWidth(); // recompute now that we know the real aspect
+                }
+            } catch (_) { /* ignore */ }
+        }
+        try {
+            const textContent = await page.getTextContent();
+            const text = textContent.items.map((item: any) => item.str).join(' ');
+            const wordCount = text.trim().split(/\s+/).filter((w: string) => w.length > 0).length;
+            onWordCount?.(page.pageNumber, wordCount);
+        } catch (_) { /* silent */ }
     }
-
-    const [downloading, setDownloading] = useState(false);
-    const [isFocusMode, setIsFocusMode] = useState(false);
-    const [pageScale, setPageScale] = useState<number>(1.0);
-    const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
 
     async function handleDownload() {
-        const targetFileId = book?.fileId || bookIdNum?.toString();
-        if (!url && !targetFileId) return;
-
         setDownloading(true);
         try {
             if (!book?.pdfBlob) {
                 const proxyUrl = book?.fileId ? `/api/proxy-pdf?fileId=${book.fileId}` : url;
                 const response = await fetch(proxyUrl);
-                if (response.ok) {
-                    const blob = await response.blob();
-                    if (db && db.books && bookIdNum !== undefined) {
-                        await db.books.update(bookIdNum, { pdfBlob: blob });
-                        setIsOfflineReady(true);
-                        alert("Book stored in local database!");
-                    }
-                } else {
-                    throw new Error(`Failed to download: ${response.statusText}`);
+                if (response.ok && bookIdNum !== undefined) {
+                    await db.books.update(bookIdNum, { pdfBlob: await response.blob() });
+                    setIsOfflineReady(true);
                 }
             } else {
                 setIsOfflineReady(true);
             }
-        } catch (error: any) {
-            console.error("Download failed:", error);
-            alert(`Download failed: ${error.message}`);
-        } finally {
-            setDownloading(false);
-        }
+        } catch (err) { console.error("Download failed:", err); }
+        finally { setDownloading(false); }
     }
 
-    async function onPageLoadSuccess(page: any) {
-        if (typeof window === 'undefined') return;
-
-        const { originalWidth, originalHeight } = page;
-        const isPortrait = originalHeight > originalWidth;
-        setOrientation(isPortrait ? 'portrait' : 'landscape');
-
-        // Adaptive Scaling Logic
-        const windowWidth = window.innerWidth;
-        const windowHeight = window.innerHeight;
-
-        // Reserve space for controls and absolute safety margins
-        const availableHeight = windowHeight - (isFocusMode ? 140 : 200);
-        const availableWidth = windowWidth - 48;
-
-        if (isPortrait) {
-            const scaleToFitHeight = availableHeight / originalHeight;
-            setPageScale(scaleToFitHeight);
-        } else {
-            const targetWidth = Math.min(availableWidth, 1000);
-            const scaleToFitWidth = targetWidth / originalWidth;
-            setPageScale(scaleToFitWidth);
-        }
-
-        // Extract word count for point calculation
-        try {
-            const textContent = await page.getTextContent();
-            const text = textContent.items.map((item: any) => item.str).join(' ');
-            const wordCount = text.trim().split(/\s+/).filter((w: string) => w.length > 0).length;
-            console.log(`Page ${page.pageNumber} word count: ${wordCount}`);
-            onWordCount?.(page.pageNumber, wordCount);
-        } catch (error) {
-            console.error("Failed to extract text content:", error);
-        }
-    }
+    const leftPage = Math.min(pageNumber, numPages || pageNumber);
+    const rightPage = pageNumber + 1;
 
     return (
-        <div className={`flex flex-col items-center w-full min-h-screen transition-all duration-700 ${isFocusMode ? 'bg-[#0a0a0a] py-4' : 'bg-gray-50/50 py-8'}`}>
-            <div className={`w-full relative group transition-all duration-700 ${orientation === 'landscape' ? 'max-w-6xl' : 'max-w-fit'}`}>
+        <div ref={containerRef} className="w-full h-full flex items-center justify-center relative overflow-hidden">
+            {!isOfflineReady && (
+                <button onClick={handleDownload} disabled={downloading}
+                    className="absolute top-3 right-3 z-40 bg-green-600 text-white p-2 rounded-full shadow-lg hover:bg-green-700 disabled:opacity-50 transition-all hover:scale-110"
+                    title="Save for offline reading">
+                    {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                </button>
+            )}
 
-                {/* Floating Actions */}
-                <div className="absolute top-4 right-4 flex items-center gap-2 z-40 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                        onClick={() => setIsFocusMode(!isFocusMode)}
-                        className={`p-2.5 rounded-full backdrop-blur-xl border shadow-2xl transition-all hover:scale-110 ${isFocusMode ? 'bg-white/10 border-white/20 text-white' : 'bg-white border-gray-200 text-gray-700'
-                            }`}
-                        title={isFocusMode ? "Exit Focus Mode" : "Focus Mode"}
-                    >
-                        <Trophy className={`w-5 h-5 ${isFocusMode ? 'fill-yellow-400 text-yellow-400 animate-pulse' : ''}`} />
-                    </button>
-                    {!isOfflineReady && (
-                        <button
-                            onClick={handleDownload}
-                            disabled={downloading}
-                            className="bg-green-600 text-white p-2.5 rounded-full shadow-2xl hover:bg-green-700 disabled:opacity-50 transition-transform hover:scale-110"
-                        >
-                            {downloading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
-                        </button>
-                    )}
+            {loading && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center z-20 bg-[#fdfaf1]">
+                    <Loader2 className="w-10 h-10 animate-spin text-[#e63329] mb-3" />
+                    <p className="text-[10px] font-black text-[#e63329]/60 uppercase tracking-widest">Loading Book...</p>
                 </div>
+            )}
 
-                <div className={`relative flex justify-center rounded-2xl transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] ${isFocusMode
-                    ? 'shadow-[0_0_80px_rgba(0,0,0,0.6)] ring-1 ring-white/10'
-                    : 'shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-gray-200 bg-white'
-                    }`}>
-                    {loading && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-white/80 backdrop-blur-md rounded-2xl">
-                            <Loader2 className="w-12 h-12 animate-spin text-green-600 mb-4" />
-                            <p className="text-sm font-bold text-gray-600 uppercase tracking-widest">Aesthetic Loading...</p>
-                        </div>
+            {activeUrl && (
+                <Document
+                    key={activeUrl}
+                    file={activeUrl}
+                    onLoadSuccess={onDocumentLoadSuccess}
+                    onLoadError={(err) => { console.error("PDF Error:", err); setLoading(false); }}
+                    options={PDF_OPTIONS}
+                    loading={null}
+                    className="w-full h-full flex items-center justify-center"
+                >
+                    {numPages > 0 && pageWidth > 0 && (
+                        twoPageView ? (
+                            <div className="flex h-full items-center justify-center">
+                                {/* Left page */}
+                                <div className="flex items-center justify-center overflow-hidden">
+                                    <Page
+                                        key={`${activeUrl}-L-${leftPage}`}
+                                        pageNumber={leftPage}
+                                        width={pageWidth}
+                                        onLoadSuccess={onPageLoadSuccess}
+                                        renderAnnotationLayer={false}
+                                        renderTextLayer={false}
+                                        loading={null}
+                                        className="max-h-full"
+                                    />
+                                </div>
+                                {/* Centre spine shadow */}
+                                <div className="flex-shrink-0 self-stretch w-[5px]"
+                                    style={{ background: 'linear-gradient(90deg, rgba(0,0,0,0.14), rgba(0,0,0,0.03) 60%, transparent)' }} />
+                                {/* Right page */}
+                                <div className="flex items-center justify-center overflow-hidden">
+                                    {rightPage <= numPages ? (
+                                        <Page
+                                            key={`${activeUrl}-R-${rightPage}`}
+                                            pageNumber={rightPage}
+                                            width={pageWidth}
+                                            onLoadSuccess={onPageLoadSuccess}
+                                            renderAnnotationLayer={false}
+                                            renderTextLayer={false}
+                                            loading={null}
+                                            className="max-h-full"
+                                        />
+                                    ) : (
+                                        <div style={{ width: pageWidth }}
+                                            className="h-full flex items-center justify-center text-black/10 text-xs font-bold select-none">
+                                            End of Book
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ) : (
+                            <Page
+                                key={`${activeUrl}-${leftPage}`}
+                                pageNumber={leftPage}
+                                width={pageWidth}
+                                onLoadSuccess={onPageLoadSuccess}
+                                renderAnnotationLayer={false}
+                                renderTextLayer={false}
+                                loading={null}
+                                className="max-w-full max-h-full"
+                            />
+                        )
                     )}
+                </Document>
+            )}
+        </div>
+    );
+}
 
-                    {activeUrl && (
-                        <Document
-                            key={`${activeUrl}-${isFocusMode}`}
-                            file={activeUrl}
-                            onLoadSuccess={onDocumentLoadSuccess}
-                            onLoadError={onDocumentLoadError}
-                            options={pdfOptions}
-                            className="relative overflow-visible"
-                            loading={null}
-                        >
-                            {/* Realistic Page Shadow & Edge */}
-                            <div className="absolute inset-y-0 -left-px w-px bg-black/10 z-20 pointer-events-none" />
-                            <div className="absolute inset-0 pointer-events-none opacity-[0.04] mix-blend-multiply bg-[url('https://www.transparenttextures.com/patterns/paper-fibers.png')] z-30" />
+/* ─────────────────────────────────────────────
+   Book Scroll Thumbnail Strip
+   Renders a separate Document at small scale for the bottom scroll strip.
+───────────────────────────────────────────── */
+interface PdfScrollThumbnailsProps {
+    url: string;
+    book?: Book;
+    numPages: number;
+    activePage: number;
+    onPageClick: (page: number) => void;
+}
 
-                            {numPages > 0 && (
+export function PdfScrollThumbnails({ url, book, numPages, activePage, onPageClick }: PdfScrollThumbnailsProps) {
+    const [blobUrl, setBlobUrl] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (book?.pdfBlob) {
+            const objUrl = URL.createObjectURL(book.pdfBlob);
+            setBlobUrl(objUrl);
+            return () => URL.revokeObjectURL(objUrl);
+        }
+        setBlobUrl(null);
+    }, [book?.pdfBlob]);
+
+    const activeUrl = useMemo(() => {
+        if (blobUrl) return blobUrl;
+        if (book?.fileId) return `/api/proxy-pdf?fileId=${book.fileId}`;
+        return url;
+    }, [blobUrl, book?.fileId, url]);
+
+    // Build spreads: [1,3,5,...]
+    const spreads = useMemo(
+        () => Array.from({ length: Math.ceil(numPages / 2) }, (_, i) => i * 2 + 1),
+        [numPages]
+    );
+
+    if (numPages === 0) return (
+        <div className="flex gap-2 items-center">
+            {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} className="flex-shrink-0 rounded-lg opacity-20"
+                    style={{ width: 116, height: 78, background: 'rgba(255,255,255,0.1)', border: '3px solid rgba(255,255,255,0.08)' }} />
+            ))}
+        </div>
+    );
+
+    return (
+        <Document
+            key={`scroll-${activeUrl}`}
+            file={activeUrl}
+            options={PDF_OPTIONS}
+            loading={null}
+            className="flex gap-2 items-center"
+        >
+            {spreads.map(leftPage => {
+                const rightPage = leftPage + 1;
+                const isActive = activePage === leftPage || activePage === rightPage;
+                return (
+                    <button
+                        key={leftPage}
+                        onClick={() => onPageClick(leftPage)}
+                        className="flex-shrink-0 flex overflow-hidden rounded-lg transition-all duration-200"
+                        style={{
+                            border: isActive ? '3px solid #e63329' : '3px solid rgba(255,255,255,0.08)',
+                            boxShadow: isActive ? '0 0 18px rgba(230,51,41,0.5)' : 'none',
+                            transform: isActive ? 'scale(1.08)' : 'scale(1)',
+                            opacity: isActive ? 1 : 0.55,
+                            background: '#faf6ed',
+                        }}
+                    >
+                        <Page
+                            pageNumber={leftPage}
+                            width={54}
+                            renderAnnotationLayer={false}
+                            renderTextLayer={false}
+                            loading={<div style={{ width: 54, height: 72 }} className="bg-[#faf6ed]" />}
+                        />
+                        {rightPage <= numPages && (
+                            <>
+                                <div className="w-px self-stretch bg-black/10 flex-shrink-0" />
                                 <Page
-                                    pageNumber={pageNumber}
-                                    scale={pageScale}
-                                    onLoadSuccess={onPageLoadSuccess}
-                                    className="transition-all duration-700 ease-out select-none shadow-2xl"
+                                    pageNumber={rightPage}
+                                    width={54}
                                     renderAnnotationLayer={false}
                                     renderTextLayer={false}
-                                    loading={null}
+                                    loading={<div style={{ width: 54, height: 72 }} className="bg-[#faf6ed]" />}
                                 />
-                            )}
-                        </Document>
-                    )}
-
-                    {/* Navigation Hotspots - Only for multi-page */}
-                    {numPages > 1 && (
-                        <>
-                            <div
-                                className="absolute inset-y-0 left-0 w-[20%] flex items-center justify-start pl-6 cursor-pointer group/nav z-30"
-                                onClick={() => changePage(-1)}
-                            >
-                                <div className="w-12 h-12 rounded-full bg-black/40 backdrop-blur-xl border border-white/20 flex items-center justify-center opacity-0 group-hover/nav:opacity-100 group-hover/nav:scale-110 transition-all shadow-2xl">
-                                    <ChevronLeft className="w-7 h-7 text-white" />
-                                </div>
-                            </div>
-                            <div
-                                className="absolute inset-y-0 right-0 w-[20%] flex items-center justify-end pr-6 cursor-pointer group/nav z-30"
-                                onClick={() => changePage(1)}
-                            >
-                                <div className="w-12 h-12 rounded-full bg-black/40 backdrop-blur-xl border border-white/20 flex items-center justify-center opacity-0 group-hover/nav:opacity-100 group-hover/nav:scale-110 transition-all shadow-2xl">
-                                    <ChevronRight className="w-7 h-7 text-white" />
-                                </div>
-                            </div>
-                        </>
-                    )}
-                </div>
-
-                {/* Floating Navigation Pill - Only for multi-page */}
-                {numPages > 1 && (
-                    <div className="mt-4 flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                        <div className="flex items-center gap-8 bg-white/90 backdrop-blur-2xl border border-gray-200 px-8 py-3 rounded-full shadow-[0_10px_40px_rgba(0,0,0,0.1)]">
-                            <button
-                                onClick={() => changePage(-1)}
-                                disabled={pageNumber <= 1}
-                                className="p-2 disabled:opacity-10 hover:bg-gray-100 rounded-full transition-all active:scale-90"
-                            >
-                                <ChevronLeft className="w-6 h-6 text-gray-700" />
-                            </button>
-
-                            <div className="flex flex-col items-center min-w-[80px]">
-                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] mb-0.5">Progress</span>
-                                <div className="flex items-baseline gap-1">
-                                    <span className="text-2xl font-black text-gray-800 tabular-nums leading-none">{pageNumber}</span>
-                                    <span className="text-gray-300 font-bold">/</span>
-                                    <span className="text-sm font-bold text-gray-400 tabular-nums">{numPages}</span>
-                                </div>
-                            </div>
-
-                            <button
-                                onClick={() => changePage(1)}
-                                disabled={pageNumber >= numPages}
-                                className="p-2 disabled:opacity-10 hover:bg-gray-100 rounded-full transition-all active:scale-90"
-                            >
-                                <ChevronRight className="w-6 h-6 text-gray-700" />
-                            </button>
-                        </div>
-
-                        {/* Aesthetic Progress Bar */}
-                        <div className="w-48 h-1.5 bg-gray-200/50 rounded-full overflow-hidden relative shadow-inner">
-                            <div
-                                className="absolute inset-y-0 left-0 bg-gradient-to-r from-green-400 to-emerald-500 transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]"
-                                style={{ width: `${(pageNumber / numPages) * 100}%` }}
-                            />
-                        </div>
-                    </div>
-                )}
-            </div>
-        </div>
+                            </>
+                        )}
+                    </button>
+                );
+            })}
+        </Document>
     );
 }

@@ -10,9 +10,18 @@ const nextConfig = withPWA({
   cacheOnFrontEndNav: true,
   aggressiveFrontEndNavCaching: true,
   reloadOnOnline: false,
-  disable: true, // Enable PWA for offline support
+  // BUG-01 FIX: Only disable SW in development — production gets full offline support
+  disable: process.env.NODE_ENV === 'development',
   workboxOptions: {
     disableDevLogs: true,
+    // Cache Supabase requests with network-first so data stays fresh but works offline
+    runtimeCaching: [
+      {
+        urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+        handler: 'NetworkFirst',
+        options: { cacheName: 'supabase-cache', networkTimeoutSeconds: 10 },
+      },
+    ],
   },
 })(config);
 

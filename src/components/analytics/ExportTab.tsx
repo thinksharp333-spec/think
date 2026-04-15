@@ -14,6 +14,7 @@ export function ExportTab() {
         setLoading(true);
         setDataType(type);
         try {
+            if (!supabase) throw new Error("Supabase not configured");
             let fetchedData;
             if (type === 'users') {
                 const { data } = await supabase.from('users').select('*').limit(100); // Limit for MVP
