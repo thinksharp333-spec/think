@@ -1,0 +1,2 @@
+ALTER TABLE users ADD COLUMN streak INTEGER DEFAULT 0;
+ALTER TABLE users ADD COLUMN last_points_date TEXT;

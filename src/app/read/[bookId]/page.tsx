@@ -488,16 +488,34 @@ export default function ReadPage() {
             const fresh = await db.users.get(localUser.id);
             const newTotal = (fresh?.totalPoints || 0) + totalPts;
             const userId = getRemoteUserId(localUser);
-            await db.users.update(localUser.id, { totalPoints: newTotal });
+
+            let updatedStreak = fresh?.streak || 0;
+            let updatedLastPointsDate = fresh?.lastPointsDate || "";
+            if (totalPts > 0) {
+                const now = new Date();
+                const today = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+                const yesterdayObj = new Date(now.getTime() - 86400000 - now.getTimezoneOffset() * 60000);
+                const yesterday = yesterdayObj.toISOString().split('T')[0];
+                
+                if (updatedLastPointsDate === yesterday) {
+                    updatedStreak += 1;
+                    updatedLastPointsDate = today;
+                } else if (updatedLastPointsDate !== today) {
+                    updatedStreak = 1;
+                    updatedLastPointsDate = today;
+                }
+            }
+
+            await db.users.update(localUser.id, { totalPoints: newTotal, streak: updatedStreak, lastPointsDate: updatedLastPointsDate });
             if (userId !== 'local-user') {
                 const g = await db.users.get('local-user');
-                if (g) await db.users.update('local-user', { totalPoints: newTotal });
+                if (g) await db.users.update('local-user', { totalPoints: newTotal, streak: updatedStreak, lastPointsDate: updatedLastPointsDate });
             }
             // BUG-04 FIX: Only queue sync tasks for registered users — guests never sync to Supabase.
             // BUG-06 FIX: Store pointsDelta (additive) not totalPoints (absolute) to avoid last-write-wins.
             const GUEST_IDS = ['local-user', 'local-admin'];
             if (userId && !GUEST_IDS.includes(userId) && totalPts > 0) {
-                await db.syncQueue.add({ type: 'UPDATE_POINTS', payload: { userId, pointsDelta: totalPts }, createdAt: Date.now() });
+                await db.syncQueue.add({ type: 'UPDATE_POINTS', payload: { userId, pointsDelta: totalPts, streak: updatedStreak, lastPointsDate: updatedLastPointsDate }, createdAt: Date.now() });
             }
             if (isFinal && !sessionLoggedRef.current) {
                 const fallback: Record<number, string> = { 1: 'Sample Book', 2: 'Science Book', 3: 'Math Book', 4: 'History' };

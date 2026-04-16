@@ -267,7 +267,7 @@ export default function LoginPage() {
                             <BookOpen className="h-6 w-6 text-white" />
                         </div>
                         <div>
-                            <p className="comic-title text-white text-sm">Reading Adventure</p>
+                            <p className="comic-title text-white text-sm">Digi Library</p>
                             <p className="text-white/50 text-xs font-bold uppercase tracking-wide">1000+ quests waiting</p>
                         </div>
                     </div>

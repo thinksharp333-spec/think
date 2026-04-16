@@ -299,7 +299,7 @@ export default function LandingPage() {
             <Link href="/" className="hover:text-white transition-colors">Terms of Service</Link>
             <Link href="/admin" className="hover:text-white transition-colors">Contact</Link>
           </div>
-          <p className="text-white/70 text-sm font-bold">&copy; 2024 Reading Adventure. All rights reserved.</p>
+          <p className="text-white/70 text-sm font-bold">&copy; 2024 Digi Library. All rights reserved.</p>
           <Link href="/admin" className="chip chip-dark text-xs">
             <LogIn className="h-3 w-3" /> Admin Access
           </Link>

@@ -14,6 +14,8 @@ interface User {
     role?: string; // student or admin
     password?: string;
     totalPoints: number;
+    streak?: number;
+    lastPointsDate?: string;
     booksRead?: number;
     lastLogin?: number;
     // ── Avatar system ──────────────────────────────────────────

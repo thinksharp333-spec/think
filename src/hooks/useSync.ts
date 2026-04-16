@@ -97,9 +97,16 @@ export function useSync() {
                             if (fetchError) throw fetchError;
 
                             const currentPoints = (userData as any)?.totalPoints ?? 0;
+                            
+                            const updateObj: any = { "totalPoints": currentPoints + delta };
+                            if (task.payload?.streak !== undefined) {
+                                updateObj.streak = task.payload.streak;
+                                updateObj.last_points_date = task.payload.lastPointsDate;
+                            }
+                            
                             const { error } = await supabase
                                 .from('users')
-                                .update({ "totalPoints": currentPoints + delta })
+                                .update(updateObj)
                                 .eq('id', userId);
 
                             if (error) throw error;

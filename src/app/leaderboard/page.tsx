@@ -12,6 +12,7 @@ interface LeaderboardUser {
     id: string;
     name: string;
     totalPoints: number;
+    streak?: number;
     rank?: number;
 }
 
@@ -106,10 +107,21 @@ export default function LeaderboardPage() {
             if (!supabase) return;
             setLoading(true);
             try {
-                const { data, error } = await supabase.from('users').select('id, name, totalPoints').order('totalPoints', { ascending: false }).limit(50);
+                const { data, error } = await supabase.from('users').select('id, name, totalPoints, streak, last_points_date').order('totalPoints', { ascending: false }).limit(50);
                 if (error) throw error;
                 if (data) {
-                    setLeaderboard(data.map((u, i) => ({ id: u.id, name: u.name || 'Anonymous', totalPoints: u.totalPoints || 0, rank: i + 1 })));
+                    const now = new Date();
+                    const today = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+                    const yesterdayObj = new Date(now.getTime() - 86400000 - now.getTimezoneOffset() * 60000);
+                    const yesterday = yesterdayObj.toISOString().split('T')[0];
+                    
+                    setLeaderboard(data.map((u, i) => {
+                        let effStreak = u.streak || 0;
+                        if (effStreak > 0 && u.last_points_date !== today && u.last_points_date !== yesterday) {
+                            effStreak = 0;
+                        }
+                        return { id: u.id, name: u.name || 'Anonymous', totalPoints: u.totalPoints || 0, streak: effStreak, rank: i + 1 };
+                    }));
                 }
                 const { data: booksData } = await supabase.from('books').select('id, title, "coverUrl", avg_rating, review_count');
                 const { data: reviewsData } = await supabase.from('book_reviews').select('book_id, user_id, rating, created_at');
@@ -234,6 +246,12 @@ export default function LeaderboardPage() {
                                                     <p className={`font-black text-yellow-300 text-center ${isFirst ? 'text-sm' : 'text-xs'}`}>
                                                         {u.totalPoints} Book Points
                                                     </p>
+                                                    {u.streak! > 0 && (
+                                                        <div className="flex items-center gap-1 justify-center mt-1">
+                                                            <Flame className="w-3.5 h-3.5 text-orange-500 fill-orange-500" />
+                                                            <span className="text-orange-500 font-bold text-[10px] uppercase">Streak {u.streak}</span>
+                                                        </div>
+                                                    )}
                                                     <div className="mt-2 px-3 py-1.5 rounded-full border-2 border-[#111] font-black text-[11px] uppercase tracking-wide flex items-center gap-1.5 shadow-[0_4px_0_rgba(0,0,0,0.3)]"
                                                         style={{ background: badge.bg, color: badge.color, borderColor: badge.color + "88" }}>
                                                         <span>{badge.emoji}</span> {badge.label}
@@ -297,9 +315,17 @@ export default function LeaderboardPage() {
                                                 </div>
                                                 {/* Name + badge */}
                                                 <div className="flex-1 min-w-0">
-                                                    <p className={`font-black text-sm leading-tight truncate ${isMe ? 'text-[#e63329]' : 'text-[#111]'}`}>
-                                                        {u.name.split(' ')[0]}{isMe ? ' (YOU)' : ''}
-                                                    </p>
+                                                    <div className="flex items-center gap-1.5 mb-1">
+                                                        {u.streak! > 0 && (
+                                                            <div className="flex items-center gap-0.5" title={`${u.streak} Day Streak!`}>
+                                                                <Flame className="w-3.5 h-3.5 text-orange-500 fill-orange-500 animate-pulse" />
+                                                                <span className="text-orange-500 font-black text-[10px]">{u.streak}</span>
+                                                            </div>
+                                                        )}
+                                                        <p className={`font-black text-sm leading-tight truncate ${isMe ? 'text-[#e63329]' : 'text-[#111]'}`}>
+                                                            {u.name.split(' ')[0]}{isMe ? ' (YOU)' : ''}
+                                                        </p>
+                                                    </div>
                                                     <span className="text-[10px] font-black uppercase tracking-wide" style={{ color: badge.color }}>
                                                         {badge.emoji} {badge.label}
                                                     </span>
@@ -351,9 +377,17 @@ export default function LeaderboardPage() {
                                                 </div>
                                                 {/* Name + badge */}
                                                 <div className="flex-1 min-w-0">
-                                                    <p className={`font-black text-sm leading-tight truncate ${isMe ? 'text-[#e63329]' : 'text-[#111]'}`}>
-                                                        {u.name}{isMe ? ' (YOU)' : ''}
-                                                    </p>
+                                                    <div className="flex items-center gap-1.5 mb-1">
+                                                        {u.streak! > 0 && (
+                                                            <div className="flex items-center gap-0.5" title={`${u.streak} Day Streak!`}>
+                                                                <Flame className="w-3.5 h-3.5 text-orange-500 fill-orange-500 animate-pulse" />
+                                                                <span className="text-orange-500 font-black text-[10px]">{u.streak}</span>
+                                                            </div>
+                                                        )}
+                                                        <p className={`font-black text-sm leading-tight truncate ${isMe ? 'text-[#e63329]' : 'text-[#111]'}`}>
+                                                            {u.name}{isMe ? ' (YOU)' : ''}
+                                                        </p>
+                                                    </div>
                                                     <span className="text-[10px] font-black uppercase tracking-wide" style={{ color: badge.color }}>
                                                         {badge.label}
                                                     </span>

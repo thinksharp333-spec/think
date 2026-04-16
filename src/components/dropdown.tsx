@@ -21,7 +21,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full cursor-pointer rounded-2xl border-none bg-[#111111] px-4 py-3 pr-10 text-sm font-black uppercase tracking-wide text-white appearance-none outline-none"
+        className="w-full cursor-pointer rounded-xl border-none bg-[#111111] px-3 py-1.5 pr-8 text-xs font-black uppercase tracking-wide text-white appearance-none outline-none"
       >
         <option value="">{label}</option>
         {options.map((option) => (

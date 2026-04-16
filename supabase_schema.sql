@@ -32,6 +32,14 @@ CREATE TABLE IF NOT EXISTS users (
 DO $$
 BEGIN
     BEGIN
+        ALTER TABLE users ADD COLUMN streak INTEGER DEFAULT 0;
+    EXCEPTION WHEN duplicate_column THEN NULL;
+    END;
+    BEGIN
+        ALTER TABLE users ADD COLUMN last_points_date TEXT;
+    EXCEPTION WHEN duplicate_column THEN NULL;
+    END;
+    BEGIN
         ALTER TABLE users ADD COLUMN grade TEXT;
     EXCEPTION WHEN duplicate_column THEN NULL;
     END;

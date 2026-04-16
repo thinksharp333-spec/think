@@ -35,6 +35,17 @@ export default function Dashboard() {
     const [downloadError, setDownloadError] = useState<string | null>(null);
 
     const points = user?.totalPoints || 0;
+    
+    let displayStreak = user?.streak || 0;
+    if (displayStreak > 0 && user?.lastPointsDate) {
+        const now = new Date();
+        const today = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+        const yesterdayObj = new Date(now.getTime() - 86400000 - now.getTimezoneOffset() * 60000);
+        const yesterday = yesterdayObj.toISOString().split('T')[0];
+        if (user.lastPointsDate !== today && user.lastPointsDate !== yesterday) {
+            displayStreak = 0;
+        }
+    }
 
     const languages = [
         { value: "English", label: "English" },
@@ -124,7 +135,7 @@ export default function Dashboard() {
                         </button>
                         <Link href="/" className="flex items-center gap-2">
                             <BookOpen className="h-6 w-6 text-white" />
-                            <span className="comic-title text-xl text-white hidden sm:block">Reading Adventure</span>
+                            <span className="comic-title text-xl text-white hidden sm:block">Digi Library</span>
                         </Link>
                     </div>
 
@@ -136,59 +147,20 @@ export default function Dashboard() {
                     {/* Right: status + actions */}
                     <div className="flex items-center gap-2">
                         <span className="chip chip-gold text-xs hidden md:flex text-[#111111]">
-                            <Flame className="h-3.5 w-3.5 text-orange-500 fill-orange-500" /> Streak 12
+                            <Flame className="h-3.5 w-3.5 text-orange-500 fill-orange-500" /> Streak {displayStreak}
                         </span>
                         <span className="chip chip-gold text-xs hidden md:flex text-[#111111]">
                             <Trophy className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500" /> {points} pts
                         </span>
-                        <span className={`chip text-xs hidden sm:flex text-[#111111] ${isOnline ? 'bg-[#edf8df]' : 'bg-[#ffece5]'}`}>
-                            {isOnline ? <Wifi className="h-3.5 w-3.5 text-green-600" /> : <WifiOff className="h-3.5 w-3.5 text-red-500" />}
-                            {isOnline ? "Online" : "Offline"}
-                        </span>
-                        <button className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 transition-all">
-                            <Search className="h-5 w-5" />
+
+                        <button onClick={async () => { if (supabase) { await supabase.auth.signOut(); } document.cookie = "user_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"; window.location.href = "/"; }}
+                            className="chip chip-dark text-xs hidden md:flex cursor-pointer">
+                            <LogOut className="h-3.5 w-3.5" /> Logout
                         </button>
-                        <button className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 transition-all">
-                            <User className="h-5 w-5" />
-                        </button>
-                        {user?.id !== 'local-user' ? (
-                            <button onClick={async () => { if (supabase) { await supabase.auth.signOut(); window.location.reload(); } }}
-                                className="chip chip-dark text-xs hidden md:flex">
-                                <LogOut className="h-3.5 w-3.5" /> Logout
-                            </button>
-                        ) : (
-                            <Link href="/login" className="chip chip-dark text-xs hidden md:flex">
-                                <LogIn className="h-3.5 w-3.5" /> Login
-                            </Link>
-                        )}
                     </div>
                 </div>
 
-                {/* Filter bar */}
-                <div className="px-5 pb-3 md:px-8 flex items-center gap-3 overflow-x-auto no-scrollbar">
-                    <Dropdown label="Age Group" options={levels.map(l => ({ value: l.value, label: `Grade ${l.value}` }))}
-                        value={selectedLevel} onChange={setSelectedLevel} className="filter-btn" />
-                    <Dropdown label="Genre" options={subjects} value={selectedSubject} onChange={setSelectedSubject} className="filter-btn" />
-                    <Dropdown label="Reading Level" options={combinedLanguages} value={selectedLanguage} onChange={setSelectedLanguage} className="filter-btn" />
-                    {isFilterActive && (
-                        <button onClick={() => { setSelectedLevel(""); setSelectedSubject(""); setSelectedLanguage(""); setSearchQuery(""); }}
-                            className="flex-shrink-0 text-white/80 hover:text-white text-xs font-black uppercase tracking-wide bg-white/15 hover:bg-white/25 px-4 py-2 rounded-full transition-all">
-                            ✕ Reset
-                        </button>
-                    )}
-                    {selectedLevel && (
-                        <button 
-                            onClick={handleBulkDownload}
-                            disabled={isDownloadingAll}
-                            className={`flex-shrink-0 flex items-center gap-2 bg-yellow-400 hover:bg-yellow-300 text-yellow-950 text-xs font-black uppercase tracking-wide px-4 py-2 rounded-full transition-all shadow-[0_4px_0_#92400e] active:translate-y-[2px] active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed`}>
-                            {isDownloadingAll ? (
-                                <><Loader2 className="h-4 w-4 animate-spin" /> Downloading...</>
-                            ) : (
-                                <><Download className="h-4 w-4" /> Download Level {selectedLevel}</>
-                            )}
-                        </button>
-                    )}
-                </div>
+
             </header>
 
             {/* ── Body: sidebar + main ───────────────────────────────────── */}
@@ -243,41 +215,6 @@ export default function Dashboard() {
                     </div>
                 )}
 
-                {/* Fixed desktop sidebar */}
-                <aside className="sidebar hidden xl:block">
-                    <div className="p-5 border-b-2 border-gray-100 sticky top-0 bg-white">
-                        <p className="font-black text-[#111] uppercase tracking-widest text-xs flex items-center gap-2">
-                            <Clock className="h-3.5 w-3.5 text-[#e63329]" /> Recently Read
-                        </p>
-                    </div>
-                    <div className="p-4 space-y-2">
-                        {recentBooks && recentBooks.length > 0 ? recentBooks.slice(0, 8).map((book) => (
-                            <Link key={book.id} href={`/read/${book.id}`}
-                                className="flex items-center gap-3 p-2.5 rounded-2xl hover:bg-[#fff3ef] transition-colors group">
-                                <div className="h-14 w-11 flex-shrink-0 rounded-xl border-2 border-[#111] overflow-hidden shadow-[0_4px_0_#111] bg-[#fff4ef]">
-                                    {book.coverUrl ? (
-                                        <img src={book.coverUrl.includes('drive.google.com') ? getThumbnailUrl(extractFileId(book.coverUrl)) : book.coverUrl}
-                                            alt={book.title} className="w-full h-full object-cover" loading="lazy" />
-                                    ) : <div className="w-full h-full flex items-center justify-center text-[#e63329]"><BookOpen className="w-5 h-5" /></div>}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-black text-[#111] line-clamp-2 group-hover:text-[#e63329] transition-colors leading-tight">{book.title}</p>
-                                    {book.avgRating && book.avgRating > 0 && (
-                                        <div className="flex items-center gap-1 mt-1">
-                                            <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                                            <span className="text-[10px] font-black text-[#777]">{book.avgRating.toFixed(1)}</span>
-                                        </div>
-                                    )}
-                                </div>
-                            </Link>
-                        )) : (
-                            <div className="text-center py-10">
-                                <BookOpen className="w-10 h-10 text-[#ddd] mx-auto mb-2" />
-                                <p className="text-[10px] font-bold text-[#999] uppercase tracking-wider">No history yet</p>
-                            </div>
-                        )}
-                    </div>
-                </aside>
 
                 {/* ── Main content ───────────────────────────────────────── */}
                 <main className="flex-1 min-w-0 overflow-y-auto">
@@ -317,25 +254,36 @@ export default function Dashboard() {
                             </div>
                         </div>
 
-                        {/* Subject filter pills */}
-                        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                            <button onClick={() => setSelectedSubject("")}
-                                className={`filter-btn flex-shrink-0 ${selectedSubject === "" ? "!bg-[#e63329]" : ""}`}>
-                                All Subjects
-                            </button>
-                            {subjects.map((sub) => (
-                                <button key={sub.value} onClick={() => setSelectedSubject(sub.value)}
-                                    className={`filter-btn flex-shrink-0 ${selectedSubject === sub.value ? "!bg-[#e63329]" : ""}`}>
-                                    {sub.label}
+                        {/* Filter bar / Dropdowns */}
+                        <div className="flex items-center gap-3 overflow-x-auto no-scrollbar pb-1">
+                            <Dropdown label="Language" options={combinedLanguages} value={selectedLanguage} onChange={setSelectedLanguage} className="filter-btn" />
+                            <Dropdown label="Level" options={levels} value={selectedLevel} onChange={setSelectedLevel} className="filter-btn" />
+                            <Dropdown label="Category" options={subjects} value={selectedSubject} onChange={setSelectedSubject} className="filter-btn" />
+                            {isFilterActive && (
+                                <button onClick={() => { setSelectedLevel(""); setSelectedSubject(""); setSelectedLanguage(""); setSearchQuery(""); }}
+                                    className="flex-shrink-0 text-[#111] hover:text-[#e63329] text-xs font-black uppercase tracking-wide bg-black/5 hover:bg-black/10 px-4 py-2 rounded-full transition-all">
+                                    ✕ Reset
                                 </button>
-                            ))}
+                            )}
+                            {selectedLevel && (
+                                <button 
+                                    onClick={handleBulkDownload}
+                                    disabled={isDownloadingAll}
+                                    className={`flex-shrink-0 flex items-center gap-2 bg-yellow-400 hover:bg-yellow-300 text-yellow-950 text-xs font-black uppercase tracking-wide px-4 py-2 rounded-full transition-all shadow-[0_4px_0_#92400e] active:translate-y-[2px] active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed`}>
+                                    {isDownloadingAll ? (
+                                        <><Loader2 className="h-4 w-4 animate-spin" /> Downloading...</>
+                                    ) : (
+                                        <><Download className="h-4 w-4" /> Download Level {selectedLevel}</>
+                                    )}
+                                </button>
+                            )}
                         </div>
 
                         {/* Search bar */}
                         <div className="relative">
                             <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-[#aaa]" />
                             <input type="text" placeholder="Search by title, subject or level..."
-                                className="comic-input pl-14 text-sm font-bold"
+                                className="comic-input text-sm font-bold" style={{ paddingLeft: '48px' }}
                                 value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                         </div>
 
@@ -429,18 +377,11 @@ export default function Dashboard() {
                         <Trophy className="w-6 h-6" />
                         <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Rank</span>
                     </Link>
-                    {user?.id !== 'local-user' ? (
-                        <button onClick={async () => { if (supabase) { await supabase.auth.signOut(); window.location.reload(); } }}
-                            className="flex flex-col items-center text-[#777] hover:text-[#e63329] transition-colors">
-                            <LogOut className="w-6 h-6" />
-                            <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Logout</span>
-                        </button>
-                    ) : (
-                        <Link href="/login" className="flex flex-col items-center text-[#777] hover:text-[#e63329] transition-colors">
-                            <LogIn className="w-6 h-6" />
-                            <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Login</span>
-                        </Link>
-                    )}
+                    <button onClick={async () => { if (supabase) { await supabase.auth.signOut(); } document.cookie = "user_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"; window.location.href = "/"; }}
+                        className="flex flex-col items-center text-[#777] hover:text-[#e63329] transition-colors cursor-pointer">
+                        <LogOut className="w-6 h-6" />
+                        <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Logout</span>
+                    </button>
                 </div>
             </nav>
         </div>
