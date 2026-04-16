@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { PdfReader, PdfScrollThumbnails } from '@/components/pdf-reader';
-import { ArrowLeft, BookOpen, Trophy, CheckCircle2, XCircle, Plus, ChevronLeft, ChevronRight, Wifi, WifiOff, RefreshCw, Star } from 'lucide-react';
+import { ArrowLeft, BookOpen, Trophy, CheckCircle2, XCircle, Plus, ChevronLeft, ChevronRight, Wifi, WifiOff, RefreshCw, Star, History, Clock, Calendar, Bell } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
 import { useLiveQuery } from "dexie-react-hooks";
@@ -134,6 +134,157 @@ function AvatarEvolutionOverlay({ evolvedStage, onClose }: { evolvedStage: numbe
     );
 }
 
+// ─── Reading & Quiz History Overlay ──────────────────────────────────────────
+function BookHistoryOverlay({
+        bookIdNum,
+        bookIdString,
+        onClose,
+        quizReady
+    }: {
+        bookIdNum: number;
+        bookIdString: string;
+        onClose: () => void;
+        quizReady: boolean
+    }) {
+    const [activeTab, setActiveTab] = useState<'reading'|'quiz'>('reading');
+
+    const quizAttempts = useLiveQuery(() =>
+        db.quizAttempts.where('bookId').equals(bookIdNum).reverse().sortBy('completedAt'),
+        [bookIdNum]
+    ) || [];
+
+    const readingSessions = useLiveQuery(() =>
+        db.readings.where('bookId').equals(bookIdString).reverse().sortBy('startTime'),
+        [bookIdString]
+    ) || [];
+
+    const formatDate = (ts: number) => {
+        return new Date(ts).toLocaleDateString('en-IN', {
+            day: 'numeric',
+            month: 'short',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+
+    const formatDuration = (start: number, end?: number) => {
+        if (!end) return 'In Progress';
+        const totalSecs = Math.floor((end - start) / 1000);
+        const mins = Math.floor(totalSecs / 60);
+        const secs = totalSecs % 60;
+        return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <div className="comic-modal w-full max-w-md overflow-hidden flex flex-col max-h-[85vh]">
+                {/* Header */}
+                <div className="px-6 py-4 bg-[#111] border-b-[3px] border-[#111] flex justify-between items-center">
+                    <div className="flex items-center gap-2 text-white font-black uppercase tracking-wider">
+                        <History className="w-5 h-5 text-yellow-400" />
+                        Book Activity
+                    </div>
+                    <button onClick={onClose} className="text-white/60 hover:text-white font-black text-xl">×</button>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex bg-[#f5f5f5] p-1 gap-1 border-b-[2px] border-[#eee]">
+                    <button
+                        onClick={() => setActiveTab('reading')}
+                        className={`flex-1 py-2 rounded-xl text-xs font-black uppercase transition-all ${
+                            activeTab === 'reading' ? 'bg-white text-[#111] shadow-sm border-[2.5px] border-[#111]' : 'text-gray-400'
+                        }`}>
+                        Reading Logs
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('quiz')}
+                        className={`flex-1 py-2 rounded-xl text-xs font-black uppercase transition-all ${
+                            activeTab === 'quiz' ? 'bg-white text-[#111] shadow-sm border-[2.5px] border-[#111]' : 'text-gray-400'
+                        }`}>
+                        Quiz History
+                    </button>
+                </div>
+
+                {/* Scrollable Content */}
+                <div className="flex-1 overflow-y-auto p-4 bg-white space-y-3">
+                    {activeTab === 'reading' ? (
+                        readingSessions.length > 0 ? (
+                            readingSessions.map((s, i) => (
+                                <div key={i} className="p-3 rounded-2xl border-[2.5px] border-[#eee] flex items-center justify-between">
+                                    <div className="flex flex-col gap-0.5">
+                                        <div className="flex items-center gap-1.5 text-xs font-black text-[#111]">
+                                            <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                                            {formatDate(s.startTime)}
+                                        </div>
+                                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                                            <Clock className="w-3.5 h-3.5" />
+                                            {formatDuration(s.startTime, s.endTime)}
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-[10px] font-black text-[#111] uppercase opacity-40">Status</div>
+                                        <div className="text-xs font-black text-green-600 uppercase italic">Logged</div>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="py-12 text-center">
+                                <BookOpen className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+                                <p className="font-black text-gray-300 uppercase tracking-widest text-sm">No reading logs found</p>
+                            </div>
+                        )
+                    ) : (
+                        <div className="space-y-3">
+                            {!quizReady && (
+                                <div className="p-3 rounded-xl bg-yellow-50 border-2 border-yellow-200 text-[10px] font-bold text-yellow-700 uppercase flex items-center gap-2 mb-4">
+                                    <RefreshCw className="w-4 h-4 animate-spin-slow" />
+                                    New quiz is being generated...
+                                </div>
+                            )}
+
+                            {quizAttempts.length > 0 ? (
+                                quizAttempts.map((a, i) => (
+                                    <div key={i} className="p-3 rounded-2xl border-[2.5px] border-[#111] bg-[#fafafa] flex items-center justify-between shadow-[0_4px_0_#111]">
+                                        <div className="flex flex-col gap-0.5">
+                                            <div className="text-xs font-black text-[#111]">
+                                                {formatDate(a.completedAt)}
+                                            </div>
+                                            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                                                Attempt #{quizAttempts.length - i}
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <div className="text-right">
+                                                <div className="text-2xl font-black text-[#e63329] leading-none">{a.score}/{a.totalQuestions}</div>
+                                                <div className="text-[9px] font-black text-[#111] uppercase tracking-tighter">Correct Answers</div>
+                                            </div>
+                                            <div className="w-10 h-10 rounded-full bg-[#111] flex items-center justify-center text-white">
+                                                <Trophy className={`w-5 h-5 ${a.score === a.totalQuestions ? 'text-yellow-400' : 'text-white'}`} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="py-12 text-center">
+                                    <Trophy className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+                                    <p className="font-black text-gray-300 uppercase tracking-widest text-sm">No quiz scores yet</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer Action */}
+                <div className="p-4 bg-gray-50 border-t-[2px] border-[#eee]">
+                    <button onClick={onClose} className="w-full bg-[#111] text-white py-3 rounded-2xl font-black text-sm uppercase shadow-[0_4px_0_#333] active:translate-y-1 active:shadow-none transition-all">
+                        Back to Book
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function ReadPage() {
 
     const params = useParams();
@@ -188,7 +339,15 @@ export default function ReadPage() {
 
     const questions = book?.questions || [];
     const [showQuiz, setShowQuiz] = useState(false);
-    const [showNoQuiz, setShowNoQuiz] = useState(false);
+    const [showHistory, setShowHistory] = useState(false);
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
+
+    // Auto-clear toast after 6 seconds
+    useEffect(() => {
+        if (!toast) return;
+        const t = setTimeout(() => setToast(null), 6000);
+        return () => clearTimeout(t);
+    }, [toast]);
 
     const openQuiz = () => {
         quizAnswersRef.current = [];
@@ -204,9 +363,39 @@ export default function ReadPage() {
         if (questions?.length > 0) {
             openQuiz();
         } else if (book) {
-            setShowNoQuiz(true);
+            setShowHistory(true);
         }
     }, [questions?.length, book?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // ─── Real-time Quiz Updates ──────────────────────────────
+    useEffect(() => {
+        if (!bookIdNum || !supabase) return;
+
+        const channel = supabase
+            .channel(`book_${bookIdNum}_changes`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'books',
+                    filter: `id=eq.${bookIdNum}`
+                },
+                async (payload) => {
+                    const newQuestions = payload.new?.questions || [];
+                    if (newQuestions.length > 0 && (!questions || questions.length === 0)) {
+                        // Questions just generated!
+                        await db.books.update(bookIdNum, { questions: newQuestions });
+                        setToast({ message: "New Quiz Ready!", type: 'success' });
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase?.removeChannel(channel);
+        };
+    }, [bookIdNum, questions?.length]);
 
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
     const [score, setScore] = useState(0);
@@ -456,6 +645,15 @@ export default function ReadPage() {
                         <ArrowLeft className="w-4 h-4" />
                         Library
                     </button>
+                    <button
+                        onClick={() => setShowHistory(true)}
+                        className="flex items-center gap-2 text-white font-bold text-xs px-4 py-2 rounded-lg transition-all hover:bg-white/10 active:scale-95"
+                        style={{ background: 'rgba(0,0,0,0.25)' }}
+                        title="View reading and quiz history"
+                    >
+                        <History className="w-4 h-4" />
+                        History
+                    </button>
                     {questions.length > 0 && (
                         <button
                             onClick={() => { quizAnswersRef.current = []; setCurrentQuestionIndex(0); setScore(0); setQuizCompleted(false); setSelectedOption(null); setShowQuiz(true); }}
@@ -635,24 +833,35 @@ export default function ReadPage() {
             {/* ── Avatar Evolution Celebration ── */}
             <AvatarEvolutionOverlay evolvedStage={evolvedStage} onClose={() => setEvolvedStage(null)} />
 
-            {/* ── Quiz Not Ready Yet ── */}
-            {showNoQuiz && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-                    <div className="comic-modal w-full max-w-sm overflow-hidden">
-                        <div className="px-6 py-4 flex items-center gap-2 bg-[#e63329] border-b-[3px] border-[#111]">
-                            <Trophy className="w-5 h-5 text-white" />
-                            <span className="font-black text-white text-lg uppercase tracking-wide">Quiz</span>
+            {/* ── Real-time Toast Notifications ── */}
+            {toast && (
+                <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] animate-in fade-in slide-in-from-bottom-4 duration-300">
+                    <div className="bg-[#111] text-white px-5 py-4 rounded-2xl border-[3px] border-yellow-400 shadow-2xl flex items-center gap-4 min-w-[300px]">
+                        <div className="w-10 h-10 rounded-full bg-yellow-400 flex items-center justify-center flex-shrink-0 animate-bounce">
+                            <Trophy className="w-6 h-6 text-[#111]" />
                         </div>
-                        <div className="p-8 flex flex-col items-center gap-4 bg-white text-center">
-                            <div className="w-16 h-16 rounded-full bg-[#fff4ba] border-[3px] border-[#111] flex items-center justify-center">
-                                <Trophy className="w-8 h-8 text-yellow-500" />
-                            </div>
-                            <p className="font-black text-[#111] text-lg">Quiz Coming Soon!</p>
-                            <p className="text-sm text-[#777]">The quiz for this book is being prepared by our team. Check back shortly.</p>
-                            <button onClick={() => setShowNoQuiz(false)} className="btn-red px-8 py-3 text-sm w-full">Got it</button>
+                        <div className="flex-1">
+                            <p className="font-black text-sm uppercase tracking-wide">{toast.message}</p>
+                            <p className="text-[10px] font-bold text-white/50 uppercase">The quiz is now available for you!</p>
                         </div>
+                        <button
+                            onClick={() => { setToast(null); openQuiz(); }}
+                            className="bg-yellow-400 text-[#111] px-4 py-2 rounded-xl font-black text-xs uppercase hover:bg-yellow-300 transition-colors"
+                        >
+                            Start Quiz
+                        </button>
                     </div>
                 </div>
+            )}
+
+            {/* ── History & Sessions Dashboard ── */}
+            {showHistory && (
+                <BookHistoryOverlay
+                    bookIdNum={bookIdNum}
+                    bookIdString={bookIdString}
+                    onClose={() => setShowHistory(false)}
+                    quizReady={questions.length > 0}
+                />
             )}
 
             {/* ── Quiz Modal ── */}

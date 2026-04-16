@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Wifi, WifiOff, Phone, Loader2, BookOpen, ChevronRight } from "lucide-react";
+import { ArrowLeft, Wifi, WifiOff, Phone, Loader2, BookOpen, ChevronRight, Rocket, Bot, Sparkles, Footprints, WandSparkles } from "lucide-react";
 import { db } from "@/lib/db";
 import { useSync } from "@/hooks/useSync";
 import { supabase } from "@/lib/supabase";

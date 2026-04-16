@@ -2,7 +2,7 @@
 
 import { useBooks } from "@/hooks/useBooks";
 import { Book, db, User, getSyncKey } from "@/lib/db";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { generateCoverFromPdf } from "@/lib/pdf-utils";
 import { useLiveQuery } from "dexie-react-hooks";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -189,7 +189,8 @@ export default function AdminDashboard() {
                 });
 
                 if (!res.ok) {
-                    console.warn(`[BG Quiz] Chunk ${Math.floor(i / CHUNK_SIZE) + 1} failed (${res.status})`);
+                    const err = await res.json().catch(() => ({}));
+                    console.warn(`[BG Quiz] Chunk ${Math.floor(i / CHUNK_SIZE) + 1} failed (${res.status}):`, err.error || 'Unknown Error');
                     continue;
                 }
 
@@ -215,8 +216,8 @@ export default function AdminDashboard() {
 
             setGeneratingBackgroundTitle(null);
             console.log('[BG Quiz] Run complete');
-        } catch (err) {
-            console.error('[BG Quiz] Error:', err);
+        } catch (err: any) {
+            console.error('[BG Quiz] Fatal Error:', err.message || err);
         } finally {
             isRunningRef.current = false;
         }

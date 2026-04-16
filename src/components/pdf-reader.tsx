@@ -122,10 +122,10 @@ export function PdfReader({
         return url;
     }, [blobUrl, book?.fileId, url]);
 
+    function onDocumentLoadSuccess({ numPages: n }: { numPages: number }) {
         setNumPages(n);
         onNumPagesChange?.(n);
         setLoading(false);
-
     }
 
     async function onPageLoadSuccess(page: any) {

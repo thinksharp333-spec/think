@@ -77,7 +77,7 @@ ${promptText}
 Return ONLY the raw JSON array, starting with [ and ending with ].`;
 
         const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
             {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -95,8 +95,21 @@ Return ONLY the raw JSON array, starting with [ and ending with ].`;
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error("[Quiz] Gemini error:", response.status, errorText.slice(0, 300));
-            return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
+            console.error("[Quiz] Gemini error:", response.status, errorText);
+            
+            // Return detailed error if possible
+            let errorMsg = "GEMINI_ERROR";
+            try {
+                const errJson = JSON.parse(errorText);
+                errorMsg = errJson.error?.message || errorMsg;
+            } catch {
+                errorMsg = errorText.slice(0, 100);
+            }
+            
+            return NextResponse.json({ 
+                error: errorMsg,
+                status: response.status 
+            }, { status: response.status === 429 ? 429 : 500 });
         }
 
         const result = await response.json();

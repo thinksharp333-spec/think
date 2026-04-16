@@ -99,6 +99,7 @@ export default function LeaderboardPage() {
     const [topBooks, setTopBooks] = useState<LeaderboardBook[]>([]);
     const [booksRead, setBooksRead] = useState<BooksReadEntry[]>([]);
     const [loading, setLoading] = useState(true);
+    const [filter, setFilter] = useState<'daily' | 'weekly' | 'all'>('all');
 
     useEffect(() => {
         const fetchLeaderboard = async () => {
@@ -204,131 +205,126 @@ export default function LeaderboardPage() {
             </header>
 
             {/* ── Students Tab ─────────────────────────────────────────── */}
-            {
-                activeTab === 'students' && (
-                    <>
-                        {loading ? (
-                            <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-yellow-400" /></div>
-                        ) : leaderboard.length === 0 ? (
-                            <div className="text-center py-20">
-                                <Trophy className="w-16 h-16 text-white/30 mx-auto mb-4" />
-                                <p className="text-white/60 font-bold uppercase tracking-wide">No ranking data yet</p>
-                            </div>
-                        ) : (
-                            <>
-                                {/* ── Podium ─────────────────────────────────── */}
-                                <div className="px-4 md:px-12 pt-4 pb-0">
-                                    <div className="max-w-2xl mx-auto">
-                                        {/* Characters */}
-                                        <div className="flex items-end justify-center gap-4 md:gap-8 mb-0">
-                                            {podiumOrder.map((u, i) => {
-                                                const rank = podiumRanks[i];
-                                                const badge = RANK_BADGES[(rank - 1) % RANK_BADGES.length];
-                                                const isFirst = rank === 1;
-                                                return (
-                                                    <div key={u.id} className={`flex flex-col items-center ${isFirst ? '-mt-6' : ''}`}>
-                                                        <PodiumAvatar rank={rank} name={u.name} />
-                                                        <p className={`font-black text-white mt-2 text-center ${isFirst ? 'text-base' : 'text-sm'}`}>
-                                                            {rank}. {u.name.split(' ')[0]}
-                                                        </p>
-                                                        <p className={`font-black text-yellow-300 text-center ${isFirst ? 'text-sm' : 'text-xs'}`}>
-                                                            {u.totalPoints} Book Points
-                                                        </p>
-                                                        <div className="mt-2 px-3 py-1.5 rounded-full border-2 border-[#111] font-black text-[11px] uppercase tracking-wide flex items-center gap-1.5 shadow-[0_4px_0_rgba(0,0,0,0.3)]"
-                                                            style={{ background: badge.bg, color: badge.color, borderColor: badge.color + "88" }}>
-                                                            <span>{badge.emoji}</span> {badge.label}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-
-                                        {/* Podium blocks */}
-                                        <div className="flex items-end justify-center gap-4 md:gap-8 -mt-1">
-                                            {podiumOrder.map((u, i) => {
-                                                const rank = podiumRanks[i];
-                                                const isFirst = rank === 1;
-                                                const heights = { 1: "h-24", 2: "h-16", 3: "h-12" };
-                                                const h = heights[rank as 1 | 2 | 3] || "h-12";
-                                                return (
-                                                    <div key={u.id} className={`${isFirst ? 'w-36' : 'w-28'} ${h} flex items-center justify-center font-black text-3xl md:text-4xl text-[#111] rounded-t-2xl border-t-4 border-x-4 border-yellow-400 relative`}
-                                                        style={{ background: "linear-gradient(180deg,#d4a017 0%,#b8860b 50%,#8B6914 100%)" }}>
-                                                        <span className="text-white/80 drop-shadow-lg">{rank}</span>
-                                                        {/* gold shimmer strip */}
-                                                        <div className="absolute top-2 left-2 right-2 h-1 rounded-full bg-yellow-200/40" />
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* ── Other Amazing Readers ─────────────────── */}
-                                <div className="flex-1 bg-[#fffbf3] rounded-t-[36px] mt-0 px-4 pt-8 pb-20 md:px-8">
-                                    <h3 className="comic-title text-2xl text-[#111] text-center mb-6 uppercase">
-                                        Other Amazing Readers
-                                    </h3>
-
-                                    {/* Filter pills */}
-                                    <div className="flex justify-center gap-2 mb-6">
-                                        {(['daily', 'weekly', 'all'] as const).map(f => (
-                                            <button key={f} onClick={() => setFilter(f)}
-                                                className={`px-5 py-2 rounded-full font-black text-xs uppercase tracking-wide transition-all border-2 border-[#111] ${filter === f ? 'bg-[#e63329] text-white shadow-[0_4px_0_#111]' : 'bg-white text-[#111] hover:bg-[#fff3ef]'}`}>
-                                                {f}
-                                            </button>
-                                        ))}
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl mx-auto">
-                                        {others.map((u) => {
-                                            const badge = RANK_BADGES[(u.rank! - 1) % RANK_BADGES.length];
-                                            const isMe = u.id === currentUser?.id;
+            {activeTab === 'students' && (
+                <>
+                    {loading ? (
+                        <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-yellow-400" /></div>
+                    ) : leaderboard.length === 0 ? (
+                        <div className="text-center py-20">
+                            <Trophy className="w-16 h-16 text-white/30 mx-auto mb-4" />
+                            <p className="text-white/60 font-bold uppercase tracking-wide">No ranking data yet</p>
+                        </div>
+                    ) : (
+                        <>
+                            {/* ── Podium ─────────────────────────────────── */}
+                            <div className="px-4 md:px-12 pt-4 pb-0">
+                                <div className="max-w-2xl mx-auto">
+                                    {/* Characters */}
+                                    <div className="flex items-end justify-center gap-4 md:gap-8 mb-0">
+                                        {podiumOrder.map((u, i) => {
+                                            const rank = podiumRanks[i];
+                                            const badge = RANK_BADGES[(rank - 1) % RANK_BADGES.length];
+                                            const isFirst = rank === 1;
                                             return (
-                                                <div key={u.id}
-                                                    className={`flex items-center gap-3 p-3 rounded-[20px] border-[3px] ${isMe ? 'border-[#e63329] bg-[#fff3ef]' : 'border-[#111] bg-white'} shadow-[0_5px_0_#111] transition-all hover:-translate-y-0.5`}>
-                                                    {/* Rank number */}
-                                                    <div className="w-8 text-center font-black text-[#e63329] text-sm flex-shrink-0">
-                                                        #{u.rank}
-                                                    </div>
-                                                    {/* Avatar */}
-                                                    <div className="w-10 h-10 rounded-full border-[2.5px] border-[#111] flex-shrink-0 flex items-center justify-center font-black text-sm shadow-[0_3px_0_#111]"
-                                                        style={{ background: badge.bg, color: badge.color }}>
-                                                        {u.name.substring(0, 2).toUpperCase()}
-                                                    </div>
-                                                    {/* Name + badge */}
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className={`font-black text-sm leading-tight truncate ${isMe ? 'text-[#e63329]' : 'text-[#111]'}`}>
-                                                            {u.name.split(' ')[0]}{isMe ? ' (YOU)' : ''}
-                                                        </p>
-                                                        <span className="text-[10px] font-black uppercase tracking-wide" style={{ color: badge.color }}>
-                                                            {badge.emoji} {badge.label}
-                                                        </span>
-                                                    </div>
-                                                    {/* Points + medal */}
-                                                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                                                        <div className="text-right">
-                                                            <p className="font-black text-[#111] text-sm leading-none">{u.totalPoints}</p>
-                                                            <p className="text-[9px] text-[#777] uppercase tracking-wide font-bold">BP</p>
-                                                        </div>
-                                                        {u.rank! <= 6 ? (
-                                                            <Medal className="w-5 h-5" style={{ color: u.rank! <= 3 ? '#f59e0b' : u.rank! <= 5 ? '#9ca3af' : '#cd7c2f' }} />
-                                                        ) : null}
-                                                    </div>
-                                                </div>
-
+                                                <div key={u.id} className={`flex flex-col items-center ${isFirst ? '-mt-6' : ''}`}>
+                                                    <PodiumAvatar rank={rank} name={u.name} />
+                                                    <p className={`font-black text-white mt-2 text-center ${isFirst ? 'text-base' : 'text-sm'}`}>
+                                                        {rank}. {u.name.split(' ')[0]}
+                                                    </p>
+                                                    <p className={`font-black text-yellow-300 text-center ${isFirst ? 'text-sm' : 'text-xs'}`}>
+                                                        {u.totalPoints} Book Points
+                                                    </p>
+                                                    <div className="mt-2 px-3 py-1.5 rounded-full border-2 border-[#111] font-black text-[11px] uppercase tracking-wide flex items-center gap-1.5 shadow-[0_4px_0_rgba(0,0,0,0.3)]"
+                                                        style={{ background: badge.bg, color: badge.color, borderColor: badge.color + "88" }}>
+                                                        <span>{badge.emoji}</span> {badge.label}
                                                     </div>
                                                 </div>
                                             );
                                         })}
                                     </div>
 
-                                    {!loading && others.length === 0 && top3.length === 0 && (
-                                        <div className="text-center py-16 opacity-50">
-                                            <Trophy className="w-12 h-12 mx-auto mb-3 text-[#aaa]" />
-                                            <p className="font-bold text-[#777] uppercase tracking-wide text-sm">No active students yet</p>
-                                        </div>
-                                    )}
+                                    {/* Podium blocks */}
+                                    <div className="flex items-end justify-center gap-4 md:gap-8 -mt-1">
+                                        {podiumOrder.map((u, i) => {
+                                            const rank = podiumRanks[i];
+                                            const isFirst = rank === 1;
+                                            const heights = { 1: "h-24", 2: "h-16", 3: "h-12" };
+                                            const h = heights[rank as 1 | 2 | 3] || "h-12";
+                                            return (
+                                                <div key={u.id} className={`${isFirst ? 'w-36' : 'w-28'} ${h} flex items-center justify-center font-black text-3xl md:text-4xl text-[#111] rounded-t-2xl border-t-4 border-x-4 border-yellow-400 relative`}
+                                                    style={{ background: "linear-gradient(180deg,#d4a017 0%,#b8860b 50%,#8B6914 100%)" }}>
+                                                    <span className="text-white/80 drop-shadow-lg">{rank}</span>
+                                                    {/* gold shimmer strip */}
+                                                    <div className="absolute top-2 left-2 right-2 h-1 rounded-full bg-yellow-200/40" />
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
+                            </div>
+
+                            {/* ── Other Amazing Readers ─────────────────── */}
+                            <div className="flex-1 bg-[#fffbf3] rounded-t-[36px] mt-0 px-4 pt-8 pb-20 md:px-8">
+                                <h3 className="comic-title text-2xl text-[#111] text-center mb-6 uppercase">
+                                    Other Amazing Readers
+                                </h3>
+
+                                {/* Filter pills */}
+                                <div className="flex justify-center gap-2 mb-6">
+                                    {(['daily', 'weekly', 'all'] as const).map(f => (
+                                        <button key={f} onClick={() => setFilter(f)}
+                                            className={`px-5 py-2 rounded-full font-black text-xs uppercase tracking-wide transition-all border-2 border-[#111] ${filter === f ? 'bg-[#e63329] text-white shadow-[0_4px_0_#111]' : 'bg-white text-[#111] hover:bg-[#fff3ef]'}`}>
+                                            {f}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl mx-auto">
+                                    {others.map((u) => {
+                                        const badge = RANK_BADGES[(u.rank! - 1) % RANK_BADGES.length];
+                                        const isMe = u.id === currentUser?.id;
+                                        return (
+                                            <div key={u.id}
+                                                className={`flex items-center gap-3 p-3 rounded-[20px] border-[3px] ${isMe ? 'border-[#e63329] bg-[#fff3ef]' : 'border-[#111] bg-white'} shadow-[0_5px_0_#111] transition-all hover:-translate-y-0.5`}>
+                                                {/* Rank number */}
+                                                <div className="w-8 text-center font-black text-[#e63329] text-sm flex-shrink-0">
+                                                    #{u.rank}
+                                                </div>
+                                                {/* Avatar */}
+                                                <div className="w-10 h-10 rounded-full border-[2.5px] border-[#111] flex-shrink-0 flex items-center justify-center font-black text-sm shadow-[0_3px_0_#111]"
+                                                    style={{ background: badge.bg, color: badge.color }}>
+                                                    {u.name.substring(0, 2).toUpperCase()}
+                                                </div>
+                                                {/* Name + badge */}
+                                                <div className="flex-1 min-w-0">
+                                                    <p className={`font-black text-sm leading-tight truncate ${isMe ? 'text-[#e63329]' : 'text-[#111]'}`}>
+                                                        {u.name.split(' ')[0]}{isMe ? ' (YOU)' : ''}
+                                                    </p>
+                                                    <span className="text-[10px] font-black uppercase tracking-wide" style={{ color: badge.color }}>
+                                                        {badge.emoji} {badge.label}
+                                                    </span>
+                                                </div>
+                                                {/* Points + medal */}
+                                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                    <div className="text-right">
+                                                        <p className="font-black text-[#111] text-sm leading-none">{u.totalPoints}</p>
+                                                        <p className="text-[9px] text-[#777] uppercase tracking-wide font-bold">BP</p>
+                                                    </div>
+                                                    {u.rank! <= 6 ? (
+                                                        <Medal className="w-5 h-5" style={{ color: u.rank! <= 3 ? '#f59e0b' : u.rank! <= 5 ? '#9ca3af' : '#cd7c2f' }} />
+                                                    ) : null}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                {!loading && others.length === 0 && top3.length === 0 && (
+                                    <div className="text-center py-16 opacity-50">
+                                        <Trophy className="w-12 h-12 mx-auto mb-3 text-[#aaa]" />
+                                        <p className="font-bold text-[#777] uppercase tracking-wide text-sm">No active students yet</p>
+                                    </div>
+                                )}
                             </div>
 
                             {/* ── All Readers List ─────────────────── */}
@@ -384,7 +380,10 @@ export default function LeaderboardPage() {
                                     </div>
                                 )}
                             </div>
-
+                        </>
+                    )}
+                </>
+            )}
 
             {/* ── Books Read Tab ───────────────────────────────────────── */}
             {activeTab === 'booksRead' && (
@@ -447,65 +446,64 @@ export default function LeaderboardPage() {
             )}
 
             {/* ── Top Books Tab ─────────────────────────────────────────── */}
-            {
-                activeTab === 'books' && (
-                    <div className="flex-1 bg-[#fffbf3] rounded-t-[36px] mt-8 px-4 pt-8 pb-20 md:px-8">
-                        <h3 className="comic-title text-2xl text-[#111] text-center mb-6 uppercase">Top Rated Books</h3>
+            {activeTab === 'books' && (
+                <div className="flex-1 bg-[#fffbf3] rounded-t-[36px] mt-8 px-4 pt-8 pb-20 md:px-8">
+                    <h3 className="comic-title text-2xl text-[#111] text-center mb-6 uppercase">Top Rated Books</h3>
 
-                        {loading ? (
-                            <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 animate-spin text-[#e63329]" /></div>
-                        ) : topBooks.length === 0 ? (
-                            <div className="card py-16 text-center max-w-md mx-auto">
-                                <Star className="w-14 h-14 text-[#f2d7cd] mx-auto mb-4" />
-                                <h2 className="comic-title text-2xl text-[#111] mb-2">No Reviews Yet!</h2>
-                                <p className="text-[#777] font-bold">Be the first to rate a book and it will appear here!</p>
-                            </div>
-                        ) : (
-                            <div className="max-w-3xl mx-auto space-y-4">
-                                {topBooks.map((book, idx) => (
-                                    <Link href={`/read/${book.id}`} key={book.id}
-                                        className="flex gap-4 items-center book-card p-0 overflow-hidden group/bk">
-                                        {/* Rank col */}
-                                        <div className="w-14 flex-shrink-0 self-stretch flex flex-col items-center justify-center gap-1 py-3"
-                                            style={{ background: idx === 0 ? "linear-gradient(180deg,#f59e0b,#d97706)" : idx === 1 ? "linear-gradient(180deg,#9ca3af,#6b7280)" : idx === 2 ? "linear-gradient(180deg,#cd7c2f,#a16207)" : "#f5f0ea" }}>
-                                            {idx === 0 ? <Crown className="w-5 h-5 text-white" /> : null}
-                                            <span className={`font-black text-2xl ${idx < 3 ? 'text-white' : 'text-[#aaa]'}`}>#{idx + 1}</span>
-                                        </div>
+                    {loading ? (
+                        <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 animate-spin text-[#e63329]" /></div>
+                    ) : topBooks.length === 0 ? (
+                        <div className="card py-16 text-center max-w-md mx-auto">
+                            <Star className="w-14 h-14 text-[#f2d7cd] mx-auto mb-4" />
+                            <h2 className="comic-title text-2xl text-[#111] mb-2">No Reviews Yet!</h2>
+                            <p className="text-[#777] font-bold">Be the first to rate a book and it will appear here!</p>
+                        </div>
+                    ) : (
+                        <div className="max-w-3xl mx-auto space-y-4">
+                            {topBooks.map((book, idx) => (
+                                <Link href={`/read/${book.id}`} key={book.id}
+                                    className="flex gap-4 items-center book-card p-0 overflow-hidden group/bk">
+                                    {/* Rank col */}
+                                    <div className="w-14 flex-shrink-0 self-stretch flex flex-col items-center justify-center gap-1 py-3"
+                                        style={{ background: idx === 0 ? "linear-gradient(180deg,#f59e0b,#d97706)" : idx === 1 ? "linear-gradient(180deg,#9ca3af,#6b7280)" : idx === 2 ? "linear-gradient(180deg,#cd7c2f,#a16207)" : "#f5f0ea" }}>
+                                        {idx === 0 ? <Crown className="w-5 h-5 text-white" /> : null}
+                                        <span className={`font-black text-2xl ${idx < 3 ? 'text-white' : 'text-[#aaa]'}`}>#{idx + 1}</span>
+                                    </div>
 
-                                        {/* Cover */}
-                                        <div className="w-16 h-24 flex-shrink-0 overflow-hidden rounded-xl border-2 border-[#111] shadow-[0_4px_0_#111] my-3">
-                                            {book.coverUrl ? (
-                                                <img src={book.coverUrl.includes('drive.google.com') ? getThumbnailUrl(extractFileId(book.coverUrl)) : book.coverUrl}
-                                                    alt={book.title} className="w-full h-full object-cover group-hover/bk:scale-105 transition-transform duration-500" />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(180deg,#e63329,#b91c1c)" }}>
-                                                    <BookOpen className="w-7 h-7 text-white/80" />
-                                                </div>
-                                            )}
-                                        </div>
+                                    {/* Cover */}
+                                    <div className="w-16 h-24 flex-shrink-0 overflow-hidden rounded-xl border-2 border-[#111] shadow-[0_4px_0_#111] my-3">
+                                        {book.coverUrl ? (
+                                            <img src={book.coverUrl.includes('drive.google.com') ? getThumbnailUrl(extractFileId(book.coverUrl)) : book.coverUrl}
+                                                alt={book.title} className="w-full h-full object-cover group-hover/bk:scale-105 transition-transform duration-500" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(180deg,#e63329,#b91c1c)" }}>
+                                                <BookOpen className="w-7 h-7 text-white/80" />
+                                            </div>
+                                        )}
+                                    </div>
 
-                                        {/* Info */}
-                                        <div className="flex-1 min-w-0 py-3 pr-2">
-                                            <h3 className="font-black text-[#111] text-base leading-tight line-clamp-2 group-hover/bk:text-[#e63329] transition-colors mb-1">
-                                                {book.title}
-                                            </h3>
-                                            <p className="text-[11px] font-bold text-[#999] uppercase tracking-wide">
-                                                {book.review_count} community reviews
-                                            </p>
-                                        </div>
+                                    {/* Info */}
+                                    <div className="flex-1 min-w-0 py-3 pr-2">
+                                        <h3 className="font-black text-[#111] text-base leading-tight line-clamp-2 group-hover/bk:text-[#e63329] transition-colors mb-1">
+                                            {book.title}
+                                        </h3>
+                                        <p className="text-[11px] font-bold text-[#999] uppercase tracking-wide">
+                                            {book.review_count} community reviews
+                                        </p>
+                                    </div>
 
-                                        {/* Rating */}
-                                        <div className="flex-shrink-0 flex flex-col items-center justify-center bg-[#fff4ba] px-4 py-3 self-stretch border-l-2 border-[#111]">
-                                            <Star className="w-5 h-5 fill-yellow-500 text-yellow-500 mb-1" />
-                                            <span className="font-black text-xl text-[#111] leading-none">{book.avg_rating?.toFixed(1)}</span>
-                                            <span className="text-[9px] uppercase tracking-wider font-black text-[#777] mt-0.5">/10</span>
-                                        </div>
-                                    </Link>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
+                                    {/* Rating */}
+                                    <div className="flex-shrink-0 flex flex-col items-center justify-center bg-[#fff4ba] px-4 py-3 self-stretch border-l-2 border-[#111]">
+                                        <Star className="w-5 h-5 fill-yellow-500 text-yellow-500 mb-1" />
+                                        <span className="font-black text-xl text-[#111] leading-none">{book.avg_rating?.toFixed(1)}</span>
+                                        <span className="text-[9px] uppercase tracking-wider font-black text-[#777] mt-0.5">/10</span>
+                                    </div>
+                                </Link>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }

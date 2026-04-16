@@ -80,14 +80,26 @@ Return ONLY the JSON array, starting with [ and ending with ].`;
         };
 
         const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
             { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
         );
 
         if (!response.ok) {
             const txt = await response.text();
-            console.error('Gemini batch error:', response.status, txt.slice(0, 200));
-            return NextResponse.json({ error: 'RATE_LIMITED' }, { status: 429 });
+            console.error('Gemini batch error:', response.status, txt);
+
+            let errorMsg = 'GEMINI_BATCH_ERROR';
+            try {
+                const errJson = JSON.parse(txt);
+                errorMsg = errJson.error?.message || errorMsg;
+            } catch {
+                errorMsg = txt.slice(0, 100);
+            }
+
+            return NextResponse.json({ 
+                error: errorMsg,
+                status: response.status 
+            }, { status: response.status === 429 ? 429 : 500 });
         }
 
         const result = await response.json();
