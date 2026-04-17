@@ -155,6 +155,17 @@ export default function SignUpPage() {
             // Set session cookie for middleware
             document.cookie = `user_session=${id}; path=/; max-age=86400`;
 
+            // Trigger OTP generation and SMS
+            try {
+                await fetch('/api/send-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mobile: formData.mobile })
+                });
+            } catch (err) {
+                console.warn('Failed to send initial OTP SMS:', err);
+            }
+
             // Redirect to OTP verification
             router.push(`/verify-otp?mobile=${formData.mobile}&mode=signup`);
 

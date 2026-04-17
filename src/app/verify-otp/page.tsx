@@ -59,53 +59,66 @@ function VerifyOtpContent() {
         setVerifying(true);
         setError("");
 
-        // SIMULATED OTP LOGIC
-        setTimeout(async () => {
-            if (fullOtp === "123456") { // Hardcoded for demo
-                try {
-                    // 1. Mark local users as verified to avoid mismatches
-                    const allUsers = await db.users.toArray();
-                    for (const u of allUsers) {
-                        await db.users.update(u.id, {
-                            isVerified: true,
-                            verifiedMobile: mobile!
-                        });
-                    }
+        try {
+            const res = await fetch('/api/verify-otp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mobile, otp: fullOtp })
+            });
+            const data = await res.json();
 
-                    // 2. Sync to Supabase if online
-                    if (supabase && mobile) {
-                        await supabase
-                            .from('users')
-                            .update({ is_verified: true, verified_mobile: mobile })
-                            .eq('mobile', mobile);
-                    }
-
-                    setVerifying(false);
-                    setSuccess(true);
-
-                    // Immediate redirect or short delay
-                    setTimeout(() => {
-                        if (mode === "signup") {
-                            router.replace("/dashboard");
-                        } else {
-                            router.replace(`/reset-password?mobile=${mobile}`);
-                        }
-                    }, 2000);
-                } catch (err) {
-                    setError("Database error. Please try again.");
-                    setVerifying(false);
+            if (data.success) {
+                // 1. Mark local users as verified to avoid mismatches
+                const allUsers = await db.users.toArray();
+                for (const u of allUsers) {
+                    await db.users.update(u.id, {
+                        isVerified: true,
+                        verifiedMobile: mobile!
+                    });
                 }
+
+                // 2. Sync to Supabase if online
+                if (supabase && mobile) {
+                    await supabase
+                        .from('users')
+                        .update({ is_verified: true, verified_mobile: mobile })
+                        .eq('mobile', mobile);
+                }
+
+                setVerifying(false);
+                setSuccess(true);
+
+                // Immediate redirect or short delay
+                setTimeout(() => {
+                    if (mode === "signup") {
+                        router.replace("/dashboard");
+                    } else {
+                        router.replace(`/reset-password?mobile=${mobile}`);
+                    }
+                }, 2000);
             } else {
-                setError("Invalid verification code. Use 123456 for demo.");
+                setError(data.error || "Invalid verification code.");
                 setVerifying(false);
             }
-        }, 1500);
+        } catch (err) {
+            setError("Server error. Please try again.");
+            setVerifying(false);
+        }
     };
 
-    const handleResend = () => {
+    const handleResend = async () => {
         if (timer > 0) return;
-        setTimer(30);
-        alert("A new OTP has been sent to " + mobile);
+        try {
+            await fetch('/api/send-otp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mobile })
+            });
+            setTimer(30);
+            alert("A new OTP has been sent to " + mobile);
+        } catch (err) {
+            alert("Failed to resend OTP");
+        }
     };
 
     if (success) {

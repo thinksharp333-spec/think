@@ -185,6 +185,7 @@ export default function Dashboard() {
                             </div>
                         )}
 
+
                         <button onClick={handleLogout}
                             className="chip chip-dark text-xs hidden md:flex cursor-pointer">
                             <LogOut className="h-3.5 w-3.5" /> Logout
@@ -297,6 +298,8 @@ export default function Dashboard() {
                             </div>
                         </div>
 
+
+
                         {/* Filter bar / Dropdowns */}
                         <div className="flex items-center gap-3 overflow-x-auto no-scrollbar pb-1">
                             <Dropdown label="Language" options={combinedLanguages} value={selectedLanguage} onChange={setSelectedLanguage} className="filter-btn" />
@@ -367,6 +370,7 @@ export default function Dashboard() {
                                 <p className="font-black text-[#777] uppercase tracking-wide text-sm">Loading your library...</p>
                             </div>
                         )}
+
                     </div>
                 </main>
             </div>
@@ -427,6 +431,53 @@ export default function Dashboard() {
                     </button>
                 </div>
             </nav>
+        </div>
+    );
+}
+
+function PlatformReviewsList() {
+    const [reviews, setReviews] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        async function fetchReviews() {
+            if (!supabase) return;
+            const { data } = await supabase.from('platform_reviews').select('*').order('created_at', { ascending: false }).limit(6);
+            if (data) setReviews(data);
+            setLoading(false);
+        }
+        fetchReviews();
+    }, []);
+
+    if (loading) return <div className="text-center py-10 font-bold text-[#777]">Loading reviews...</div>;
+    if (reviews.length === 0) return (
+        <div className="card py-10 text-center">
+            <Sparkles className="h-10 w-10 text-[#f2d7cd] mx-auto mb-3" />
+            <p className="font-bold text-[#777]">No reviews yet. Be the first!</p>
+        </div>
+    );
+
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {reviews.map((r) => (
+                <div key={r.id} className="card p-6 bg-white border-2 border-[#111] shadow-[4px_4px_0_#111] space-y-3 relative overflow-hidden group hover:-translate-y-1 transition-transform">
+                    <div className="flex items-center justify-between">
+                        <div className="flex gap-0.5">
+                            {[...Array(10)].map((_, i) => (
+                                <Star key={i} className={`h-3 w-3 ${i < r.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-200'}`} />
+                            ))}
+                        </div>
+                        <span className="text-[10px] font-black uppercase text-[#aaa]">{new Date(r.created_at).toLocaleDateString()}</span>
+                    </div>
+                    <p className="font-bold text-[#111] text-sm leading-relaxed">&quot;{r.review_text}&quot;</p>
+                    <div className="pt-2 border-t border-gray-100 flex items-center gap-2">
+                        <div className="h-6 w-6 rounded-full bg-[#ff4d3d] flex items-center justify-center text-[10px] text-white font-black">
+                            {r.student_name?.[0] || "S"}
+                        </div>
+                        <span className="text-[11px] font-black text-[#777] uppercase tracking-wider">{r.student_name || "Student"}</span>
+                    </div>
+                </div>
+            ))}
         </div>
     );
 }

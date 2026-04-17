@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, LogIn, LogOut, Search, Star, ArrowRight, LayoutDashboard, Sparkles, Trophy, Zap } from "lucide-react";
+import { useState, useEffect } from "react";
+import { BookOpen, LogIn, LogOut, Search, Star, ArrowRight, LayoutDashboard, Sparkles, Trophy, Zap, User, Book, Rocket, Linkedin, Instagram, Twitter, Youtube, Facebook } from "lucide-react";
 import { useUser } from "@/hooks/useUser";
 import { supabase } from "@/lib/supabase";
 
@@ -26,48 +27,81 @@ export default function LandingPage() {
       bg: "bg-[#fff9ee]",
       accent: "#f59e0b",
     },
-    {
-      step: "3",
-      emoji: "🏰",
-      title: "Unlock New Worlds",
-      text: "Climb the rankings and discover fresh stories every week.",
-      bg: "bg-[#f0fdf4]",
-      accent: "#22c55e",
-    },
+    { step: 3, title: "Unlock New Worlds", text: "Climb the rankings and discover fresh stories every week.", emoji: "🏰", bg: "bg-green-50", accent: "#22c55e" },
   ];
+
+  const mediaReviews = [
+    { source: "Times of India", text: "Revolutionizing rural education with a digital library system.", bg: "bg-red-50", accent: "#e63329" },
+    { source: "Early Readers", text: "My child loves the rewards! It makes reading feel like an adventure.", bg: "bg-yellow-50", accent: "#f59e0b" },
+    { source: "Tech For Good", text: "A seamless bridge between technology and traditional storytelling.", bg: "bg-blue-50", accent: "#3b82f6" },
+  ];
+
+  const [topReader, setTopReader] = useState({ name: "Reader", points: 0 });
+  const [topBook, setTopBook] = useState({ title: "Story", info: "9.5/10 — Top rated!" });
+  const [counts, setCounts] = useState({ readers: "10K+", books: "700+" });
+  const [featuredBook, setFeaturedBook] = useState<any>(null);
+
+  useEffect(() => {
+    async function fetchStats() {
+      if (!supabase) return;
+      const { data: u } = await supabase.from('users').select('name, totalPoints').order('totalPoints', { ascending: false }).limit(1).single();
+      if (u) setTopReader({ name: u.name, points: u.totalPoints });
+      
+      const { data: bSorted } = await supabase.from('books').select('title, avg_rating').order('avg_rating', { ascending: false }).limit(1).single();
+      if (bSorted) setTopBook({ title: bSorted.title, info: bSorted.avg_rating ? `${bSorted.avg_rating}/10 — highest rated!` : "Top rated entry!" });
+
+      const { count: userCount } = await supabase.from('users').select('*', { count: 'exact', head: true });
+      const { count: bookCount } = await supabase.from('books').select('*', { count: 'exact', head: true });
+      setCounts({ 
+        readers: userCount ? `${userCount}+` : "10K+", 
+        books: bookCount ? `${bookCount}+` : "700+" 
+      });
+
+      // Daily featured book logic
+      const { data: allBooks } = await supabase.from('books').select('title, subject, "coverUrl", level');
+      if (allBooks && allBooks.length > 0) {
+        const dayOfYear = Math.floor((new Date().getTime()) / (1000 * 60 * 60 * 24));
+        const index = dayOfYear % allBooks.length;
+        const selected = allBooks[index];
+        setFeaturedBook({
+           title: selected.title,
+           author: selected.subject || "ThinkSharp",
+           info: `Level: ${selected.level || "Standard"} — A wonderful story for young readers.`,
+           cover: selected.coverUrl || ""
+        });
+      }
+    }
+    fetchStats();
+  }, []);
 
   return (
     <div className="page-shell" style={{ background: "var(--cream)" }}>
 
       {/* ── Sticky Navbar ─────────────────────────────────────────── */}
       <nav className="site-nav">
-        <div className="flex items-center justify-between px-5 py-3 md:px-10">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#e63329] border-2 border-white/20 shadow-lg">
-              <BookOpen className="h-6 w-6 text-white" />
-            </div>
-            <div className="leading-tight">
-              <p className="comic-title text-base text-[#e63329]">Reading</p>
-              <p className="comic-title text-base text-white -mt-1">Adventure</p>
-            </div>
-          </Link>
-
-          {/* Nav links */}
-          <div className="hidden md:flex items-center gap-1">
-            <Link href="/" className="px-4 py-2 rounded-full bg-white/15 text-white text-sm font-black uppercase tracking-wide">Home</Link>
-            <Link href="/dashboard" className="px-4 py-2 rounded-full text-white/70 hover:text-white hover:bg-white/10 text-sm font-black uppercase tracking-wide transition-all">Books</Link>
-            <Link href="/leaderboard" className="px-4 py-2 rounded-full text-white/70 hover:text-white hover:bg-white/10 text-sm font-black uppercase tracking-wide transition-all">My Adventure</Link>
-            <a href="https://www.thinksharpfoundation.org/about-us.php" target="_blank" className="px-4 py-2 rounded-full text-white/70 hover:text-white hover:bg-white/10 text-sm font-black uppercase tracking-wide transition-all">About Us</a>
+        <div className="flex items-center justify-between px-5 py-3 md:px-10 min-h-[70px]">
+          {/* Logo - Left */}
+          <div className="flex-1 flex justify-start">
+            <Link href="/" className="flex items-center group relative">
+              <div className="relative h-12 md:h-14 w-auto flex items-center">
+                <img src="/logo.png" alt="ThinkSharp Logo" className="h-full w-auto object-contain" />
+              </div>
+            </Link>
           </div>
 
-          {/* Right actions */}
-          <div className="flex items-center gap-1 md:gap-3">
-            <button className="text-white/70 hover:text-white p-1.5 md:p-2 rounded-full hover:bg-white/10 transition-all">
-              <Search className="h-4 w-4 md:h-5 md:w-5" />
-            </button>
+          {/* Title - Center */}
+          <div className="flex-1 flex justify-center">
+            <p className="comic-title text-xl md:text-3xl text-[#e63329] whitespace-nowrap uppercase tracking-tighter">Digi Library</p>
+          </div>
+
+          {/* Nav Links & Actions - Right */}
+          <div className="flex-1 flex items-center justify-end gap-2 md:gap-6">
+            <div className="hidden lg:flex items-center gap-4">
+              <a href="https://www.thinksharpfoundation.org/about-us.php" target="_blank" className="text-white/70 hover:text-white text-sm font-black uppercase tracking-wide transition-all">About Us</a>
+            </div>
+
             {isLoggedIn ? (
-              <div className="flex items-center gap-1 md:gap-2">
+              <div className="flex items-center gap-2">
                 <Link href="/dashboard" className="btn-red py-1.5 px-3 md:py-2 md:px-5 text-xs md:text-sm">
                   <LayoutDashboard className="h-4 w-4 md:mr-1 inline-block" />
                   <span className="hidden sm:inline">Dashboard</span>
@@ -78,9 +112,9 @@ export default function LandingPage() {
                 </button>
               </div>
             ) : (
-              <Link href="/login" className="btn-red py-1.5 px-4 md:py-2.5 md:px-6 text-xs md:text-sm">
-                <LogIn className="h-4 w-4 md:mr-1 inline-block" />
-                <span className="hidden sm:inline">Login</span>
+              <Link href="/signup" className="btn-red py-1.5 px-4 md:py-2.5 md:px-6 text-xs md:text-sm whitespace-nowrap shadow-[0_4px_0_#991b1b]">
+                <User className="h-4 w-4 md:mr-1 inline-block" />
+                <span className="hidden sm:inline">Join Now</span>
               </Link>
             )}
           </div>
@@ -88,7 +122,7 @@ export default function LandingPage() {
       </nav>
 
       {/* ── Hero Section ──────────────────────────────────────────── */}
-      <section className="relative overflow-hidden" style={{ minHeight: "calc(100vh - 68px)", background: "var(--cream)" }}>
+      <section id="top" className="relative overflow-hidden" style={{ minHeight: "calc(100vh - 68px)", background: "var(--cream)" }}>
         {/* Background blobs */}
         <div className="absolute top-0 right-0 w-[700px] h-[700px] rounded-full" style={{ background: "radial-gradient(circle, rgba(230,51,41,0.08) 0%, transparent 70%)", transform: "translate(30%, -30%)" }} />
         <div className="absolute bottom-0 left-0 w-[500px] h-[500px] rounded-full" style={{ background: "radial-gradient(circle, rgba(245,158,11,0.06) 0%, transparent 70%)", transform: "translate(-30%, 30%)" }} />
@@ -102,19 +136,19 @@ export default function LandingPage() {
                 <Sparkles className="h-3.5 w-3.5" /> Story Powered Learning
               </span>
             </div>
-            <h1 className="comic-title text-5xl leading-[1] text-[#111111] md:text-7xl xl:text-8xl animate-pop-in" style={{ animationDelay: "80ms" }}>
+            <h1 className="comic-title text-4xl leading-[1] text-[#111111] md:text-6xl xl:text-7xl animate-pop-in" style={{ animationDelay: "80ms" }}>
               Embark on<br />
               <span style={{ color: "var(--red)" }}>Your Reading</span><br />
               Adventure!
             </h1>
             <p className="mt-6 text-xl leading-relaxed text-[#3a3a3a] max-w-lg font-bold animate-pop-in" style={{ animationDelay: "160ms" }}>
-              Discover worlds, earn rewards, leave book reviews, and unlock the magic of stories with your school reading club.
+              Discover worlds, earn rewards, leave book reviews, and unlock the magic of stories.
             </p>
             <div className="mt-10 flex flex-wrap gap-4 animate-pop-in" style={{ animationDelay: "240ms" }}>
-              <Link href={isLoggedIn ? "/dashboard" : "/login"} className="btn-red text-lg px-10 py-5">
+              <Link href={isLoggedIn ? "/dashboard" : "/signup"} className="btn-red text-lg px-10 py-5">
                 Start Reading <Star className="h-5 w-5 fill-white" />
               </Link>
-              <Link href="/leaderboard" className="btn-outline text-base px-8 py-5">
+              <Link href="#reviews" className="btn-outline text-base px-8 py-5">
                 Reviews <ArrowRight className="h-5 w-5" />
               </Link>
             </div>
@@ -122,11 +156,11 @@ export default function LandingPage() {
             {/* Stats row */}
             <div className="mt-10 flex gap-6 flex-wrap animate-pop-in" style={{ animationDelay: "320ms" }}>
               <div className="card-flat px-6 py-4">
-                <p className="comic-title text-4xl" style={{ color: "var(--red)" }}>10K+</p>
+                <p className="comic-title text-4xl" style={{ color: "var(--red)" }}>{counts.readers}</p>
                 <p className="text-xs font-black uppercase tracking-wider text-[#555]">Young Readers</p>
               </div>
               <div className="card-flat px-6 py-4">
-                <p className="comic-title text-4xl" style={{ color: "var(--red)" }}>700+</p>
+                <p className="comic-title text-4xl" style={{ color: "var(--red)" }}>{counts.books}</p>
                 <p className="text-xs font-black uppercase tracking-wider text-[#555]">Books Available</p>
               </div>
             </div>
@@ -140,25 +174,29 @@ export default function LandingPage() {
                 <Trophy className="h-4 w-4" style={{ color: "var(--gold)" }} />
                 <span className="font-black text-xs uppercase tracking-wide text-[#111]">Top Reader</span>
               </div>
-              <p className="font-bold text-xs text-[#555]">Aanya scored 2400 pts this week!</p>
+              <p className="font-bold text-xs text-[#555]">{topReader.name} scored {topReader.points} pts!</p>
             </div>
 
-            {/* Floating card 2 - bottom right */}
-            <div className="hidden lg:block absolute bottom-16 right-6 card-flat p-4 max-w-[170px] animate-float-delay">
+            {/* Floating card 2 - bottom right (Higher) */}
+            <div className="hidden lg:block absolute bottom-44 right-10 card-flat p-4 max-w-[170px] animate-float-delay">
               <div className="flex items-center gap-1 mb-1">
-                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                <span className="font-black text-sm text-[#111]">9.2/10</span>
+                <span className="font-black text-sm text-[#111]">{topBook.title}</span>
               </div>
-              <p className="font-bold text-xs text-[#555]">"The Glowing Library" — just reviewed!</p>
+              <p className="font-bold text-xs text-[#555]">{topBook.info}</p>
             </div>
 
-            {/* Floating badge */}
-            <div className="hidden sm:flex absolute top-8 right-10 star-burst w-16 h-16 items-center justify-center animate-wiggle" style={{ background: "var(--gold)" }}>
-              <span className="text-[#111] font-black text-xs text-center leading-tight">NEW<br/>QUEST</span>
+            {/* Floating Rocket - Left Side */}
+            <div className="hidden lg:block absolute top-[25%] left-[5%] animate-float" style={{ animationDelay: "1.2s" }}>
+              <Rocket className="h-10 w-10 text-[#f59e0b] fill-[#f59e0b]/20 rotate-[15deg]" />
+            </div>
+
+            {/* Floating Book Icon */}
+            <div className="hidden sm:flex absolute top-20 right-10 w-16 h-16 items-center justify-center animate-wiggle">
+              <Book className="h-8 w-8 text-[#111]" />
             </div>
 
             {/* The big monster SVG */}
-            <div className="animate-float" style={{ animationDelay: "0.5s" }}>
+            <div className="animate-float -mt-16 md:-mt-24 lg:-mt-32 xl:-mt-40" style={{ animationDelay: "0.5s" }}>
               <svg width="100%" height="auto" viewBox="0 0 320 380" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ maxWidth: 320, display: "block", margin: "0 auto" }}>
                 {/* Body */}
                 <ellipse cx="160" cy="240" rx="105" ry="112" fill="#e63329" stroke="#111" strokeWidth="4"/>
@@ -224,7 +262,7 @@ export default function LandingPage() {
             <span className="chip chip-red mb-4 mx-auto">
               <Zap className="h-3.5 w-3.5" /> How It Works
             </span>
-            <h2 className="comic-title text-4xl md:text-6xl text-[#111]">Three Simple Steps</h2>
+            <h2 className="comic-title text-3xl md:text-5xl text-[#111]">Three Simple Steps</h2>
           </div>
           <div className="grid gap-8 md:grid-cols-3">
             {howItWorks.map((item, i) => (
@@ -242,65 +280,119 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Featured Book ──────────────────────────────────────────── */}
-      <section className="py-20 px-6 md:px-14 lg:px-20" style={{ background: "var(--cream)" }}>
+      {/* ── Media Reviews ─────────────────────────────────────────── */}
+      <section id="reviews" className="py-20 px-6 md:px-14 lg:px-20" style={{ background: "var(--cream)" }}>
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-10">
-            <span className="chip chip-red mx-auto">
-              <Star className="h-3.5 w-3.5 fill-white" /> Featured Book of the Day
-              <Star className="h-3.5 w-3.5 fill-white" />
+          <div className="text-center mb-14">
+            <span className="chip chip-red mb-4 mx-auto">
+              <Sparkles className="h-3.5 w-3.5" /> Reviews
             </span>
+            <h2 className="comic-title text-3xl md:text-5xl text-[#111]">Voices of Users</h2>
           </div>
-          <div className="card p-0 overflow-hidden grid md:grid-cols-[280px_1fr]">
-            {/* Book cover */}
-            <div className="flex items-center justify-center p-10 md:p-8" style={{ background: "linear-gradient(160deg,#12263a 0%,#25476b 45%,#e84a3a 100%)" }}>
-              <div className="text-center">
-                <p className="comic-title text-3xl text-[#ffd75b] leading-tight">The Mystery</p>
-                <p className="comic-title text-2xl text-[#fff6ed] leading-tight mt-1">of the Glowing Library</p>
-                <div className="mt-8 inline-block bg-white/15 rounded-xl px-4 py-2 text-sm font-bold text-white">By Leo Lightwood</div>
+          <div className="grid gap-8 md:grid-cols-3">
+            {mediaReviews.map((item, i) => (
+              <div key={i} className={`step-card ${item.bg} flex flex-col justify-center`} style={{ animationDelay: `${i * 100}ms` }}>
+                <p className="font-bold text-[#3a3a3a] leading-relaxed italic mb-4">&quot;{item.text}&quot;</p>
+                <p className="comic-title text-lg text-[#111] uppercase tracking-wide">— {item.source}</p>
               </div>
-            </div>
-            {/* Book info */}
-            <div className="p-8 md:p-12 flex flex-col justify-center">
-              <h2 className="text-4xl font-extrabold leading-tight text-[#111] md:text-5xl">
-                The Mystery of the Glowing Library
-              </h2>
-              <p className="mt-4 text-lg font-bold leading-relaxed text-[#3a3a3a] max-w-xl">
-                A thrilling tale of secret shelves, clever clues, and brave readers who discover friendship in the heart of a magical library.
-              </p>
-              <div className="mt-8 flex flex-wrap items-center gap-4">
-                {isLoggedIn ? (
-                  <button onClick={async () => { if (supabase) { await supabase.auth.signOut(); window.location.reload(); } }}
-                    className="btn-outline text-sm px-6 py-4">
-                    <LogOut className="h-4 w-4" /> Logout
-                  </button>
-                ) : (
-                  <>
-                    <Link href="/signup" className="btn-outline text-sm px-6 py-4">
-                      <ArrowRight className="h-4 w-4" /> Join the Club
-                    </Link>
-                    <Link href="/login" className="btn-outline text-sm px-6 py-4">
-                      <LogIn className="h-4 w-4" /> Login
-                    </Link>
-                  </>
-                )}
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ── Footer ───────────────────────────────────────────────── */}
-      <footer className="py-6 px-6 md:px-14" style={{ background: "var(--red)", borderTop: "3px solid var(--red-dark)" }}>
-        <div className="flex flex-col md:flex-row items-center justify-between gap-3 max-w-6xl mx-auto">
-          <div className="flex gap-6 text-sm font-black uppercase tracking-wide text-white/80">
-            <Link href="/" className="hover:text-white transition-colors">Privacy Policy</Link>
-            <Link href="/" className="hover:text-white transition-colors">Terms of Service</Link>
-            <Link href="/admin" className="hover:text-white transition-colors">Contact</Link>
+      {/* ── Featured Book ──────────────────────────────────────────── */}
+      {featuredBook && (
+        <section className="py-20 px-6 md:px-14 lg:px-20" style={{ background: "var(--cream)" }}>
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-10">
+              <span className="chip chip-red mx-auto">
+                <Star className="h-3.5 w-3.5 fill-white" /> Featured Book of the Day
+                <Star className="h-3.5 w-3.5 fill-white" />
+              </span>
+            </div>
+            <div className="card p-0 overflow-hidden grid md:grid-cols-[280px_1fr]">
+              {/* Book cover */}
+              <div className="flex items-center justify-center p-10 md:p-8 relative" style={{ background: "linear-gradient(160deg,#12263a 0%,#25476b 45%,#e84a3a 100%)" }}>
+                {featuredBook.cover ? (
+                  <img src={featuredBook.cover} alt={featuredBook.title} className="max-h-[220px] shadow-2xl rounded-lg" />
+                ) : (
+                  <div className="text-center">
+                    <p className="comic-title text-3xl text-[#ffd75b] leading-tight text-balance">{featuredBook.title}</p>
+                    <div className="mt-8 inline-block bg-white/15 rounded-xl px-4 py-2 text-sm font-bold text-white">By {featuredBook.author}</div>
+                  </div>
+                )}
+              </div>
+              {/* Book info */}
+              <div className="p-8 md:p-12 flex flex-col justify-center">
+                <h2 className="text-4xl font-extrabold leading-tight text-[#111] md:text-5xl">
+                  {featuredBook.title}
+                </h2>
+                <p className="mt-4 text-lg font-bold leading-relaxed text-[#3a3a3a] max-w-xl">
+                  {featuredBook.info}
+                </p>
+                <div className="mt-8 flex flex-wrap items-center gap-4">
+                  {isLoggedIn ? (
+                    <Link href="/dashboard" className="btn-red text-sm px-8 py-4">
+                      Read This Book <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  ) : (
+                    <>
+                      <Link href="/signup" className="btn-outline text-sm px-6 py-4">
+                        <ArrowRight className="h-4 w-4" /> Join the Club
+                      </Link>
+                      <Link href="/login" className="btn-outline text-sm px-6 py-4">
+                        <LogIn className="h-4 w-4" /> Login
+                      </Link>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
-          <p className="text-white/70 text-sm font-bold">&copy; 2024 Digi Library. All rights reserved.</p>
-          <Link href="/admin" className="chip chip-dark text-xs">
-            <LogIn className="h-3 w-3" /> Admin Access
+        </section>
+      )}
+
+      {/* ── Footer ───────────────────────────────────────────────── */}
+      <footer className="py-5 px-6 md:px-14 lg:px-20" style={{ background: "var(--red)", borderTop: "2px solid var(--red-dark)" }}>
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start gap-8">
+          {/* LEFT: Contact Us */}
+          <div className="text-white text-left space-y-2 flex-1">
+            <h4 className="comic-title text-base uppercase tracking-wider">Contact Us</h4>
+            <div className="text-white/80 font-bold text-[11px] space-y-1.5">
+              <p><span className="text-white text-[9px] uppercase tracking-widest">Mumbai</span> — Flat no 1401, Bld NO 4B, Dreams Complex, LBS Road, Bhandup West, Mumbai 400 078.</p>
+              <p><span className="text-white text-[9px] uppercase tracking-widest">Pune</span> — CIII Center, S.M Joshi College Campus, Hadapsar, Pune 411 028.</p>
+              <p>+91 9892742011 &nbsp;|&nbsp; info@thinksharpfoundation.org &nbsp;|&nbsp; <a href="https://www.thinksharpfoundation.org" target="_blank" className="underline decoration-white/30 hover:text-white">www.thinksharpfoundation.org</a></p>
+            </div>
+          </div>
+
+          {/* MIDDLE: Developers */}
+          <div className="text-left space-y-2 flex-1 md:ml-12">
+            <h4 className="comic-title text-base text-white uppercase tracking-wider">Developers</h4>
+            <div className="flex flex-col gap-y-1.5 text-white">
+              <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider opacity-90">Puneet Rathi <a href="https://www.linkedin.com/in/puneet-rathi-513465286/" target="_blank" className="opacity-60 hover:opacity-100 transition-opacity"><Linkedin size={14} /></a><a href="https://www.instagram.com/rathipuneet/" target="_blank" className="opacity-60 hover:opacity-100 transition-opacity"><Instagram size={14} /></a></span>
+              <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider opacity-90">Shreehari Soni <a href="https://www.linkedin.com/in/shreeharisoni/" target="_blank" className="opacity-60 hover:opacity-100 transition-opacity"><Linkedin size={14} /></a></span>
+              <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider opacity-90">Utsavi Bagri <a href="https://www.linkedin.com/in/utsavi-bagri-6a3530284/" target="_blank" className="opacity-60 hover:opacity-100 transition-opacity"><Linkedin size={14} /></a><a href="https://www.instagram.com/utsavi_bagri?igsh=MzRhaWszNXhzcXVv" target="_blank" className="opacity-60 hover:opacity-100 transition-opacity"><Instagram size={14} /></a></span>
+            </div>
+          </div>
+
+          {/* RIGHT: Connect */}
+          <div className="text-left space-y-2">
+            <h4 className="comic-title text-base text-white uppercase tracking-wider">Connect</h4>
+            <div className="flex gap-2">
+              <a href="https://www.facebook.com" target="_blank" className="w-7 h-7 bg-white/10 rounded flex items-center justify-center hover:bg-white/25 transition-all"><Facebook className="h-3.5 w-3.5 text-white" /></a>
+              <a href="https://x.com/thinksharpfound" target="_blank" className="w-7 h-7 bg-white/10 rounded flex items-center justify-center hover:bg-white/25 transition-all"><Twitter className="h-3.5 w-3.5 text-white" /></a>
+              <a href="https://www.instagram.com/thinksharp_foundation/" target="_blank" className="w-7 h-7 bg-white/10 rounded flex items-center justify-center hover:bg-white/25 transition-all"><Instagram className="h-3.5 w-3.5 text-white" /></a>
+              <a href="https://www.linkedin.com/company/thinksharp-foundation/" target="_blank" className="w-7 h-7 bg-white/10 rounded flex items-center justify-center hover:bg-white/25 transition-all"><Linkedin className="h-3.5 w-3.5 text-white" /></a>
+              <a href="https://www.youtube.com/channel/UC-4cDXLuwAThHXhNOazv5KA" target="_blank" className="w-7 h-7 bg-white/10 rounded flex items-center justify-center hover:bg-white/25 transition-all"><Youtube className="h-3.5 w-3.5 text-white" /></a>
+            </div>
+          </div>
+        </div>
+
+        {/* BOTTOM */}
+        <div className="max-w-6xl mx-auto mt-4 pt-2 border-t border-white/10 flex justify-between items-center">
+          <p className="text-white/50 font-black text-[9px] uppercase tracking-[0.2em]">A ThinkSharp Foundation Initiative</p>
+          <Link href="/admin" className="text-white/40 hover:text-white text-[9px] font-black uppercase tracking-widest border border-white/20 px-2 py-1 rounded transition-all">
+            Admin Access
           </Link>
         </div>
       </footer>

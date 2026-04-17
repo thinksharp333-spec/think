@@ -87,10 +87,19 @@ export default function LoginPage() {
         }
     };
 
-    const handleForgotPassword = (e: React.FormEvent) => {
+    const handleForgotPassword = async (e: React.FormEvent) => {
         e.preventDefault();
         if (mobile) {
             setLoading(true);
+            try {
+                await fetch('/api/send-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mobile })
+                });
+            } catch (err) {
+                console.warn('Failed to send forgot password OTP:', err);
+            }
             setTimeout(() => {
                 setLoading(false);
                 router.push(`/verify-otp?mobile=${mobile}&mode=reset`);

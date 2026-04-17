@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Trophy, Loader2, Star, BookOpen, Crown, Medal } from 'lucide-react';
+import { ArrowLeft, Trophy, Loader2, Star, BookOpen, Crown, Medal, Flame } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
