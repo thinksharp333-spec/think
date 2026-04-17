@@ -203,17 +203,6 @@ export default function LoginPage() {
                                     </div>
                                 </div>
 
-<<<<<<< HEAD
-                    {/* Bottom badge */}
-                    <div className="mt-10 flex items-center gap-3 justify-center">
-                        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-[#e63329] border-2 border-white/20">
-                            <BookOpen className="h-6 w-6 text-white" />
-                        </div>
-                        <div>
-                            <p className="comic-title text-white text-sm">Digi Library</p>
-                            <p className="text-white/50 text-xs font-bold uppercase tracking-wide">1000+ quests waiting</p>
-                        </div>
-=======
                                 <button type="submit" disabled={loading}
                                     className="btn-red w-full py-5 mt-2 text-2xl font-black tracking-widest relative overflow-hidden group">
                                     <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform" />
@@ -250,7 +239,6 @@ export default function LoginPage() {
                                 </div>
                             </form>
                         )}
->>>>>>> b2f6045 (login changes)
                     </div>
                 </div>
             </div>

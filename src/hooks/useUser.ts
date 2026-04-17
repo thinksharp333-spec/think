@@ -88,7 +88,7 @@ export function useUser() {
                 if (localUser) {
                     // Update ID to match Supabase ID (Migration effectively)
                     await db.users.delete('local-user');
-                    await db.users.add({
+                    await db.users.put({
                         id: session.user.id,
                         name: session.user.user_metadata.full_name || localUser.name,
                         mobile: session.user.phone || localUser.mobile || '',
@@ -96,17 +96,14 @@ export function useUser() {
                         totalPoints: localUser.totalPoints // Preserve local points
                     });
                 } else {
-                    // If no local-user, check if we already have THIS user
-                    const existing = await db.users.get(session.user.id);
-                    if (!existing) {
-                        await db.users.add({
-                            id: session.user.id,
-                            name: session.user.user_metadata.full_name || 'Student',
-                            mobile: session.user.phone || '',
-                            school: '',
-                            totalPoints: 0
-                        });
-                    }
+                    // If no local-user, upsert to avoid ConstraintError on re-login
+                    await db.users.put({
+                        id: session.user.id,
+                        name: session.user.user_metadata.full_name || 'Student',
+                        mobile: session.user.phone || '',
+                        school: '',
+                        totalPoints: 0
+                    });
                 }
                 // Fetch latest from server after sign-in/init
                 fetchUserProfile(session.user.id);

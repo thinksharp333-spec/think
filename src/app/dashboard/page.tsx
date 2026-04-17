@@ -164,26 +164,20 @@ export default function Dashboard() {
                             <Trophy className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500" /> {points} pts
                         </span>
 
-                        <button onClick={async () => { if (supabase) { await supabase.auth.signOut(); } document.cookie = "user_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"; window.location.href = "/"; }}
+                        {user?.avatarBaseId && (
+                            <div className="h-10 w-10 ml-2 rounded-full border-[2.5px] border-[#111] overflow-hidden bg-[#fff9ee] shadow-[0_2px_0_#111] flex-shrink-0 hidden sm:block">
+                                <AvatarStageImage 
+                                    avatarBaseId={user.avatarBaseId} 
+                                    stage={user.currentAvatarStage || 0} 
+                                    size={40} 
+                                />
+                            </div>
+                        )}
+
+                        <button onClick={async () => { if (supabase) { await supabase.auth.signOut(); } await db.users.delete('local-user'); document.cookie = "user_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"; window.location.href = "/login"; }}
                             className="chip chip-dark text-xs hidden md:flex cursor-pointer">
                             <LogOut className="h-3.5 w-3.5" /> Logout
                         </button>
-<<<<<<< HEAD
-=======
-                        <button className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 transition-all">
-                            <User className="h-5 w-5" />
-                        </button>
-                        {isAuthenticated ? (
-                            <button onClick={async () => { if (supabase) { await supabase.auth.signOut(); window.location.reload(); } }}
-                                className="chip chip-dark text-xs hidden md:flex">
-                                <LogOut className="h-3.5 w-3.5" /> Logout
-                            </button>
-                        ) : (
-                            <Link href="/login" className="chip chip-dark text-xs hidden md:flex">
-                                <LogIn className="h-3.5 w-3.5" /> Login
-                            </Link>
-                        )}
->>>>>>> b2f6045 (login changes)
                     </div>
                 </div>
 
@@ -415,26 +409,11 @@ export default function Dashboard() {
                         <Trophy className="w-6 h-6" />
                         <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Rank</span>
                     </Link>
-<<<<<<< HEAD
-                    <button onClick={async () => { if (supabase) { await supabase.auth.signOut(); } document.cookie = "user_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"; window.location.href = "/"; }}
+                    <button onClick={async () => { if (supabase) { await supabase.auth.signOut(); } await db.users.delete('local-user'); document.cookie = "user_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"; window.location.href = "/login"; }}
                         className="flex flex-col items-center text-[#777] hover:text-[#e63329] transition-colors cursor-pointer">
                         <LogOut className="w-6 h-6" />
                         <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Logout</span>
                     </button>
-=======
-                    {isAuthenticated ? (
-                        <button onClick={async () => { if (supabase) { await supabase.auth.signOut(); window.location.reload(); } }}
-                            className="flex flex-col items-center text-[#777] hover:text-[#e63329] transition-colors">
-                            <LogOut className="w-6 h-6" />
-                            <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Logout</span>
-                        </button>
-                    ) : (
-                        <Link href="/login" className="flex flex-col items-center text-[#777] hover:text-[#e63329] transition-colors">
-                            <LogIn className="w-6 h-6" />
-                            <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Login</span>
-                        </Link>
-                    )}
->>>>>>> b2f6045 (login changes)
                 </div>
             </nav>
         </div>
