@@ -100,16 +100,17 @@ export default function LeaderboardPage() {
     const [topBooks, setTopBooks] = useState<LeaderboardBook[]>([]);
     const [booksRead, setBooksRead] = useState<BooksReadEntry[]>([]);
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState<'daily' | 'weekly' | 'all'>('all');
 
     useEffect(() => {
-        const fetchLeaderboard = async () => {
+        let mounted = true;
+
+        const fetchLeaderboard = async (isBackground = false) => {
             if (!supabase) return;
-            setLoading(true);
+            if (!isBackground) setLoading(true);
             try {
-                const { data, error } = await supabase.from('users').select('id, name, totalPoints, streak, last_points_date').order('totalPoints', { ascending: false }).limit(50);
+                const { data, error } = await supabase.from('users').select('id, name, totalPoints, streak, last_points_date').order('totalPoints', { ascending: false });
                 if (error) throw error;
-                if (data) {
+                if (data && mounted) {
                     const now = new Date();
                     const today = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().split('T')[0];
                     const yesterdayObj = new Date(now.getTime() - 86400000 - now.getTimezoneOffset() * 60000);
@@ -130,7 +131,7 @@ export default function LeaderboardPage() {
                     .from('reading_sessions')
                     .select('user_id, book_id')
                     .eq('completed', true);
-                if (sessionsData) {
+                if (sessionsData && mounted) {
                     // Count unique books per user
                     const booksByUser = new Map<string, Set<string>>();
                     for (const s of sessionsData) {
@@ -150,7 +151,7 @@ export default function LeaderboardPage() {
                     setBooksRead(entries);
                 }
 
-                if (booksData) {
+                if (booksData && mounted) {
                     const reviewMap = new Map<number, Array<{ userId: string; rating: number; createdAt: number }>>();
                     for (const r of reviewsData || []) {
                         const cur = reviewMap.get(r.book_id) || [];
@@ -166,9 +167,25 @@ export default function LeaderboardPage() {
                     setTopBooks(statsByBook.map(b => ({ ...b, weighted_rating: getImdbWeightedRating(b.avg_rating, b.review_count, globalAvg, minVotes) })).sort((a, b) => b.weighted_rating - a.weighted_rating || b.avg_rating - a.avg_rating).slice(0, 20));
                 }
             } catch (err) { console.error(err); }
-            finally { setLoading(false); }
+            finally { if (!isBackground && mounted) setLoading(false); }
         };
         fetchLeaderboard();
+
+        if (!supabase) return;
+
+        const channel = supabase.channel('leaderboard_updates')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
+                if (mounted) fetchLeaderboard(true);
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'reading_sessions' }, () => {
+                if (mounted) fetchLeaderboard(true);
+            })
+            .subscribe();
+
+        return () => {
+            mounted = false;
+            supabase.removeChannel(channel);
+        };
     }, []);
 
     const top3 = leaderboard.slice(0, 3);
@@ -236,21 +253,22 @@ export default function LeaderboardPage() {
                                             const rank = top3.findIndex(user => user.id === u.id) + 1;
                                             const badge = RANK_BADGES[(rank - 1) % RANK_BADGES.length];
                                             const isFirst = rank === 1;
+                                            const isMe = u.id === currentUser?.id;
                                             return (
                                                 <div key={u.id} className={`flex flex-col items-center ${isFirst ? '-mt-6' : ''}`}>
                                                     <PodiumAvatar rank={rank} name={u.name} />
-                                                    <p className={`font-black text-white mt-2 text-center ${isFirst ? 'text-base' : 'text-sm'}`}>
-                                                        {rank}. {u.name.split(' ')[0]}
+                                                    <p className={`font-black mt-2 text-center flex items-center justify-center gap-1.5 ${isFirst ? 'text-base' : 'text-sm'} ${isMe ? 'text-yellow-400' : 'text-white'}`}>
+                                                        {u.streak! > 0 && (
+                                                            <span className="flex items-center gap-0.5 text-orange-500 bg-black/20 px-1.5 py-0.5 rounded textxs" title={`${u.streak} Day Streak!`}>
+                                                                <Flame className="w-3 h-3 text-orange-500 fill-orange-500" />
+                                                                <span className="text-[10px]">{u.streak}</span>
+                                                            </span>
+                                                        )}
+                                                        <span>{rank}. {u.name.split(' ')[0]}{isMe ? ' (YOU)' : ''}</span>
                                                     </p>
-                                                    <p className={`font-black text-yellow-300 text-center ${isFirst ? 'text-sm' : 'text-xs'}`}>
+                                                    <p className={`font-black text-center ${isFirst ? 'text-sm' : 'text-xs'} ${isMe ? 'text-white' : 'text-yellow-300'}`}>
                                                         {u.totalPoints} Book Points
                                                     </p>
-                                                    {u.streak! > 0 && (
-                                                        <div className="flex items-center gap-1 justify-center mt-1">
-                                                            <Flame className="w-3.5 h-3.5 text-orange-500 fill-orange-500" />
-                                                            <span className="text-orange-500 font-bold text-[10px] uppercase">Streak {u.streak}</span>
-                                                        </div>
-                                                    )}
                                                     <div className="mt-2 px-3 py-1.5 rounded-full border-2 border-[#111] font-black text-[11px] uppercase tracking-wide flex items-center gap-1.5 shadow-[0_4px_0_rgba(0,0,0,0.3)]"
                                                         style={{ background: badge.bg, color: badge.color, borderColor: badge.color + "88" }}>
                                                         <span>{badge.emoji}</span> {badge.label}
@@ -283,18 +301,8 @@ export default function LeaderboardPage() {
                             {/* ── Other Amazing Readers ─────────────────── */}
                             <div className="flex-1 bg-[#fffbf3] rounded-t-[36px] mt-0 px-4 pt-8 pb-20 md:px-8">
                                 <h3 className="comic-title text-2xl text-[#111] text-center mb-6 uppercase">
-                                    Other Amazing Readers
+                                    Your Competitors
                                 </h3>
-
-                                {/* Filter pills */}
-                                <div className="flex justify-center gap-2 mb-6">
-                                    {(['daily', 'weekly', 'all'] as const).map(f => (
-                                        <button key={f} onClick={() => setFilter(f)}
-                                            className={`px-5 py-2 rounded-full font-black text-xs uppercase tracking-wide transition-all border-2 border-[#111] ${filter === f ? 'bg-[#e63329] text-white shadow-[0_4px_0_#111]' : 'bg-white text-[#111] hover:bg-[#fff3ef]'}`}>
-                                            {f}
-                                        </button>
-                                    ))}
-                                </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl mx-auto">
                                     {others.map((u) => {
@@ -314,14 +322,14 @@ export default function LeaderboardPage() {
                                                 </div>
                                                 {/* Name + badge */}
                                                 <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-1.5 mb-1">
-                                                        {u.streak! > 0 && (
-                                                            <div className="flex items-center gap-0.5" title={`${u.streak} Day Streak!`}>
-                                                                <Flame className="w-3.5 h-3.5 text-orange-500 fill-orange-500 animate-pulse" />
-                                                                <span className="text-orange-500 font-black text-[10px]">{u.streak}</span>
-                                                            </div>
-                                                        )}
-                                                        <p className={`font-black text-sm leading-tight truncate ${isMe ? 'text-[#e63329]' : 'text-[#111]'}`}>
+                                                    <div className="flex items-center mb-1">
+                                                        <p className={`font-black text-sm leading-tight truncate flex items-center ${isMe ? 'text-[#e63329]' : 'text-[#111]'}`}>
+                                                            {u.streak! > 0 && (
+                                                                <span className="flex items-center gap-0.5 mr-1.5 text-orange-500" title={`${u.streak} Day Streak!`}>
+                                                                    <Flame className="w-3.5 h-3.5 text-orange-500 fill-orange-500 animate-pulse" />
+                                                                    <span className="text-[10px]">{u.streak}</span>
+                                                                </span>
+                                                            )}
                                                             {u.name.split(' ')[0]}{isMe ? ' (YOU)' : ''}
                                                         </p>
                                                     </div>
