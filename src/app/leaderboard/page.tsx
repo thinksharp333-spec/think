@@ -1,12 +1,9 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Trophy, Loader2, Star, BookOpen, Crown, Medal } from 'lucide-react';
+import { Search, Flame, Compass } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { useUser } from '@/hooks/useUser';
-import { getThumbnailUrl, extractFileId } from '@/lib/google-drive';
-import { getBookRatingStats, getImdbWeightedRating } from '@/lib/book-ratings';
 
 interface LeaderboardUser {
     id: string;
@@ -16,89 +13,8 @@ interface LeaderboardUser {
     rank?: number;
 }
 
-interface LeaderboardBook {
-    id: number;
-    title: string;
-    coverUrl?: string;
-    avg_rating: number;
-    review_count: number;
-    weighted_rating: number;
-}
-
-interface BooksReadEntry {
-    userId: string;
-    name: string;
-    booksRead: number;
-    rank?: number;
-}
-
-// Reader title badges by rank
-const RANK_BADGES = [
-    { label: "Book Wizard", color: "#f59e0b", bg: "#fff4ba", emoji: "🧙" },
-    { label: "Story Master", color: "#22c55e", bg: "#d1fae5", emoji: "📚" },
-    { label: "Page Turner", color: "#3b82f6", bg: "#dbeafe", emoji: "📖" },
-    { label: "Bookworm", color: "#e63329", bg: "#ffece5", emoji: "🐛" },
-    { label: "Novel Explorer", color: "#8b5cf6", bg: "#ede9fe", emoji: "🔭" },
-    { label: "Reading Champ", color: "#ec4899", bg: "#fce7f3", emoji: "🏆" },
-    { label: "Word Whiz", color: "#14b8a6", bg: "#ccfbf1", emoji: "✨" },
-];
-
-// Avatar SVG characters (inline, unique per rank)
-function PodiumAvatar({ rank, name }: { rank: number; name: string }) {
-    const palette = [
-        { head: "#fbbf24", hair: "#92400e", shirt: "#7c3aed" },
-        { head: "#fca5a5", hair: "#7f1d1d", shirt: "#15803d" },
-        { head: "#fde68a", hair: "#1c1917", shirt: "#f97316" },
-    ];
-    const p = palette[(rank - 1) % palette.length];
-    const initials = name.substring(0, 2).toUpperCase();
-    return (
-        <div className="relative">
-            <svg width="80" height="96" viewBox="0 0 80 96" fill="none" xmlns="http://www.w3.org/2000/svg">
-                {/* Body */}
-                <ellipse cx="40" cy="74" rx="22" ry="18" fill={p.shirt} stroke="#111" strokeWidth="2.5" />
-                {/* Head */}
-                <circle cx="40" cy="44" r="22" fill={p.head} stroke="#111" strokeWidth="2.5" />
-                {/* Hair */}
-                <ellipse cx="40" cy="28" rx="22" ry="10" fill={p.hair} />
-                {/* Eyes */}
-                <circle cx="33" cy="43" r="4" fill="white" stroke="#111" strokeWidth="1.5" />
-                <circle cx="47" cy="43" r="4" fill="white" stroke="#111" strokeWidth="1.5" />
-                <circle cx="34" cy="44" r="2" fill="#111" />
-                <circle cx="48" cy="44" r="2" fill="#111" />
-                {/* Smile */}
-                <path d="M33 55 Q40 62 47 55" stroke="#111" strokeWidth="2" strokeLinecap="round" fill="none" />
-                {/* Arms */}
-                <ellipse cx="18" cy="78" rx="8" ry="6" fill={p.shirt} stroke="#111" strokeWidth="2" transform="rotate(-20 18 78)" />
-                <ellipse cx="62" cy="78" rx="8" ry="6" fill={p.shirt} stroke="#111" strokeWidth="2" transform="rotate(20 62 78)" />
-                {/* Belt line */}
-                <line x1="18" y1="72" x2="62" y2="72" stroke="#111" strokeWidth="1.5" strokeDasharray="3,3" />
-                {/* Feet */}
-                <ellipse cx="32" cy="92" rx="9" ry="5" fill="#111" />
-                <ellipse cx="48" cy="92" rx="9" ry="5" fill="#111" />
-            </svg>
-            {/* Rank 1 gets a special trophy */}
-            {rank === 1 && (
-                <div className="absolute -top-8 left-1/2 -translate-x-1/2">
-                    <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
-                        <path d="M18 2L22 12H33L24 18L27 29L18 23L9 29L12 18L3 12H14L18 2Z" fill="#f59e0b" stroke="#111" strokeWidth="2" />
-                    </svg>
-                </div>
-            )}
-            {/* Initials circle */}
-            <div className="absolute inset-0 flex items-center justify-center opacity-0">
-                <span className="text-white font-black text-sm">{initials}</span>
-            </div>
-        </div>
-    );
-}
-
 export default function LeaderboardPage() {
-    const { user: currentUser } = useUser();
-    const [activeTab, setActiveTab] = useState<'students' | 'books' | 'booksRead'>('students');
     const [leaderboard, setLeaderboard] = useState<LeaderboardUser[]>([]);
-    const [topBooks, setTopBooks] = useState<LeaderboardBook[]>([]);
-    const [booksRead, setBooksRead] = useState<BooksReadEntry[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -124,48 +40,6 @@ export default function LeaderboardPage() {
                         return { id: u.id, name: u.name || 'Anonymous', totalPoints: u.totalPoints || 0, streak: effStreak, rank: i + 1 };
                     }));
                 }
-                const { data: booksData } = await supabase.from('books').select('id, title, "coverUrl", avg_rating, review_count');
-                const { data: reviewsData } = await supabase.from('book_reviews').select('book_id, user_id, rating, created_at');
-                // ── Books Read leaderboard ──────────────────────────────
-                const { data: sessionsData } = await supabase
-                    .from('reading_sessions')
-                    .select('user_id, book_id')
-                    .eq('completed', true);
-                if (sessionsData && mounted) {
-                    // Count unique books per user
-                    const booksByUser = new Map<string, Set<string>>();
-                    for (const s of sessionsData) {
-                        if (!booksByUser.has(s.user_id)) booksByUser.set(s.user_id, new Set());
-                        booksByUser.get(s.user_id)!.add(String(s.book_id));
-                    }
-                    // Build display list joined with user names
-                    const { data: usersForBooks } = await supabase
-                        .from('users')
-                        .select('id, name')
-                        .in('id', Array.from(booksByUser.keys()));
-                    const nameMap = new Map((usersForBooks || []).map(u => [u.id, u.name || 'Anonymous']));
-                    const entries: BooksReadEntry[] = Array.from(booksByUser.entries())
-                        .map(([userId, books]) => ({ userId, name: nameMap.get(userId) || 'Anonymous', booksRead: books.size }))
-                        .sort((a, b) => b.booksRead - a.booksRead)
-                        .map((e, i) => ({ ...e, rank: i + 1 }));
-                    setBooksRead(entries);
-                }
-
-                if (booksData && mounted) {
-                    const reviewMap = new Map<number, Array<{ userId: string; rating: number; createdAt: number }>>();
-                    for (const r of reviewsData || []) {
-                        const cur = reviewMap.get(r.book_id) || [];
-                        cur.push({ userId: r.user_id, rating: r.rating, createdAt: new Date(r.created_at).getTime() });
-                        reviewMap.set(r.book_id, cur);
-                    }
-                    const statsByBook = booksData.map((book) => {
-                        const rs = getBookRatingStats(reviewMap.get(book.id) || []);
-                        return { id: book.id, title: book.title, coverUrl: book.coverUrl, avg_rating: rs.reviewCount > 0 ? rs.averageRating : (book.avg_rating || 0), review_count: rs.reviewCount > 0 ? rs.reviewCount : (book.review_count || 0) };
-                    }).filter(b => b.review_count > 0);
-                    const globalAvg = statsByBook.length > 0 ? statsByBook.reduce((s, b) => s + b.avg_rating, 0) / statsByBook.length : 0;
-                    const minVotes = Math.max(3, Math.ceil(statsByBook.reduce((s, b) => s + b.review_count, 0) / Math.max(1, statsByBook.length)));
-                    setTopBooks(statsByBook.map(b => ({ ...b, weighted_rating: getImdbWeightedRating(b.avg_rating, b.review_count, globalAvg, minVotes) })).sort((a, b) => b.weighted_rating - a.weighted_rating || b.avg_rating - a.avg_rating).slice(0, 20));
-                }
             } catch (err) { console.error(err); }
             finally { if (!isBackground && mounted) setLoading(false); }
         };
@@ -190,299 +64,226 @@ export default function LeaderboardPage() {
 
     const top3 = leaderboard.slice(0, 3);
     const others = leaderboard.slice(3);
-    // order for display: 2nd, 1st, 3rd
-    const podiumOrder = [top3[1], top3[0], top3[2]].filter(Boolean);
+
+    // Provide default placeholders if there are no users yet for UI demonstration
+    const top1 = top3[0] || { name: 'Leo_L', totalPoints: 1250 };
+    const top2 = top3[1] || { name: 'Sarah_K', totalPoints: 950 };
+    const top3rd = top3[2] || { name: 'Ben_J', totalPoints: 800 };
+
+    const top1Pct = Math.max(1, top1.totalPoints);
 
     return (
-        <div className="min-h-screen flex flex-col" style={{ background: "#7f1d1d", backgroundImage: "radial-gradient(ellipse at 20% 0%, #b91c1c 0%, transparent 60%), radial-gradient(ellipse at 80% 100%, #991b1b 0%, transparent 60%)" }}>
-
-            {/* ── Header ──────────────────────────────────────────────── */}
-            <header className="px-5 pt-10 pb-6 md:px-12 text-center relative">
-                {/* Back */}
-                <Link href="/dashboard" className="absolute left-5 top-8 flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-black text-sm uppercase tracking-wide px-4 py-2 rounded-full border border-white/20 transition-all">
-                    <ArrowLeft className="w-4 h-4" />
-                    <span className="hidden sm:inline">Library</span>
-                </Link>
-
-                {/* Decorative stars */}
-                <div className="flex justify-center gap-3 mb-3">
-                    <Star className="w-7 h-7 fill-yellow-400 text-yellow-400 opacity-60 animate-pulse" />
-                    <Star className="w-9 h-9 fill-yellow-400 text-yellow-400" />
-                    <Star className="w-7 h-7 fill-yellow-400 text-yellow-400 opacity-60 animate-pulse" style={{ animationDelay: "0.5s" }} />
+        <div className="flex flex-col font-sans bg-black max-w-full overflow-x-hidden" style={{ minHeight: '100vh', height: '100vh' }}>
+            
+            {/* ─── HEADER ────────────────────────────────────────────── */}
+            <header className="bg-[#d32f2f] h-16 sm:h-20 flex items-center justify-between px-4 sm:px-8 border-b-4 border-black relative z-50 flex-shrink-0">
+                {/* EXTREME LEFT: League */}
+                <div className="flex items-center">
+                    <div className="bg-black text-white px-3 sm:px-5 py-1.5 sm:py-2.5 rounded-full font-black comic-title text-xs sm:text-sm border-2 border-white shadow-[0_2px_0_#fff]">
+                        🏆 LEGEND LEAGUE
+                    </div>
                 </div>
-                <h1 className="comic-title text-4xl md:text-6xl text-yellow-400 drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]" style={{ textShadow: "0 4px 0 rgba(0,0,0,0.3)" }}>
-                    Top Readers
-                </h1>
-                <h2 className="comic-title text-2xl md:text-4xl text-white mt-1">Leaderboard</h2>
 
-                {/* Tab switcher */}
-                <div className="flex justify-center gap-2 mt-6">
-                    <button onClick={() => setActiveTab('students')}
-                        className={`px-6 py-2.5 rounded-full font-black text-sm uppercase tracking-wide transition-all border-2 ${activeTab === 'students' ? 'bg-yellow-400 text-[#111] border-yellow-400 shadow-[0_4px_0_rgba(0,0,0,0.3)]' : 'bg-white/10 text-white border-white/20 hover:bg-white/20'}`}>
-                        <Trophy className="inline w-4 h-4 mr-1 -mt-0.5" /> Students
-                    </button>
-                    <button onClick={() => setActiveTab('books')}
-                        className={`px-6 py-2.5 rounded-full font-black text-sm uppercase tracking-wide transition-all border-2 ${activeTab === 'books' ? 'bg-yellow-400 text-[#111] border-yellow-400 shadow-[0_4px_0_rgba(0,0,0,0.3)]' : 'bg-white/10 text-white border-white/20 hover:bg-white/20'}`}>
-                        <Star className="inline w-4 h-4 mr-1 -mt-0.5 fill-current" /> Top Books
-                    </button>
-                    <button onClick={() => setActiveTab('booksRead')}
-                        className={`px-6 py-2.5 rounded-full font-black text-sm uppercase tracking-wide transition-all border-2 ${activeTab === 'booksRead' ? 'bg-yellow-400 text-[#111] border-yellow-400 shadow-[0_4px_0_rgba(0,0,0,0.3)]' : 'bg-white/10 text-white border-white/20 hover:bg-white/20'}`}>
-                        <BookOpen className="inline w-4 h-4 mr-1 -mt-0.5" /> Books Read
-                    </button>
+                {/* LOGO Overlap */}
+                <div className="absolute left-1/2 -top-1 -translate-x-1/2 sm:left-auto sm:right-[70%] sm:-translate-x-1/2 w-48 sm:w-64 bg-white border-4 border-black rounded-[2rem] p-2 flex items-center justify-center gap-2 shadow-[0_6px_0_#111] z-50">
+                    <div className="w-8 h-8 rounded-full border-[3px] border-black flex items-center justify-center bg-gray-100">
+                        <Compass className="w-5 h-5 text-red-600" />
+                    </div>
+                    <span className="comic-title text-black text-sm sm:text-lg leading-none tracking-wide text-center">Reading<br/>Adventure</span>
                 </div>
+
+                {/* NAV LINKS */}
+                <nav className="hidden lg:flex items-center gap-8 ml-auto mr-16">
+                    <Link href="/dashboard" className="text-white font-black hover:text-yellow-400 border-2 border-transparent hover:border-black bg-black rounded-full px-5 py-1.5 text-xs tracking-widest shadow-[0_2px_0_#fff]">HOME</Link>
+                    <Link href="/books" className="text-white font-black hover:text-yellow-400 text-xs tracking-widest drop-shadow-md">BOOKS</Link>
+                    <Link href="/adventure" className="text-white font-black hover:text-yellow-400 text-xs tracking-widest drop-shadow-md">MY ADVENTURE</Link>
+                    <Link href="/about" className="text-white font-black hover:text-yellow-400 text-xs tracking-widest drop-shadow-md">ABOUT US</Link>
+                </nav>
+
+                {/* SEARCH */}
+                <button className="hidden sm:block text-white hover:text-yellow-400 transition-colors drop-shadow-md">
+                    <Search className="w-6 h-6" />
+                </button>
             </header>
 
-            {/* ── Students Tab ─────────────────────────────────────────── */}
-            {activeTab === 'students' && (
-                <>
-                    {loading ? (
-                        <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-yellow-400" /></div>
-                    ) : leaderboard.length === 0 ? (
-                        <div className="text-center py-20">
-                            <Trophy className="w-16 h-16 text-white/30 mx-auto mb-4" />
-                            <p className="text-white/60 font-bold uppercase tracking-wide">No ranking data yet</p>
-                        </div>
-                    ) : (
-                        <>
-                            {/* ── Podium ─────────────────────────────────── */}
-                            <div className="px-4 md:px-12 pt-4 pb-0">
-                                <div className="max-w-2xl mx-auto">
-                                    {/* Characters */}
-                                    <div className="flex items-end justify-center gap-4 md:gap-8 mb-0">
-                                        {podiumOrder.map((u) => {
-                                            const rank = top3.findIndex(user => user.id === u.id) + 1;
-                                            const badge = RANK_BADGES[(rank - 1) % RANK_BADGES.length];
-                                            const isFirst = rank === 1;
-                                            const isMe = u.id === currentUser?.id;
-                                            return (
-                                                <div key={u.id} className={`flex flex-col items-center ${isFirst ? '-mt-6' : ''}`}>
-                                                    <PodiumAvatar rank={rank} name={u.name} />
-                                                    <p className={`font-black mt-2 text-center flex items-center justify-center gap-1.5 ${isFirst ? 'text-base' : 'text-sm'} ${isMe ? 'text-yellow-400' : 'text-white'}`}>
-                                                        {u.streak! > 0 && (
-                                                            <span className="flex items-center gap-0.5 text-orange-500 bg-black/20 px-1.5 py-0.5 rounded textxs" title={`${u.streak} Day Streak!`}>
-                                                                <Flame className="w-3 h-3 text-orange-500 fill-orange-500" />
-                                                                <span className="text-[10px]">{u.streak}</span>
-                                                            </span>
-                                                        )}
-                                                        <span>{rank}. {u.name.split(' ')[0]}{isMe ? ' (YOU)' : ''}</span>
-                                                    </p>
-                                                    <p className={`font-black text-center ${isFirst ? 'text-sm' : 'text-xs'} ${isMe ? 'text-white' : 'text-yellow-300'}`}>
-                                                        {u.totalPoints} Book Points
-                                                    </p>
-                                                    <div className="mt-2 px-3 py-1.5 rounded-full border-2 border-[#111] font-black text-[11px] uppercase tracking-wide flex items-center gap-1.5 shadow-[0_4px_0_rgba(0,0,0,0.3)]"
-                                                        style={{ background: badge.bg, color: badge.color, borderColor: badge.color + "88" }}>
-                                                        <span>{badge.emoji}</span> {badge.label}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
+            {/* ─── MAIN CONTENT ──────────────────────────────────────── */}
+            <main className="flex-1 relative bg-cover bg-center bg-no-repeat overflow-hidden flex flex-col items-center pt-8 md:pt-12 pb-16 min-h-0" 
+                  style={{ backgroundImage: "url('/dragons_hoard_bg.png')" }}>
+                
+                {/* Background Dimmer for text clarity */}
+                <div className="absolute inset-0 bg-black/20 pointer-events-none"></div>
 
-                                    {/* Podium blocks */}
-                                    <div className="flex items-end justify-center gap-4 md:gap-8 -mt-1">
-                                        {podiumOrder.map((u) => {
-                                            const rank = top3.findIndex(user => user.id === u.id) + 1;
-                                            const isFirst = rank === 1;
-                                            const heights = { 1: "h-24", 2: "h-16", 3: "h-12" };
-                                            const h = heights[rank as 1 | 2 | 3] || "h-12";
-                                            return (
-                                                <div key={u.id} className={`${isFirst ? 'w-36' : 'w-28'} ${h} flex items-center justify-center font-black text-3xl md:text-4xl text-[#111] rounded-t-2xl border-t-4 border-x-4 border-yellow-400 relative`}
-                                                    style={{ background: "linear-gradient(180deg,#d4a017 0%,#b8860b 50%,#8B6914 100%)" }}>
-                                                    <span className="text-white/80 drop-shadow-lg">{rank}</span>
-                                                    {/* gold shimmer strip */}
-                                                    <div className="absolute top-2 left-2 right-2 h-1 rounded-full bg-yellow-200/40" />
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
+                {/* Title */}
+                <h1 className="comic-title text-white text-3xl sm:text-5xl md:text-6xl drop-shadow-[0_6px_12px_rgba(0,0,0,0.8)] mb-8 text-center relative z-10 w-full px-4" 
+                    style={{ WebkitTextStroke: '2px black' }}>
+                    DRAGON'S HOARD LEADERBOARD
+                </h1>
+
+                {/* ─── PODIUM ────────────────────────────────────────── */}
+                <div className="flex items-end justify-center gap-2 sm:gap-6 md:gap-12 mb-8 relative z-10 w-full px-4 mx-auto max-w-5xl flex-shrink-0">
+                    
+                    {/* 2nd Place */}
+                    <div className="flex flex-col items-center z-10 w-[30%] max-w-[200px] transform translate-y-6 sm:translate-y-10 hover:-translate-y-2 hover:scale-105 transition-all duration-300">
+                        <div className="relative">
+                            <img src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${top2.name}&backgroundColor=transparent`} 
+                                 className="w-24 h-24 sm:w-36 sm:h-36 object-contain drop-shadow-[0_8px_4px_rgba(0,0,0,0.5)]" alt="2nd place avatar" />
+                            <div className="absolute -bottom-4 -left-3 sm:-left-6 w-10 h-10 sm:w-14 sm:h-14 bg-gradient-to-br from-gray-200 to-gray-400 rounded-full border-[3px] border-black flex items-center justify-center shadow-[0_4px_0_#111] comic-title text-black text-sm sm:text-xl">
+                                2nd
                             </div>
+                        </div>
+                        <div className="bg-[#e63329] border-[3px] border-black rounded-lg px-2 sm:px-5 py-1.5 sm:py-2 mt-4 text-white font-black whitespace-nowrap shadow-[0_5px_0_#111] relative comic-title text-xs sm:text-base w-full text-center">
+                            <span className="relative z-10">2nd: {top2.name.split('_')[0]}</span>
+                            <div className="absolute -left-3 sm:-left-4 top-[10%] bottom-[10%] w-3 sm:w-4 bg-[#b91c1c] border-[3px] border-r-0 border-black -z-10 skew-x-12"></div>
+                            <div className="absolute -right-3 sm:-right-4 top-[10%] bottom-[10%] w-3 sm:w-4 bg-[#b91c1c] border-[3px] border-l-0 border-black -z-10 -skew-x-12"></div>
+                        </div>
+                        <div className="bg-black rounded-full border-[3px] border-gray-600 px-2 sm:px-4 py-1.5 flex items-center justify-center gap-1.5 mt-3 text-[10px] sm:text-xs font-black tracking-widest text-white shadow-[0_2px_0_#111] whitespace-nowrap w-[110%] relative z-0">
+                            <Flame className="w-3 h-3 sm:w-4 sm:h-4 text-orange-500 fill-orange-500" /> <span className="hidden sm:inline">FIRE LEVEL: </span>MASTER
+                        </div>
+                    </div>
 
-                            {/* ── Other Amazing Readers ─────────────────── */}
-                            <div className="flex-1 bg-[#fffbf3] rounded-t-[36px] mt-0 px-4 pt-8 pb-20 md:px-8">
-                                <h3 className="comic-title text-2xl text-[#111] text-center mb-6 uppercase">
-                                    Your Competitors
-                                </h3>
+                    {/* 1st Place */}
+                    <div className="flex flex-col items-center z-20 w-[40%] max-w-[280px] hover:-translate-y-4 hover:scale-110 transition-all duration-300">
+                        <div className="relative">
+                            <img src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${top1.name}&backgroundColor=transparent`} 
+                                 className="w-32 h-32 sm:w-48 sm:h-48 md:w-56 md:h-56 object-contain drop-shadow-[0_12px_8px_rgba(0,0,0,0.6)]" alt="1st place avatar" />
+                        </div>
+                        <div className="bg-[#e63329] border-4 border-black rounded-xl px-4 sm:px-8 py-2 sm:py-3 mt-4 text-white font-black whitespace-nowrap shadow-[0_8px_0_#111] relative comic-title text-sm sm:text-xl md:text-2xl transform sm:scale-110 w-full text-center z-10">
+                            <span className="relative z-10">1st Place: {top1.name.split('_')[0]}</span>
+                            <div className="absolute -left-4 sm:-left-5 top-[10%] bottom-[10%] w-4 sm:w-5 bg-[#b91c1c] border-y-4 border-l-4 border-black -z-10 skew-x-12"></div>
+                            <div className="absolute -right-4 sm:-right-5 top-[10%] bottom-[10%] w-4 sm:w-5 bg-[#b91c1c] border-y-4 border-r-4 border-black -z-10 -skew-x-12"></div>
+                        </div>
+                        <div className="bg-black rounded-full border-[3px] border-gray-500 px-3 sm:px-5 py-2 mt-4 text-xs sm:text-sm font-black tracking-widest text-white shadow-[0_4px_0_#111] flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap w-[110%] relative z-0">
+                            <Flame className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500 fill-orange-500 animate-pulse" /> <span className="hidden sm:inline">FIRE LEVEL: </span>LEGEND
+                        </div>
+                    </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl mx-auto">
-                                    {others.map((u) => {
-                                        const badge = RANK_BADGES[(u.rank! - 1) % RANK_BADGES.length];
-                                        const isMe = u.id === currentUser?.id;
-                                        return (
-                                            <div key={u.id}
-                                                className={`flex items-center gap-3 p-3 rounded-[20px] border-[3px] ${isMe ? 'border-[#e63329] bg-[#fff3ef]' : 'border-[#111] bg-white'} shadow-[0_5px_0_#111] transition-all hover:-translate-y-0.5`}>
-                                                {/* Rank number */}
-                                                <div className="w-8 text-center font-black text-[#e63329] text-sm flex-shrink-0">
-                                                    #{u.rank}
-                                                </div>
-                                                {/* Avatar */}
-                                                <div className="w-10 h-10 rounded-full border-[2.5px] border-[#111] flex-shrink-0 flex items-center justify-center font-black text-sm shadow-[0_3px_0_#111]"
-                                                    style={{ background: badge.bg, color: badge.color }}>
-                                                    {u.name.substring(0, 2).toUpperCase()}
-                                                </div>
-                                                {/* Name + badge */}
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center mb-1">
-                                                        <p className={`font-black text-sm leading-tight truncate flex items-center ${isMe ? 'text-[#e63329]' : 'text-[#111]'}`}>
-                                                            {u.streak! > 0 && (
-                                                                <span className="flex items-center gap-0.5 mr-1.5 text-orange-500" title={`${u.streak} Day Streak!`}>
-                                                                    <Flame className="w-3.5 h-3.5 text-orange-500 fill-orange-500 animate-pulse" />
-                                                                    <span className="text-[10px]">{u.streak}</span>
-                                                                </span>
-                                                            )}
-                                                            {u.name.split(' ')[0]}{isMe ? ' (YOU)' : ''}
-                                                        </p>
-                                                    </div>
-                                                    <span className="text-[10px] font-black uppercase tracking-wide" style={{ color: badge.color }}>
-                                                        {badge.emoji} {badge.label}
-                                                    </span>
-                                                </div>
-                                                {/* Points + medal */}
-                                                <div className="flex items-center gap-1.5 flex-shrink-0">
-                                                    <div className="text-right">
-                                                        <p className="font-black text-[#111] text-sm leading-none">{u.totalPoints}</p>
-                                                        <p className="text-[9px] text-[#777] uppercase tracking-wide font-bold">BP</p>
-                                                    </div>
-                                                    {u.rank! <= 6 ? (
-                                                        <Medal className="w-5 h-5" style={{ color: u.rank! <= 3 ? '#f59e0b' : u.rank! <= 5 ? '#9ca3af' : '#cd7c2f' }} />
-                                                    ) : null}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                    {/* 3rd Place */}
+                    <div className="flex flex-col items-center z-10 w-[30%] max-w-[200px] transform translate-y-8 sm:translate-y-12 hover:-translate-y-2 hover:scale-105 transition-all duration-300">
+                        <div className="relative">
+                            <img src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${top3rd.name}&backgroundColor=transparent`} 
+                                 className="w-24 h-24 sm:w-36 sm:h-36 object-contain drop-shadow-[0_8px_4px_rgba(0,0,0,0.5)]" alt="3rd place avatar" />
+                            <div className="absolute -bottom-4 -left-3 sm:-left-6 w-10 h-10 sm:w-14 sm:h-14 bg-gradient-to-br from-[#cd7f32] to-[#8b5a2b] rounded-full border-[3px] border-black flex items-center justify-center shadow-[0_4px_0_#111] comic-title text-white text-sm sm:text-xl transform -rotate-12">
+                                3rd
+                            </div>
+                        </div>
+                        <div className="bg-[#e63329] border-[3px] border-black rounded-lg px-2 sm:px-5 py-1.5 sm:py-2 mt-4 text-white font-black whitespace-nowrap shadow-[0_5px_0_#111] relative comic-title text-xs sm:text-base w-full text-center">
+                            <span className="relative z-10">3rd: {top3rd.name.split('_')[0]}</span>
+                            <div className="absolute -left-3 sm:-left-4 top-[10%] bottom-[10%] w-3 sm:w-4 bg-[#b91c1c] border-[3px] border-r-0 border-black -z-10 skew-x-12"></div>
+                            <div className="absolute -right-3 sm:-right-4 top-[10%] bottom-[10%] w-3 sm:w-4 bg-[#b91c1c] border-[3px] border-l-0 border-black -z-10 -skew-x-12"></div>
+                        </div>
+                        <div className="bg-black rounded-full border-[3px] border-gray-600 px-2 sm:px-4 py-1.5 flex items-center justify-center gap-1.5 mt-3 text-[10px] sm:text-xs font-black tracking-widest text-white shadow-[0_2px_0_#111] whitespace-nowrap w-[110%] relative z-0">
+                            <Flame className="w-3 h-3 sm:w-4 sm:h-4 text-orange-500 fill-orange-500" /> <span className="hidden sm:inline">FIRE LEVEL: </span>ELITE
+                        </div>
+                    </div>
+                </div>
 
-                                {!loading && others.length === 0 && top3.length === 0 && (
-                                    <div className="text-center py-16 opacity-50">
-                                        <Trophy className="w-12 h-12 mx-auto mb-3 text-[#aaa]" />
-                                        <p className="font-bold text-[#777] uppercase tracking-wide text-sm">No active students yet</p>
-                                    </div>
+                {/* ─── LIST ──────────────────────────────────────────── */}
+                <div className="w-[95%] sm:w-[90%] max-w-5xl bg-white rounded-[24px] sm:rounded-[32px] border-[5px] border-black shadow-[0_20px_0_#111] flex flex-col relative z-20 mt-4 mb-4 flex-1 min-h-[300px] overflow-hidden">
+                    <div className="p-4 sm:p-6 pb-2 border-b-[3px] border-gray-200 flex-shrink-0 bg-white shadow-sm z-10">
+                        <h2 className="comic-title text-center text-2xl sm:text-3xl text-black tracking-wide">LEADERBOARD LIST</h2>
+                    </div>
+                    
+                    <div className="overflow-y-auto w-full custom-scrollbar flex-1 relative bg-white pb-6 pt-2">
+                        {loading && <div className="absolute inset-0 flex items-center justify-center text-xl comic-title">Loading...</div>}
+                        
+                        <table className="w-full text-left min-w-[600px] border-separate border-spacing-y-2 px-4 sm:px-8 relative">
+                            <thead className="bg-white z-10">
+                                <tr>
+                                    <th className="py-2 px-6 font-black text-xs sm:text-sm uppercase text-gray-500 text-center w-16">Rank</th>
+                                    <th className="py-2 px-4 font-black text-xs sm:text-sm uppercase text-gray-500 text-center w-20">Avatar</th>
+                                    <th className="py-2 px-4 font-black text-xs sm:text-sm uppercase text-gray-500 w-[20%]">Username</th>
+                                    <th className="py-2 px-6 font-black text-xs sm:text-sm uppercase text-gray-500 text-center w-[40%]">Fire Level</th>
+                                    <th className="py-2 px-6 font-black text-xs sm:text-sm uppercase text-gray-500 text-center w-[20%]">Badge</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {others.length === 0 && !loading && (
+                                    <tr>
+                                        <td colSpan={5} className="py-12 text-center text-gray-400 comic-title">No other players found in the hoard...</td>
+                                    </tr>
                                 )}
-                            </div>
-                        </>
-                    )}
-                </>
-            )}
+                                {others.map((u, i) => {
+                                    // Calculate progress relative to rank 1 (capped at 100%, min 5%)
+                                    const levelPct = Math.min(100, Math.max(5, Math.floor((u.totalPoints / top1Pct) * 100)));
+                                    
+                                    // Fun fake badges for visually matching the design
+                                    let badgeLabel = "ADVANCED";
+                                    if (u.rank && u.rank <= 5) badgeLabel = "EXPERT";
+                                    else if (u.rank && u.rank <= 10) badgeLabel = "PRO";
 
-            {/* ── Books Read Tab ───────────────────────────────────────── */}
-            {activeTab === 'booksRead' && (
-                <div className="flex-1 bg-[#fffbf3] rounded-t-[36px] mt-8 px-4 pt-8 pb-20 md:px-8">
-                    <h3 className="comic-title text-2xl text-[#111] text-center mb-2 uppercase">Books Read</h3>
-                    <p className="text-center text-[#777] font-bold text-xs uppercase tracking-wide mb-6">
-                        Completed = reached the last third of the book
-                    </p>
-
-                    {loading ? (
-                        <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 animate-spin text-[#e63329]" /></div>
-                    ) : booksRead.length === 0 ? (
-                        <div className="card py-16 text-center max-w-md mx-auto">
-                            <BookOpen className="w-14 h-14 text-[#f2d7cd] mx-auto mb-4" />
-                            <h2 className="comic-title text-2xl text-[#111] mb-2">No Books Completed Yet!</h2>
-                            <p className="text-[#777] font-bold">Students who reach the last third of a book will appear here.</p>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl mx-auto">
-                            {booksRead.map((entry) => {
-                                const badge = RANK_BADGES[(entry.rank! - 1) % RANK_BADGES.length];
-                                const isMe = entry.userId === currentUser?.id;
-                                return (
-                                    <div key={entry.userId}
-                                        className={`flex items-center gap-3 p-3 rounded-[20px] border-[3px] ${isMe ? 'border-[#e63329] bg-[#fff3ef]' : 'border-[#111] bg-white'} shadow-[0_5px_0_#111] transition-all hover:-translate-y-0.5`}>
-                                        {/* Rank */}
-                                        <div className="w-8 text-center font-black text-[#e63329] text-sm flex-shrink-0">
-                                            #{entry.rank}
-                                        </div>
-                                        {/* Avatar */}
-                                        <div className="w-10 h-10 rounded-full border-[2.5px] border-[#111] flex-shrink-0 flex items-center justify-center font-black text-sm shadow-[0_3px_0_#111]"
-                                            style={{ background: badge.bg, color: badge.color }}>
-                                            {entry.name.substring(0, 2).toUpperCase()}
-                                        </div>
-                                        {/* Name + badge */}
-                                        <div className="flex-1 min-w-0">
-                                            <p className={`font-black text-sm leading-tight truncate ${isMe ? 'text-[#e63329]' : 'text-[#111]'}`}>
-                                                {entry.name.split(' ')[0]}{isMe ? ' (YOU)' : ''}
-                                            </p>
-                                            <span className="text-[10px] font-black uppercase tracking-wide" style={{ color: badge.color }}>
-                                                {badge.emoji} {badge.label}
-                                            </span>
-                                        </div>
-                                        {/* Books count */}
-                                        <div className="flex items-center gap-2 flex-shrink-0">
-                                            <div className="flex flex-col items-center bg-[#fff4ba] border-2 border-[#111] rounded-xl px-3 py-1.5 shadow-[0_3px_0_#111]">
-                                                <span className="font-black text-[#111] text-lg leading-none">{entry.booksRead}</span>
-                                                <span className="text-[9px] font-black uppercase tracking-wide text-[#777]">
-                                                    {entry.booksRead === 1 ? 'book' : 'books'}
-                                                </span>
-                                            </div>
-                                            <BookOpen className="w-5 h-5 text-[#e63329]" />
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
+                                    return (
+                                        <tr key={u.id} className="hover:bg-gray-50/80 transition-colors group">
+                                            <td className="py-3 px-6 comic-title text-xl sm:text-2xl text-black text-center">{u.rank}.</td>
+                                            <td className="py-3 px-4 flex justify-center">
+                                                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#ffebee] rounded-full border-[3px] border-black shadow-[0_2px_0_#111] overflow-hidden flex items-center justify-center group-hover:-translate-y-1 transition-transform">
+                                                    <img src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${u.name}&backgroundColor=transparent`} className="w-full h-full object-cover mt-1" alt="avatar" />
+                                                </div>
+                                            </td>
+                                            <td className="py-3 px-4 comic-title text-lg sm:text-xl text-black tracking-wide truncate max-w-[150px]">{u.name}</td>
+                                            <td className="py-3 px-6">
+                                                {/* Custom Progress Bar matching design */}
+                                                <div className="flex items-center w-full max-w-[250px] mx-auto h-6 sm:h-7 bg-red-50 border-[3px] border-[#111] rounded-full relative z-0 shadow-[0_2px_0_rgba(255,255,255,1)] overflow-visible">
+                                                    
+                                                    {/* The Red Fill */}
+                                                    <div className="absolute left-0 top-0 bottom-0 bg-[#e63329] rounded-l-full flex items-center pl-3 sm:pl-4 font-bold text-[9px] sm:text-[11px] text-white tracking-widest z-10 transition-all duration-1000 ease-out border-y-[1px] border-l-[1px] border-[#c62020]" 
+                                                         style={{ width: `${levelPct}%` }}>
+                                                        <span className="truncate pr-4 text-shadow-sm">Fire Level: {levelPct}%</span>
+                                                    </div>
+                                                    
+                                                    {/* The Black Pill Cap matching image */}
+                                                    <div className="absolute top-1/2 -translate-y-1/2 w-4 sm:w-5 bg-black rounded-full z-20 border-[2px] border-black shadow-[0_2px_0_#555]" 
+                                                         style={{ left: `calc(${levelPct}% - 6px)`, height: '140%' }}></div>
+                                                </div>
+                                            </td>
+                                            <td className="py-3 px-6">
+                                                <div className="flex items-center justify-center">
+                                                    {/* Shield Badge matching design */}
+                                                    <div className="bg-black text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-[20px] border-[3px] border-[#111] font-black text-[10px] sm:text-xs tracking-widest flex items-center justify-center gap-1.5 shadow-[0_3px_0_#555] group-hover:bg-[#222] transition-colors relative overflow-hidden min-w-[100px]">
+                                                        <div className="absolute inset-x-1 inset-y-1 border-[1px] border-red-500/30 rounded-[16px] pointer-events-none"></div>
+                                                        <Flame className="w-3 h-3 sm:w-4 sm:h-4 text-orange-500 fill-orange-500 drop-shadow-md" /> {badgeLabel}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            )}
+            </main>
 
-            {/* ── Top Books Tab ─────────────────────────────────────────── */}
-            {activeTab === 'books' && (
-                <div className="flex-1 bg-[#fffbf3] rounded-t-[36px] mt-8 px-4 pt-8 pb-20 md:px-8">
-                    <h3 className="comic-title text-2xl text-[#111] text-center mb-6 uppercase">Top Rated Books</h3>
-
-                    {loading ? (
-                        <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 animate-spin text-[#e63329]" /></div>
-                    ) : topBooks.length === 0 ? (
-                        <div className="card py-16 text-center max-w-md mx-auto">
-                            <Star className="w-14 h-14 text-[#f2d7cd] mx-auto mb-4" />
-                            <h2 className="comic-title text-2xl text-[#111] mb-2">No Reviews Yet!</h2>
-                            <p className="text-[#777] font-bold">Be the first to rate a book and it will appear here!</p>
-                        </div>
-                    ) : (
-                        <div className="max-w-3xl mx-auto space-y-4">
-                            {topBooks.map((book, idx) => (
-                                <Link href={`/read/${book.id}`} key={book.id}
-                                    className="flex gap-4 items-center book-card p-0 overflow-hidden group/bk">
-                                    {/* Rank col */}
-                                    <div className="w-14 flex-shrink-0 self-stretch flex flex-col items-center justify-center gap-1 py-3"
-                                        style={{ background: idx === 0 ? "linear-gradient(180deg,#f59e0b,#d97706)" : idx === 1 ? "linear-gradient(180deg,#9ca3af,#6b7280)" : idx === 2 ? "linear-gradient(180deg,#cd7c2f,#a16207)" : "#f5f0ea" }}>
-                                        {idx === 0 ? <Crown className="w-5 h-5 text-white" /> : null}
-                                        <span className={`font-black text-2xl ${idx < 3 ? 'text-white' : 'text-[#aaa]'}`}>#{idx + 1}</span>
-                                    </div>
-
-                                    {/* Cover */}
-                                    <div className="w-16 h-24 flex-shrink-0 overflow-hidden rounded-xl border-2 border-[#111] shadow-[0_4px_0_#111] my-3">
-                                        {book.coverUrl ? (
-                                            <img src={book.coverUrl.includes('drive.google.com') ? getThumbnailUrl(extractFileId(book.coverUrl)) : book.coverUrl}
-                                                alt={book.title} className="w-full h-full object-cover group-hover/bk:scale-105 transition-transform duration-500" />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(180deg,#e63329,#b91c1c)" }}>
-                                                <BookOpen className="w-7 h-7 text-white/80" />
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Info */}
-                                    <div className="flex-1 min-w-0 py-3 pr-2">
-                                        <h3 className="font-black text-[#111] text-base leading-tight line-clamp-2 group-hover/bk:text-[#e63329] transition-colors mb-1">
-                                            {book.title}
-                                        </h3>
-                                        <p className="text-[11px] font-bold text-[#999] uppercase tracking-wide">
-                                            {book.review_count} community reviews
-                                        </p>
-                                    </div>
-
-                                    {/* Rating */}
-                                    <div className="flex-shrink-0 flex flex-col items-center justify-center bg-[#fff4ba] px-4 py-3 self-stretch border-l-2 border-[#111]">
-                                        <Star className="w-5 h-5 fill-yellow-500 text-yellow-500 mb-1" />
-                                        <span className="font-black text-xl text-[#111] leading-none">{book.avg_rating?.toFixed(1)}</span>
-                                        <span className="text-[9px] uppercase tracking-wider font-black text-[#777] mt-0.5">/10</span>
-                                    </div>
-                                </Link>
-                            ))}
-                        </div>
-                    )}
+            {/* ─── FOOTER ────────────────────────────────────────────── */}
+            <footer className="bg-[#b91c1c] h-12 flex items-center justify-center gap-4 sm:gap-8 relative border-t-[5px] border-black z-50 text-white text-[10px] sm:text-xs font-bold w-full flex-shrink-0 px-4">
+                <Link href="/privacy" className="hover:underline hover:text-yellow-200 transition-colors hidden sm:block">Privacy Policy</Link>
+                <Link href="/terms" className="hover:underline hover:text-yellow-200 transition-colors hidden sm:block">Terms of Service</Link>
+                <Link href="/contact" className="hover:underline hover:text-yellow-200 transition-colors hidden sm:block">Contact</Link>
+                
+                <span className="text-white/80 scale-90 sm:scale-100 font-medium">© 2024 Reading Adventure. All rights reserved.</span>
+                
+                {/* Cute Monster peeking from bottom matching design */}
+                <div className="absolute bottom-0 right-[5%] sm:right-[15%] w-16 h-16 sm:w-20 sm:h-20 pointer-events-none overflow-hidden flex items-end">
+                    <img src="https://api.dicebear.com/7.x/bottts/svg?seed=monstra&backgroundColor=transparent&primaryColor=e63329" 
+                         className="w-full h-[80%] object-cover object-top transform translate-y-2" alt="peeking monster" />
                 </div>
-            )}
+            </footer>
+
+            <style dangerouslySetInnerHTML={{__html: `
+                .custom-scrollbar::-webkit-scrollbar {
+                    width: 8px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background-color: #d1d5db;
+                    border-radius: 20px;
+                    border: 2px solid white;
+                }
+                .text-shadow-sm {
+                    text-shadow: 1px 1px 0 rgba(0,0,0,0.3);
+                }
+            `}} />
         </div>
     );
 }
