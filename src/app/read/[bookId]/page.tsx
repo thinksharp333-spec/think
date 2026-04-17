@@ -439,15 +439,21 @@ export default function ReadPage() {
 
     // ─── Save progress ──────────────────────────────────────
     const sessionLoggedRef = useRef(false);
-    // Tracks whether the student has reached the last third of the book
+    // Tracks whether the student has spent the required minimum time on 100% of pages
     const bookCompletedRef = useRef(false);
+    const fullyReadPagesRef = useRef<Set<number>>(new Set());
 
-    // A book is flagged as completed once the reader reaches the last third (page ≥ ⌈totalPages × 2/3⌉)
-    useEffect(() => {
-        if (totalPages > 0 && currentPage >= Math.ceil(totalPages * 2 / 3)) {
-            bookCompletedRef.current = true;
+    const checkPageCompletion = (page: number, currentPoints: number) => {
+        if (!bookCompletedRef.current) {
+            const max = getMaxPointsForPage(page);
+            if (currentPoints >= max && max > 0) {
+                fullyReadPagesRef.current.add(page);
+            }
+            if (totalPagesRef.current > 0 && fullyReadPagesRef.current.size >= totalPagesRef.current) {
+                bookCompletedRef.current = true;
+            }
         }
-    }, [currentPage, totalPages]);
+    };
 
     const saveProgress = async (isFinal = false) => {
         const pg = currentPageRef.current;
@@ -457,6 +463,7 @@ export default function ReadPage() {
         // Record points earned for this page so revisits don't re-award them
         if (pts > 0) {
             pagePointsEarnedRef.current[pg] = (pagePointsEarnedRef.current[pg] || 0) + pts;
+            checkPageCompletion(pg, pagePointsEarnedRef.current[pg]);
         }
         const totalPts = accumulatedPointsRef.current + pts;
         const totalDur = Math.floor((now - startTimeRef.current) / 1000);
@@ -543,6 +550,7 @@ export default function ReadPage() {
             accumulatedPointsRef.current += pts;
             // Record so this page can't be re-awarded beyond its max on revisit
             pagePointsEarnedRef.current[currentPage] = (pagePointsEarnedRef.current[currentPage] || 0) + pts;
+            checkPageCompletion(currentPage, pagePointsEarnedRef.current[currentPage]);
         }
         pageStartTimeRef.current = Date.now();
         setCurrentPage(newPage);

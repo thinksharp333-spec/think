@@ -87,14 +87,13 @@ export function useUser() {
 
                 if (localUser) {
                     // Update ID to match Supabase ID (Migration effectively)
-                    await db.users.delete('local-user');
                     await db.users.put({
+                        ...localUser,
                         id: session.user.id,
                         name: session.user.user_metadata.full_name || localUser.name,
                         mobile: session.user.phone || localUser.mobile || '',
-                        school: localUser.school || '',
-                        totalPoints: localUser.totalPoints // Preserve local points
                     });
+                    await db.users.delete('local-user');
                 } else {
                     // If no local-user, upsert to avoid ConstraintError on re-login
                     await db.users.put({

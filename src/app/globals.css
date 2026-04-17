@@ -366,10 +366,32 @@ a, button { cursor: pointer; }
   .book-grid { grid-template-columns: repeat(3, 1fr); }
 }
 @media (max-width: 640px) {
-  .book-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .book-grid {
+    display: flex;
+    grid-template-columns: none;
+    gap: 14px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    scroll-padding-left: 4px;
+    padding: 4px 16px 14px 4px;
+    margin: 0 -16px;
+    scrollbar-width: none;
+    touch-action: pan-x;
+  }
+  .book-grid::-webkit-scrollbar { display: none; }
+  .book-grid > * {
+    flex: 0 0 62%;
+    max-width: 62%;
+    scroll-snap-align: start;
+    min-width: 170px;
+  }
 }
 @media (max-width: 400px) {
-  .book-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .book-grid { gap: 12px; }
+  .book-grid > * { flex-basis: 70%; max-width: 70%; min-width: 160px; }
 }
 
 /* ─── Book Card ───────────────────────────────────────────────── */

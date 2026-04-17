@@ -30,27 +30,6 @@ export function AvatarStageImage({
     const imageUrl = isFinalWithOwnUrl ? av.finalStageUrl! : av.sheetUrl;
     const posX     = av.stagePositions[Math.min(stage, 3)];
 
-    if (isFinalWithOwnUrl) {
-        // Final stage: show entire dedicated image (e.g. dragon_library.png)
-        return (
-            <div
-                className={className}
-                style={{
-                    width: size,
-                    height: size,
-                    borderRadius: rounded ? '50%' : undefined,
-                    backgroundImage: `url(${imageUrl})`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    backgroundRepeat: 'no-repeat',
-                    flexShrink: 0,
-                    ...style,
-                }}
-            />
-        );
-    }
-
-    // Sheet stages: 300% wide background positions the correct 1/3
     return (
         <div
             className={className}
@@ -58,15 +37,27 @@ export function AvatarStageImage({
                 width: size,
                 height: size,
                 borderRadius: rounded ? '50%' : undefined,
-                backgroundImage: `url(${imageUrl})`,
-                backgroundSize: '300% auto',
-                backgroundPositionX: posX,
-                backgroundPositionY: 'center',
-                backgroundRepeat: 'no-repeat',
+                backgroundColor: av.bgColor,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
                 flexShrink: 0,
                 ...style,
             }}
-        />
+        >
+            <div 
+                style={{
+                    width: '100%',
+                    height: '100%',
+                    transform: 'scale(1.2)',
+                    backgroundImage: `url(${imageUrl})`,
+                    backgroundSize: isFinalWithOwnUrl ? 'contain' : '300% auto',
+                    backgroundPosition: isFinalWithOwnUrl ? 'center' : `${posX} center`,
+                    backgroundRepeat: 'no-repeat',
+                }}
+            />
+        </div>
     );
 }
 
