@@ -114,7 +114,7 @@ export default function LeaderboardPage() {
                     const today = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().split('T')[0];
                     const yesterdayObj = new Date(now.getTime() - 86400000 - now.getTimezoneOffset() * 60000);
                     const yesterday = yesterdayObj.toISOString().split('T')[0];
-                    
+
                     setLeaderboard(data.map((u, i) => {
                         let effStreak = u.streak || 0;
                         if (effStreak > 0 && u.last_points_date !== today && u.last_points_date !== yesterday) {
@@ -175,7 +175,6 @@ export default function LeaderboardPage() {
     const others = leaderboard.slice(3);
     // order for display: 2nd, 1st, 3rd
     const podiumOrder = [top3[1], top3[0], top3[2]].filter(Boolean);
-    const podiumRanks = [2, 1, 3];
 
     return (
         <div className="min-h-screen flex flex-col" style={{ background: "#7f1d1d", backgroundImage: "radial-gradient(ellipse at 20% 0%, #b91c1c 0%, transparent 60%), radial-gradient(ellipse at 80% 100%, #991b1b 0%, transparent 60%)" }}>
@@ -233,8 +232,8 @@ export default function LeaderboardPage() {
                                 <div className="max-w-2xl mx-auto">
                                     {/* Characters */}
                                     <div className="flex items-end justify-center gap-4 md:gap-8 mb-0">
-                                        {podiumOrder.map((u, i) => {
-                                            const rank = podiumRanks[i];
+                                        {podiumOrder.map((u) => {
+                                            const rank = top3.findIndex(user => user.id === u.id) + 1;
                                             const badge = RANK_BADGES[(rank - 1) % RANK_BADGES.length];
                                             const isFirst = rank === 1;
                                             return (
@@ -263,8 +262,8 @@ export default function LeaderboardPage() {
 
                                     {/* Podium blocks */}
                                     <div className="flex items-end justify-center gap-4 md:gap-8 -mt-1">
-                                        {podiumOrder.map((u, i) => {
-                                            const rank = podiumRanks[i];
+                                        {podiumOrder.map((u) => {
+                                            const rank = top3.findIndex(user => user.id === u.id) + 1;
                                             const isFirst = rank === 1;
                                             const heights = { 1: "h-24", 2: "h-16", 3: "h-12" };
                                             const h = heights[rank as 1 | 2 | 3] || "h-12";
@@ -346,68 +345,6 @@ export default function LeaderboardPage() {
                                 </div>
 
                                 {!loading && others.length === 0 && top3.length === 0 && (
-                                    <div className="text-center py-16 opacity-50">
-                                        <Trophy className="w-12 h-12 mx-auto mb-3 text-[#aaa]" />
-                                        <p className="font-bold text-[#777] uppercase tracking-wide text-sm">No active students yet</p>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* ── All Readers List ─────────────────── */}
-                            <div className="flex-1 bg-[#fffbf3] rounded-t-[36px] mt-0 px-4 pt-8 pb-20 md:px-8">
-                                <h3 className="comic-title text-2xl text-[#111] text-center mb-6 uppercase">
-                                    All Readers
-                                </h3>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl mx-auto">
-                                    {leaderboard.map((u) => {
-                                        const badge = RANK_BADGES[(u.rank! - 1) % RANK_BADGES.length];
-                                        const isMe = u.id === currentUser?.id;
-                                        return (
-                                            <div key={u.id}
-                                                className={`flex items-center gap-3 p-3 rounded-[20px] border-[3px] ${isMe ? 'border-[#e63329] bg-[#fff3ef]' : 'border-[#111] bg-white'} shadow-[0_5px_0_#111] transition-all hover:-translate-y-0.5`}>
-                                                {/* Rank number */}
-                                                <div className="w-8 text-center font-black text-[#e63329] text-sm flex-shrink-0">
-                                                    #{u.rank}
-                                                </div>
-                                                {/* Avatar */}
-                                                <div className="w-10 h-10 rounded-full border-[2.5px] border-[#111] flex-shrink-0 flex items-center justify-center font-black text-sm shadow-[0_3px_0_#111]"
-                                                    style={{ background: badge.bg, color: badge.color }}>
-                                                    {u.name.substring(0, 2).toUpperCase()}
-                                                </div>
-                                                {/* Name + badge */}
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-1.5 mb-1">
-                                                        {u.streak! > 0 && (
-                                                            <div className="flex items-center gap-0.5" title={`${u.streak} Day Streak!`}>
-                                                                <Flame className="w-3.5 h-3.5 text-orange-500 fill-orange-500 animate-pulse" />
-                                                                <span className="text-orange-500 font-black text-[10px]">{u.streak}</span>
-                                                            </div>
-                                                        )}
-                                                        <p className={`font-black text-sm leading-tight truncate ${isMe ? 'text-[#e63329]' : 'text-[#111]'}`}>
-                                                            {u.name}{isMe ? ' (YOU)' : ''}
-                                                        </p>
-                                                    </div>
-                                                    <span className="text-[10px] font-black uppercase tracking-wide" style={{ color: badge.color }}>
-                                                        {badge.label}
-                                                    </span>
-                                                </div>
-                                                {/* Points */}
-                                                <div className="flex items-center gap-1.5 flex-shrink-0">
-                                                    <div className="flex flex-col items-center bg-[#fff4ba] border-2 border-[#111] rounded-xl px-3 py-1.5 shadow-[0_3px_0_#111]">
-                                                        <span className="font-black text-[#111] text-base leading-none">{u.totalPoints}</span>
-                                                        <span className="text-[9px] font-black uppercase tracking-wide text-[#777]">pts</span>
-                                                    </div>
-                                                    {u.rank! <= 6 && (
-                                                        <Medal className="w-5 h-5" style={{ color: u.rank! <= 3 ? '#f59e0b' : u.rank! <= 5 ? '#9ca3af' : '#cd7c2f' }} />
-                                                    )}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-
-                                {!loading && leaderboard.length === 0 && (
                                     <div className="text-center py-16 opacity-50">
                                         <Trophy className="w-12 h-12 mx-auto mb-3 text-[#aaa]" />
                                         <p className="font-bold text-[#777] uppercase tracking-wide text-sm">No active students yet</p>

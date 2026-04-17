@@ -101,166 +101,109 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="login-shell">
+        <div className="min-h-screen bg-[#fff9ee] flex flex-col lg:flex-row relative overflow-hidden">
+            
+            {/* Background decoration */}
+            <div className="absolute top-0 left-0 w-[500px] h-[500px] rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(230,51,41,0.06) 0%, transparent 70%)", transform: "translate(-30%, -30%)" }} />
+            <div className="absolute bottom-0 right-0 w-[600px] h-[600px] rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(245,158,11,0.06) 0%, transparent 60%)", transform: "translate(20%, 30%)" }} />
 
-            {/* ── Top Header ────────────────────────────────────────── */}
-            <div className="login-header">
-                <h1 className="comic-title text-3xl md:text-4xl text-[#e63329]">Join the Reading Club</h1>
+            {/* Back button */}
+            <div className="absolute top-6 left-6 z-20">
+                <Link href="/" className="btn-outline text-xs py-2 px-4 shadow-[0_3px_0_#111] bg-white">
+                    <ArrowLeft className="h-3.5 w-3.5" /> Home
+                </Link>
             </div>
 
-            {/* ── Two-panel body ────────────────────────────────────── */}
-            <div className="login-body">
-
-            {/* ── LEFT PANEL: Login form ─────────────────────────────── */}
-            <div className="login-left relative overflow-hidden">
-                {/* Background decoration */}
-                <div className="absolute top-0 left-0 w-full h-2 bg-[#e63329]" />
-                <div className="absolute -top-32 -right-32 w-64 h-64 rounded-full" style={{ background: "radial-gradient(circle, rgba(230,51,41,0.08) 0%, transparent 70%)" }} />
-                <div className="absolute -bottom-20 -left-20 w-56 h-56 rounded-full" style={{ background: "radial-gradient(circle, rgba(245,158,11,0.07) 0%, transparent 70%)" }} />
-
-                {/* Back button */}
-                <div className="absolute top-6 left-6">
-                    <Link href="/" className="btn-outline text-xs py-2 px-4">
-                        <ArrowLeft className="h-3.5 w-3.5" /> Home
-                    </Link>
-                </div>
-                {/* Online indicator */}
-                <div className="absolute top-6 right-6">
-                    <span className={`chip text-xs ${isOnline ? 'bg-[#edf8df]' : 'bg-[#ffece5]'}`}>
-                        {isOnline ? <Wifi className="h-3.5 w-3.5 text-green-600" /> : <WifiOff className="h-3.5 w-3.5 text-red-500" />}
-                        {isOnline ? "Online" : "Offline"}
-                    </span>
-                </div>
-
-                <div className="relative flex flex-col items-center w-full max-w-md mx-auto px-4">
-                    {/* Mascot character */}
-                    <div className="mb-6 animate-float">
-                        <svg width="90" height="110" viewBox="0 0 90 110" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <ellipse cx="45" cy="68" rx="30" ry="32" fill="#e63329" stroke="#111" strokeWidth="3" />
-                            <ellipse cx="45" cy="35" rx="24" ry="22" fill="#e63329" stroke="#111" strokeWidth="3" />
-                            <polygon points="28,14 22,2 36,12" fill="#c62020" stroke="#111" strokeWidth="2" />
-                            <polygon points="62,14 68,2 54,12" fill="#c62020" stroke="#111" strokeWidth="2" />
-                            <ellipse cx="36" cy="32" rx="8" ry="9" fill="white" stroke="#111" strokeWidth="2" />
-                            <ellipse cx="54" cy="32" rx="8" ry="9" fill="white" stroke="#111" strokeWidth="2" />
-                            <circle cx="37" cy="33" r="4" fill="#111" />
-                            <circle cx="55" cy="33" r="4" fill="#111" />
-                            <circle cx="38.5" cy="31.5" r="1.5" fill="white" />
-                            <circle cx="56.5" cy="31.5" r="1.5" fill="white" />
-                            <path d="M36 44 Q45 52 54 44" stroke="#111" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-                            <rect x="41" y="44" width="5" height="6" rx="1" fill="white" stroke="#111" strokeWidth="1.5" />
-                            <rect x="48" y="44" width="5" height="6" rx="1" fill="white" stroke="#111" strokeWidth="1.5" />
-                            <path d="M15 70 Q6 62 10 80" stroke="#111" strokeWidth="2.5" strokeLinecap="round" />
-                            <ellipse cx="10" cy="85" rx="10" ry="8" fill="#e63329" stroke="#111" strokeWidth="2.5" />
-                            <path d="M75 70 Q84 62 80 80" stroke="#111" strokeWidth="2.5" strokeLinecap="round" />
-                            <ellipse cx="80" cy="85" rx="10" ry="8" fill="#e63329" stroke="#111" strokeWidth="2.5" />
-                            <rect x="28" y="82" width="34" height="22" rx="4" fill="#fff4ba" stroke="#111" strokeWidth="2.5" />
-                            <line x1="45" y1="82" x2="45" y2="104" stroke="#111" strokeWidth="1.5" />
-                            <ellipse cx="32" cy="104" rx="10" ry="6" fill="#e63329" stroke="#111" strokeWidth="2.5" />
-                            <ellipse cx="58" cy="104" rx="10" ry="6" fill="#e63329" stroke="#111" strokeWidth="2.5" />
-                        </svg>
+            {/* LEFT COLUMN: VISUALS (Hidden on mobile) */}
+            <div className="flex-1 hidden lg:flex flex-col flex-wrap items-center justify-center p-12 relative z-10 pt-20">
+                <div className="w-full max-w-lg text-center mb-10">
+                    <div className="animate-pop-in" style={{ animationDelay: "0ms" }}>
+                        <span className="chip chip-gold mb-6 shadow-[0_3px_0_#111]">
+                            <Sparkles className="h-3.5 w-3.5 text-[#e63329]" /> Welcome Explorer
+                        </span>
                     </div>
+                    <h1 className="comic-title text-6xl text-[#111] leading-[1.1] animate-pop-in" style={{ animationDelay: "150ms" }}>
+                        Ready for your<br/>
+                        <span className="text-[#e63329]">Next Adventure?</span>
+                    </h1>
+                </div>
 
-                    <h1 className="comic-title text-4xl text-[#e63329] text-center mb-2">Login to Your Adventure!</h1>
-                    <p className="text-[#555] font-bold text-sm text-center mb-8">Welcome back, young reader!</p>
-
-                    {!showForgotPassword ? (
-                        <form onSubmit={handleLogin} className="w-full space-y-5">
-                            <div className="relative">
-                                <Phone className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-[#aaa]" />
-                                <input type="tel" placeholder="Mobile Number" className="comic-input pl-14 text-lg font-bold"
-                                    value={mobile} onChange={(e) => setMobile(e.target.value)} required pattern="[0-9]{10}" />
-                            </div>
-
-                            <div>
-                                <input type="password" placeholder="Password" className="comic-input text-base font-bold"
-                                    value={password} onChange={(e) => setPassword(e.target.value)} required />
-                                <button type="button" onClick={() => setShowForgotPassword(true)}
-                                    className="mt-2 text-sm font-black uppercase tracking-wide text-[#e63329] hover:underline">
-                                    Forgot password?
-                                </button>
-                            </div>
-
-                            <button type="submit" disabled={loading}
-                                className="btn-red w-full py-5 text-3xl font-black tracking-wide">
-                                {loading ? <Loader2 className="h-8 w-8 animate-spin" /> : "Go!"}
-                            </button>
-                        </form>
-                    ) : (
-                        <form onSubmit={handleForgotPassword} className="w-full space-y-5">
-                            <p className="font-bold text-[#555] leading-relaxed">Enter your mobile number and we&apos;ll send you back into the story.</p>
-                            <div className="relative">
-                                <Phone className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-[#aaa]" />
-                                <input type="tel" placeholder="Registered Mobile Number" className="comic-input pl-14 text-base font-bold"
-                                    value={mobile} onChange={(e) => setMobile(e.target.value)} required pattern="[0-9]{10}" />
-                            </div>
-                            <button type="submit" disabled={loading} className="btn-red w-full py-4 text-xl font-black uppercase">
-                                {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : "Send Reset OTP"}
-                            </button>
-                            <button type="button" onClick={() => setShowForgotPassword(false)} className="btn-outline w-full py-4 text-sm font-black uppercase">
-                                Cancel
-                            </button>
-                        </form>
-                    )}
+                {/* Monster Mascot Illustration */}
+                <div className="relative animate-float" style={{ animationDelay: "300ms", transform: "scale(1.15)" }}>
+                    <svg width="320" height="380" viewBox="0 0 320 380" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <ellipse cx="160" cy="240" rx="105" ry="112" fill="#e63329" stroke="#111" strokeWidth="4"/>
+                        <ellipse cx="160" cy="260" rx="62" ry="70" fill="#ff8070"/>
+                        <ellipse cx="160" cy="120" rx="88" ry="82" fill="#e63329" stroke="#111" strokeWidth="4"/>
+                        <polygon points="100,52 82,8 120,48" fill="#c62020" stroke="#111" strokeWidth="3"/>
+                        <polygon points="220,52 238,8 200,48" fill="#c62020" stroke="#111" strokeWidth="3"/>
+                        <ellipse cx="78" cy="108" rx="18" ry="22" fill="#c62020" stroke="#111" strokeWidth="3"/>
+                        <ellipse cx="242" cy="108" rx="18" ry="22" fill="#c62020" stroke="#111" strokeWidth="3"/>
+                        <ellipse cx="132" cy="112" rx="22" ry="26" fill="white" stroke="#111" strokeWidth="3"/>
+                        <ellipse cx="188" cy="112" rx="22" ry="26" fill="white" stroke="#111" strokeWidth="3"/>
+                        <circle cx="136" cy="114" r="11" fill="#111"/>
+                        <circle cx="192" cy="114" r="11" fill="#111"/>
+                        <circle cx="140" cy="109" r="4" fill="white"/>
+                        <circle cx="196" cy="109" r="4" fill="white"/>
+                        <path d="M130 147 Q160 168 190 147" stroke="#111" strokeWidth="3.5" strokeLinecap="round" fill="none"/>
+                        <rect x="148" y="148" width="10" height="12" rx="2" fill="white" stroke="#111" strokeWidth="2"/>
+                        <rect x="162" y="148" width="10" height="12" rx="2" fill="white" stroke="#111" strokeWidth="2"/>
+                        <path d="M55 230 Q30 210 42 260" stroke="#111" strokeWidth="4" strokeLinecap="round" fill="none"/>
+                        <ellipse cx="42" cy="268" rx="20" ry="16" fill="#e63329" stroke="#111" strokeWidth="3.5"/>
+                        <path d="M265 230 Q290 210 278 260" stroke="#111" strokeWidth="4" strokeLinecap="round" fill="none"/>
+                        <ellipse cx="278" cy="268" rx="20" ry="16" fill="#e63329" stroke="#111" strokeWidth="3.5"/>
+                        <rect x="102" y="272" width="116" height="76" rx="8" fill="#fff4ba" stroke="#111" strokeWidth="3.5"/>
+                        <line x1="160" y1="272" x2="160" y2="348" stroke="#111" strokeWidth="2.5"/>
+                        <line x1="112" y1="290" x2="156" y2="290" stroke="#e63329" strokeWidth="2.5" strokeLinecap="round"/>
+                        <line x1="112" y1="302" x2="156" y2="302" stroke="#e63329" strokeWidth="2.5" strokeLinecap="round"/>
+                        <line x1="112" y1="314" x2="156" y2="314" stroke="#e63329" strokeWidth="2.5" strokeLinecap="round"/>
+                        <line x1="112" y1="326" x2="148" y2="326" stroke="#e63329" strokeWidth="2" strokeLinecap="round"/>
+                        <line x1="165" y1="290" x2="207" y2="290" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round"/>
+                        <line x1="165" y1="302" x2="207" y2="302" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round"/>
+                        <line x1="165" y1="314" x2="207" y2="314" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round"/>
+                        <ellipse cx="120" cy="352" rx="30" ry="18" fill="#e63329" stroke="#111" strokeWidth="3.5"/>
+                        <ellipse cx="200" cy="352" rx="30" ry="18" fill="#e63329" stroke="#111" strokeWidth="3.5"/>
+                        <rect x="20" y="170" width="28" height="36" rx="4" fill="#ff8070" stroke="#111" strokeWidth="2" transform="rotate(-15 34 188)"/>
+                        <rect x="272" y="150" width="28" height="36" rx="4" fill="#fff4ba" stroke="#111" strokeWidth="2" transform="rotate(12 286 168)"/>
+                        <rect x="40" y="300" width="22" height="28" rx="3" fill="#fde8e8" stroke="#111" strokeWidth="2" transform="rotate(20 51 314)"/>
+                    </svg>
                 </div>
             </div>
 
-            {/* ── RIGHT PANEL: Sign-up teaser ────────────────────────── */}
-            <div className="login-right relative overflow-hidden">
-                {/* Decorative circles */}
-                <div className="absolute top-0 right-0 w-[400px] h-[400px] rounded-full" style={{ background: "radial-gradient(circle, rgba(230,51,41,0.15) 0%, transparent 65%)", transform: "translate(30%, -30%)" }} />
-                <div className="absolute bottom-0 left-0 w-[300px] h-[300px] rounded-full" style={{ background: "radial-gradient(circle, rgba(245,158,11,0.12) 0%, transparent 65%)", transform: "translate(-30%, 30%)" }} />
-
-                {/* Lightning divider effect */}
-                <div className="absolute top-1/2 -left-[1px] -translate-y-1/2 z-10">
-                    <div className="divider-zigzag w-8 h-32 opacity-80" />
-                </div>
-
-                <div className="relative max-w-md mx-auto px-4 w-full">
-                    {/* Step tracker */}
-                    <div className="card-flat bg-white/10 border-white/20 p-5 mb-8">
-                        <p className="font-black text-white text-center text-sm uppercase tracking-widest mb-4">Quest Map: Step 1 of 3</p>
-                        <div className="flex items-center">
-                            <div className="text-center flex-1">
-                                <div className="w-10 h-10 rounded-full border-[3px] border-white bg-[#e63329] mx-auto animate-pulse-ring" />
-                                <p className="mt-2 text-sm font-black text-white">Sign Up</p>
-                            </div>
-                            <div className="flex-1 h-[3px] bg-white/30 mx-2" />
-                            <div className="text-center flex-1">
-                                <div className="w-10 h-10 rounded-full border-[3px] border-white/40 bg-white/10 mx-auto" />
-                                <p className="mt-2 text-sm font-bold text-white/60">Choose Avatar</p>
-                            </div>
-                            <div className="flex-1 h-[3px] bg-white/30 mx-2" />
-                            <div className="text-center flex-1">
-                                <div className="w-10 h-10 rounded-full border-[3px] border-white/40 bg-white/10 mx-auto" />
-                                <p className="mt-2 text-sm font-bold text-white/60">Start Reading!</p>
-                            </div>
+            {/* RIGHT COLUMN: LOGIN FORM */}
+            <div className="flex-1 flex items-center justify-center p-6 sm:p-12 z-10">
+                <div className="w-full max-w-sm">
+                    {/* The Card */}
+                    <div className="card w-full flex flex-col p-8 sm:p-10 relative bg-white border-4 border-[#111] shadow-[0_12px_0_#111]">
+                        
+                        <div className="text-center mb-8">
+                            <h2 className="comic-title text-4xl text-[#e63329] mb-2 tracking-wide uppercase">Login!</h2>
+                            <p className="text-[#555] font-bold">Pick up where you left off</p>
                         </div>
-                    </div>
 
-                    <h2 className="comic-title text-4xl text-white leading-tight mb-8">
-                        Join the Reading Club &amp; Start Your Quest!
-                    </h2>
+                        {!showForgotPassword ? (
+                            <form onSubmit={handleLogin} className="w-full space-y-5">
+                                <div className="space-y-4">
+                                    <div className="relative">
+                                        <Phone className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-[#888]" />
+                                        <input type="tel" placeholder="Mobile Number" className="comic-input pl-14 text-lg font-bold"
+                                            style={{ paddingLeft: "3.5rem" }}
+                                            value={mobile} onChange={(e) => setMobile(e.target.value)} required pattern="[0-9]{10}" />
+                                    </div>
 
-                    <div className="space-y-4">
-                        <input className="comic-input bg-white/10 border-white/30 text-white placeholder:text-white/40 text-lg font-bold" placeholder="Pick a Username" readOnly />
-                        <input className="comic-input bg-white/10 border-white/30 text-white placeholder:text-white/40 text-lg font-bold" placeholder="Your Age" readOnly />
-                        <div>
-                            <p className="font-black text-white uppercase tracking-wide text-sm mb-2">Choose Your Buddy</p>
-                            <div className="comic-input bg-white/10 border-white/30 flex items-center justify-between text-white/50 font-bold">
-                                <span>Choose Your Buddy</span>
-                                <div className="flex items-center gap-2">
-                                    <div className="h-9 w-9 rounded-full border-2 border-white/30 bg-white/20" />
-                                    <div className="h-9 w-9 rounded-full border-2 border-white/30 bg-[#f3aa8f]/60" />
-                                    <div className="h-9 w-9 rounded-full border-2 border-white/30 bg-[#b79dfd]/60" />
-                                    <ChevronRight className="h-5 w-5 rotate-90 text-white/50" />
+                                    <div>
+                                        <input type="password" placeholder="Password" className="comic-input text-lg font-bold"
+                                            style={{ paddingLeft: "1.2rem" }}
+                                            value={password} onChange={(e) => setPassword(e.target.value)} required />
+                                        <div className="flex justify-end mt-2">
+                                            <button type="button" onClick={() => setShowForgotPassword(true)}
+                                                className="text-xs font-black uppercase tracking-wide text-[#f59e0b] hover:text-[#e63329] hover:underline transition-colors">
+                                                Forgot password?
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                        <Link href="/signup" className="btn-dark w-full py-5 text-3xl font-black text-center block">
-                            Go!
-                        </Link>
-                    </div>
 
+<<<<<<< HEAD
                     {/* Bottom badge */}
                     <div className="mt-10 flex items-center gap-3 justify-center">
                         <div className="flex items-center justify-center w-12 h-12 rounded-full bg-[#e63329] border-2 border-white/20">
@@ -270,11 +213,48 @@ export default function LoginPage() {
                             <p className="comic-title text-white text-sm">Digi Library</p>
                             <p className="text-white/50 text-xs font-bold uppercase tracking-wide">1000+ quests waiting</p>
                         </div>
+=======
+                                <button type="submit" disabled={loading}
+                                    className="btn-red w-full py-5 mt-2 text-2xl font-black tracking-widest relative overflow-hidden group">
+                                    <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform" />
+                                    {loading ? <Loader2 className="h-7 w-7 animate-spin mx-auto" /> : "Go!"}
+                                </button>
+
+                                <div className="pt-5 mt-2 text-center border-t-2 border-dashed border-[#111]/10">
+                                    <p className="text-[#555] font-bold text-sm">
+                                        Don&apos;t have an account?{' '}
+                                        <Link href="/signup" className="text-[#e63329] font-black uppercase hover:underline inline-block mt-1">
+                                            Register Here!
+                                        </Link>
+                                    </p>
+                                </div>
+                            </form>
+                        ) : (
+                            <form onSubmit={handleForgotPassword} className="w-full space-y-5">
+                                <p className="font-bold text-[#555] leading-relaxed text-center">
+                                    Enter your mobile number and we&apos;ll send you back into the story.
+                                </p>
+                                <div className="relative pt-2">
+                                    <Phone className="absolute left-5 top-1/2 -translate-y-[calc(50%-4px)] h-5 w-5 text-[#888]" />
+                                    <input type="tel" placeholder="Registered Mobile" className="comic-input pl-14 text-base font-bold"
+                                        style={{ paddingLeft: "3.5rem" }}
+                                        value={mobile} onChange={(e) => setMobile(e.target.value)} required pattern="[0-9]{10}" />
+                                </div>
+                                <div className="pt-4 space-y-3">
+                                    <button type="submit" disabled={loading} className="btn-red w-full py-4 text-lg font-black uppercase">
+                                        {loading ? <Loader2 className="h-6 w-6 animate-spin mx-auto" /> : "Send Reset OTP"}
+                                    </button>
+                                    <button type="button" onClick={() => setShowForgotPassword(false)} className="btn-outline w-full py-4 text-sm font-black uppercase">
+                                        Cancel
+                                    </button>
+                                </div>
+                            </form>
+                        )}
+>>>>>>> b2f6045 (login changes)
                     </div>
                 </div>
             </div>
-
-            </div>{/* end login-body */}
+            
         </div>
     );
 }

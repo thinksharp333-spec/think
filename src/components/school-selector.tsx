@@ -106,6 +106,7 @@ export function SchoolSelector({ onSelect, selectedSchoolId }: SchoolSelectorPro
                         value={selectedDistrict}
                         onChange={(e) => handleDistrictChange(e.target.value)}
                         className="comic-input comic-select pl-12 text-lg font-bold"
+                        style={{ paddingLeft: "3rem" }}
                     >
                         <option value="">Select District</option>
                         {districts.map(d => (
@@ -127,6 +128,7 @@ export function SchoolSelector({ onSelect, selectedSchoolId }: SchoolSelectorPro
                         onChange={(e) => handleTalukaChange(e.target.value)}
                         disabled={!selectedDistrict}
                         className="comic-input comic-select pl-12 text-lg font-bold disabled:cursor-not-allowed disabled:opacity-50"
+                        style={{ paddingLeft: "3rem" }}
                     >
                         <option value="">Select Taluka</option>
                         {talukas.map(t => (
@@ -148,6 +150,7 @@ export function SchoolSelector({ onSelect, selectedSchoolId }: SchoolSelectorPro
                         onChange={(e) => handleSchoolChange(e.target.value)}
                         disabled={!selectedTaluka}
                         className="comic-input comic-select pl-12 text-lg font-bold disabled:cursor-not-allowed disabled:opacity-50"
+                        style={{ paddingLeft: "3rem" }}
                     >
                         <option value="">Select School</option>
                         {schools

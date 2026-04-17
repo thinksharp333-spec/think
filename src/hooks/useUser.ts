@@ -81,7 +81,7 @@ export function useUser() {
         if (!supabase) return;
 
         const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-            if (event === 'SIGNED_IN' && session?.user) {
+            if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
                 // 1. Get current local user (usually 'local-user')
                 const localUser = await db.users.get('local-user');
 

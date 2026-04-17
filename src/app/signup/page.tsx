@@ -318,11 +318,47 @@ export default function SignUpPage() {
                         </div>
                     </section>
 
-                    <div className="relative hidden h-full min-h-[720px] items-center justify-center lg:flex">
-                        <div className="comic-zigzag h-[620px] w-[150px] border-[5px] border-[#111111] bg-[linear-gradient(180deg,#ff5a49_0%,#d92f22_100%)] shadow-[0_16px_35px_rgba(0,0,0,0.18)]" />
-                        <div className="comic-burst absolute left-1 top-14 h-20 w-20 bg-[#111111]" />
-                        <div className="comic-burst absolute right-2 top-72 h-16 w-16 bg-[#ff4d3d] opacity-90" />
-                        <div className="comic-burst absolute left-5 bottom-10 h-20 w-20 bg-[#111111]" />
+                    <div className="relative hidden h-full min-h-[720px] flex-col items-center justify-center gap-[60px] lg:flex animate-float z-0" style={{ animationDuration: '4s' }}>
+                        {/* Connecting dashed line in bg */}
+                        <div className="absolute top-[15%] bottom-[15%] left-1/2 w-[4px] -ml-[2px] border-r-4 border-dashed border-[#ffdf6b] opacity-60 z-[-1]" />
+                        
+                        {/* Floating Red Book */}
+                        <div className="relative ml-8">
+                            <svg width="80" height="90" viewBox="0 0 80 90" fill="none" className="rotate-[-8deg] drop-shadow-[0_8px_0_#111]">
+                                <rect x="10" y="10" width="60" height="74" rx="6" fill="#e63329" stroke="#111" strokeWidth="4"/>
+                                <path d="M 25 10 L 25 84" stroke="#111" strokeWidth="4"/>
+                                <circle cx="45" cy="45" r="14" fill="#fff" stroke="#111" strokeWidth="3" />
+                                <path d="M 40 40 L 50 50 M 50 40 L 40 50" stroke="#111" strokeWidth="3" strokeLinecap="round" />
+                            </svg>
+                            <svg width="30" height="30" viewBox="0 0 100 100" fill="none" className="absolute -top-6 -left-6 rotate-[15deg]">
+                                <path d="M50 0 L58 42 L100 50 L58 58 L50 100 L42 58 L0 50 L42 42 Z" fill="#fff" stroke="#111" strokeWidth="6" strokeLinejoin="round"/>
+                            </svg>
+                        </div>
+
+                        {/* Giant Spinny Starburst */}
+                        <div className="relative -ml-4 z-10">
+                            <svg width="80" height="80" viewBox="0 0 100 100" fill="none" className="drop-shadow-[0_6px_0_#111]" style={{ animation: 'spin 12s linear infinite' }}>
+                                <path d="M50 0 L64 36 L100 50 L64 64 L50 100 L36 64 L0 50 L36 36 Z" fill="#ffdf6b" stroke="#111" strokeWidth="5" strokeLinejoin="round"/>
+                            </svg>
+                        </div>
+
+                        {/* Floating Yellow Book */}
+                        <div className="relative ml-6">
+                            <svg width="80" height="90" viewBox="0 0 80 90" fill="none" className="rotate-[12deg] drop-shadow-[0_8px_0_#111]">
+                                <rect x="10" y="10" width="60" height="74" rx="6" fill="#ffdf6b" stroke="#111" strokeWidth="4"/>
+                                <path d="M 25 10 L 25 84" stroke="#111" strokeWidth="4"/>
+                                <line x1="38" y1="30" x2="62" y2="30" stroke="#111" strokeWidth="4" strokeLinecap="round"/>
+                                <line x1="38" y1="45" x2="55" y2="45" stroke="#111" strokeWidth="4" strokeLinecap="round"/>
+                                <line x1="38" y1="60" x2="58" y2="60" stroke="#111" strokeWidth="4" strokeLinecap="round"/>
+                            </svg>
+                        </div>
+                        
+                        {/* Four-point Sparkle Bottom */}
+                        <div className="relative -ml-8">
+                            <svg width="50" height="50" viewBox="0 0 100 100" fill="none" className="rotate-[30deg] drop-shadow-[0_4px_0_#111]">
+                                <path d="M50 10 Q50 50 90 50 Q50 50 50 90 Q50 50 10 50 Q50 50 50 10 Z" fill="#ff4d3d" stroke="#111" strokeWidth="4" strokeLinejoin="round"/>
+                            </svg>
+                        </div>
                     </div>
 
                     <section className="px-2 lg:px-6">
@@ -343,6 +379,7 @@ export default function SignUpPage() {
                                     name="name"
                                     placeholder="Pick a Username"
                                     className="comic-input pl-12 text-xl font-bold"
+                                    style={{ paddingLeft: "3rem" }}
                                     value={formData.name}
                                     onChange={handleChange}
                                     required
@@ -360,6 +397,7 @@ export default function SignUpPage() {
                                         name="age"
                                         placeholder="Your Age"
                                         className="comic-input pl-12 text-xl font-bold"
+                                        style={{ paddingLeft: "3rem" }}
                                         value={formData.age}
                                         onChange={handleChange}
                                         required
@@ -392,6 +430,7 @@ export default function SignUpPage() {
                                         name="mobile"
                                         placeholder="Mobile"
                                         className="comic-input pl-12 text-lg font-bold"
+                                        style={{ paddingLeft: "3rem" }}
                                         value={formData.mobile}
                                         onChange={handleChange}
                                         required
@@ -418,6 +457,7 @@ export default function SignUpPage() {
                                         name="password"
                                         placeholder="Create a password"
                                         className="comic-input pl-12 text-lg font-bold"
+                                        style={{ paddingLeft: "3rem" }}
                                         value={formData.password}
                                         onChange={handleChange}
                                         required
@@ -433,6 +473,7 @@ export default function SignUpPage() {
                                         name="confirmPassword"
                                         placeholder="Confirm password"
                                         className="comic-input pl-12 text-lg font-bold"
+                                        style={{ paddingLeft: "3rem" }}
                                         value={formData.confirmPassword}
                                         onChange={handleChange}
                                         required

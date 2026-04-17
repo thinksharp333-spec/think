@@ -782,14 +782,31 @@ export default function AdminDashboard() {
 
     // ... (keep handleAddBook and other functions)
 
+    // Sort books: Language → Level (numeric) → Subject
+    const sortedBooks = [...(books || [])].sort((a, b) => {
+        const lang = (a.language || '').localeCompare(b.language || '');
+        if (lang !== 0) return lang;
+        const lvl = (a.level || '').localeCompare(b.level || '', undefined, { numeric: true });
+        if (lvl !== 0) return lvl;
+        return (a.subject || '').localeCompare(b.subject || '');
+    });
+
+    // Group sorted books by language for the table
+    const booksByLanguage: Record<string, typeof sortedBooks> = {};
+    for (const book of sortedBooks) {
+        const lang = book.language || 'Unknown';
+        if (!booksByLanguage[lang]) booksByLanguage[lang] = [];
+        booksByLanguage[lang].push(book);
+    }
+
     return (
         <div className="space-y-8">
+            {/* ── Header ── */}
             <header className="flex justify-between items-start">
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-800">Overview</h2>
+                    <h2 className="text-2xl font-bold text-gray-800">Admin Dashboard</h2>
                     <p className="text-gray-500">Welcome back, Admin</p>
                 </div>
-
                 <div className="flex items-center gap-3">
                     {generatingBackgroundTitle ? (
                         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border bg-violet-50 border-violet-200 text-violet-700 text-[10px] font-bold uppercase tracking-wider">
@@ -804,20 +821,22 @@ export default function AdminDashboard() {
                             Generate Quizzes
                         </button>
                     )}
-                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-wider ${supabaseStatus === 'connected'
-                        ? 'bg-green-50 border-green-200 text-green-700'
-                        : supabaseStatus === 'checking'
-                            ? 'bg-blue-50 border-blue-200 text-blue-700'
-                            : 'bg-red-50 border-red-200 text-red-700'
-                        }`}>
-                        <div className={`w-1.5 h-1.5 rounded-full ${supabaseStatus === 'connected' ? 'bg-green-500' : supabaseStatus === 'checking' ? 'bg-blue-500 animate-pulse' : 'bg-red-500'
-                            }`} />
+                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-wider ${
+                        supabaseStatus === 'connected' ? 'bg-green-50 border-green-200 text-green-700'
+                        : supabaseStatus === 'checking' ? 'bg-blue-50 border-blue-200 text-blue-700'
+                        : 'bg-red-50 border-red-200 text-red-700'
+                    }`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${
+                            supabaseStatus === 'connected' ? 'bg-green-500'
+                            : supabaseStatus === 'checking' ? 'bg-blue-500 animate-pulse'
+                            : 'bg-red-500'
+                        }`} />
                         {supabaseStatus === 'connected' ? 'Cloud Sync Active' : supabaseStatus === 'checking' ? 'Connecting...' : 'Cloud Connection Failed'}
                     </div>
                 </div>
             </header>
 
-            {/* Quick Actions */}
+            {/* ── Quick Actions ── */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <Link href="/admin/analytics" className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow group flex items-center justify-between">
                     <div>
@@ -830,7 +849,309 @@ export default function AdminDashboard() {
                 </Link>
             </div>
 
-            {/* Stats Grid */}
+            {/* ── Add Book (Manual Upload) ── */}
+            <section className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="p-5 border-b border-gray-100 flex items-center gap-2">
+                    <Plus className="w-5 h-5 text-blue-500" />
+                    <h3 className="text-lg font-bold">Add New Book</h3>
+                </div>
+                <div className="p-5">
+                    <form onSubmit={handleAddBook} className="space-y-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <input
+                                type="text"
+                                placeholder="Book Title *"
+                                className="p-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                value={newBook.title}
+                                onChange={(e) => setNewBook({ ...newBook, title: e.target.value })}
+                                required
+                            />
+                            <input
+                                type="text"
+                                placeholder="PDF URL or Google Drive Link"
+                                className="p-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                value={newBook.pdfUrl || ''}
+                                onChange={(e) => setNewBook({ ...newBook, pdfUrl: e.target.value })}
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <select
+                                className="p-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                value={newBook.language}
+                                onChange={(e) => setNewBook({ ...newBook, language: e.target.value })}
+                            >
+                                <option value="English">English</option>
+                                <option value="Hindi">Hindi</option>
+                                <option value="Marathi">Marathi</option>
+                                <option value="Marathi-English">Marathi-English</option>
+                            </select>
+                            <select
+                                className="p-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                value={newBook.level}
+                                onChange={(e) => setNewBook({ ...newBook, level: e.target.value })}
+                            >
+                                <option value="1">Level 1</option>
+                                <option value="2">Level 2</option>
+                                <option value="3">Level 3</option>
+                                <option value="4">Level 4</option>
+                            </select>
+                            <select
+                                className="p-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                value={newBook.subject}
+                                onChange={(e) => setNewBook({ ...newBook, subject: e.target.value })}
+                            >
+                                <option value="Science">Science</option>
+                                <option value="Mathematics">Mathematics</option>
+                                <option value="History">History</option>
+                            </select>
+                            <input
+                                type="number"
+                                placeholder="Pages *"
+                                className="p-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                value={newBook.pages || ''}
+                                onChange={(e) => setNewBook({ ...newBook, pages: Number(e.target.value) })}
+                                required
+                            />
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <input
+                                type="text"
+                                placeholder="Cover Image URL (optional)"
+                                className="flex-1 p-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                value={newBook.coverUrl || ''}
+                                onChange={(e) => setNewBook({ ...newBook, coverUrl: e.target.value })}
+                            />
+                            <button
+                                type="submit"
+                                disabled={isGeneratingQuestions}
+                                className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 disabled:opacity-50 transition-all shadow-sm shadow-blue-200 whitespace-nowrap text-sm"
+                            >
+                                {isGeneratingQuestions ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                                {isGeneratingQuestions ? 'Generating...' : 'Add Book'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            {/* ── Google Drive Batch Import ── */}
+            <section className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="p-5 border-b border-gray-100 flex justify-between items-center">
+                    <h3 className="text-lg font-bold flex items-center gap-2">
+                        <Cloud className="w-5 h-5 text-blue-500" />
+                        Google Drive Batch Import
+                    </h3>
+                    <p className="text-xs text-gray-400">Import PDFs and cover images automatically</p>
+                </div>
+                <div className="p-5 space-y-4">
+                    <div className="flex flex-col md:flex-row gap-3">
+                        <div className="relative flex-1">
+                            <Cloud className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
+                            <input
+                                type="text"
+                                placeholder="Paste Google Drive Folder ID or Link..."
+                                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 outline-none transition-all text-sm"
+                                value={folderId}
+                                onChange={(e) => setFolderId(e.target.value)}
+                            />
+                        </div>
+                        <div className="flex gap-2">
+                            <select
+                                className="p-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                value={scanLevel}
+                                onChange={(e) => setScanLevel(e.target.value)}
+                            >
+                                <option value="">Auto Level</option>
+                                <option value="1">Level 1</option>
+                                <option value="2">Level 2</option>
+                                <option value="3">Level 3</option>
+                                <option value="4">Level 4</option>
+                            </select>
+                            <select
+                                className="p-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                value={scanLanguage}
+                                onChange={(e) => setScanLanguage(e.target.value)}
+                            >
+                                <option value="English">English</option>
+                                <option value="Hindi">Hindi</option>
+                                <option value="Marathi">Marathi</option>
+                                <option value="Gujarati">Gujarati</option>
+                                <option value="Marathi-English">Marathi-English</option>
+                            </select>
+                        </div>
+                        <button
+                            onClick={handleScan}
+                            disabled={scanning || !folderId}
+                            className="bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 disabled:bg-gray-400 transition-all shadow-sm shadow-blue-200 flex items-center gap-2 text-sm whitespace-nowrap"
+                        >
+                            {scanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                            Scan Folder
+                        </button>
+                    </div>
+                    <p className="text-[10px] text-gray-400">
+                        Tip: If the folder name doesn&apos;t contain the level (e.g. just &quot;Science&quot;), select the starting Level manually above.
+                    </p>
+
+                    {!process.env.NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY && (
+                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-600 flex items-center gap-2">
+                            <span className="font-bold">Missing API Key:</span>
+                            Add NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY to .env.local and restart.
+                        </div>
+                    )}
+
+                    {scanning && (
+                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-600 flex items-center gap-2 animate-pulse">
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            <span>{scanStatus}</span>
+                        </div>
+                    )}
+
+                    {scanResults.length > 0 && (
+                        <div className="space-y-3">
+                            <div className="max-h-56 overflow-y-auto border rounded-xl bg-gray-50/50 shadow-inner">
+                                <table className="w-full text-xs text-left">
+                                    <thead className="bg-white border-b sticky top-0 z-10">
+                                        <tr>
+                                            <th className="p-3 font-bold text-gray-600">Book Name</th>
+                                            <th className="p-3 font-bold text-gray-600">Language</th>
+                                            <th className="p-3 font-bold text-gray-600 text-center">Level</th>
+                                            <th className="p-3 font-bold text-gray-600">Subject</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200">
+                                        {scanResults.map((book, idx) => (
+                                            <tr key={idx} className="hover:bg-blue-50/30 transition-colors">
+                                                <td className="p-3 font-medium text-gray-900">{book.title}</td>
+                                                <td className="p-3">
+                                                    <span className="px-2 py-0.5 bg-gray-100 rounded-full text-[10px]">{book.language}</span>
+                                                </td>
+                                                <td className="p-3 text-center">
+                                                    <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-bold">L{book.level}</span>
+                                                </td>
+                                                <td className="p-3 text-gray-500 italic">{book.subject}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-100">
+                                <div className="flex items-center gap-4">
+                                    <p className="text-sm text-blue-700">
+                                        Found <strong>{scanResults.length}</strong> books.
+                                    </p>
+                                    <label className="flex items-center gap-2 text-xs font-medium text-blue-700 cursor-pointer">
+                                        <button
+                                            type="button"
+                                            onClick={() => setStoreLocally(!storeLocally)}
+                                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${storeLocally ? 'bg-blue-600' : 'bg-gray-200'}`}
+                                        >
+                                            <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${storeLocally ? 'translate-x-4' : 'translate-x-0'}`} />
+                                        </button>
+                                        Store Offline
+                                    </label>
+                                </div>
+                                <button
+                                    onClick={handleImportAll}
+                                    disabled={importing}
+                                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 shadow-sm text-sm font-bold disabled:opacity-50"
+                                >
+                                    {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                                    {importing ? scanStatus || 'Importing...' : 'Import All'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Danger Zone */}
+                <div className="px-5 py-4 border-t border-red-100 bg-red-50/30 flex flex-wrap items-center gap-3">
+                    <span className="text-xs font-bold text-red-400 uppercase tracking-wider mr-1">Danger Zone:</span>
+                    <button onClick={() => handleClearLibrary(false)} disabled={importing}
+                        className="text-xs flex items-center gap-1.5 bg-white text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors border border-red-200 disabled:opacity-50">
+                        <Trash2 className="w-3 h-3" /> Clear Local Cache
+                    </button>
+                    <button onClick={handleClearDownloads} disabled={importing}
+                        className="text-xs flex items-center gap-1.5 bg-white text-orange-600 px-3 py-1.5 rounded-lg hover:bg-orange-50 transition-colors border border-orange-200 disabled:opacity-50">
+                        <Download className="w-3 h-3 rotate-180" /> Clear Downloads
+                    </button>
+                    <button onClick={() => handleClearLibrary(true)} disabled={importing}
+                        className="text-xs flex items-center gap-1.5 bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 transition-colors shadow-sm disabled:opacity-50">
+                        <Cloud className="w-3 h-3" /> Reset Global Library
+                    </button>
+                </div>
+            </section>
+
+            {/* ── Book Library (sorted: Language → Level → Subject) ── */}
+            <section className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <BookOpen className="w-5 h-5 text-gray-500" />
+                        <h3 className="text-lg font-bold">Library</h3>
+                        <span className="ml-1 px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full text-xs font-bold">{sortedBooks.length}</span>
+                    </div>
+                    <p className="text-xs text-gray-400">Sorted by Language → Level → Subject</p>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-gray-50 text-gray-500 text-xs font-semibold uppercase tracking-wider">
+                            <tr>
+                                <th className="px-4 py-3">Title</th>
+                                <th className="px-4 py-3">Subject</th>
+                                <th className="px-4 py-3 text-center">Level</th>
+                                <th className="px-4 py-3 text-center">Quiz</th>
+                                <th className="px-4 py-3 text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {sortedBooks.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5} className="px-4 py-10 text-center text-gray-400 text-sm">No books yet. Add one above.</td>
+                                </tr>
+                            ) : (
+                                Object.entries(booksByLanguage).map(([lang, langBooks]) => (
+                                    <>
+                                        <tr key={`header-${lang}`} className="bg-gray-100 border-y border-gray-200">
+                                            <td colSpan={5} className="px-4 py-2">
+                                                <span className="font-bold text-xs uppercase tracking-wider text-gray-600">{lang}</span>
+                                                <span className="ml-2 text-xs text-gray-400">{langBooks.length} book{langBooks.length !== 1 ? 's' : ''}</span>
+                                            </td>
+                                        </tr>
+                                        {langBooks.map((book) => (
+                                            <tr key={book.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                                                <td className="px-4 py-3 font-medium text-gray-900 max-w-xs truncate">{book.title}</td>
+                                                <td className="px-4 py-3 text-gray-500 text-xs">{book.subject}</td>
+                                                <td className="px-4 py-3 text-center">
+                                                    <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-xs font-bold">L{book.level}</span>
+                                                </td>
+                                                <td className="px-4 py-3 text-center">
+                                                    {book.questions && book.questions.length > 0 ? (
+                                                        <span title={`${book.questions.length} questions`} className="text-green-500">
+                                                            <CheckCircle2 className="w-4 h-4 inline" />
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-gray-300">—</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <button
+                                                        onClick={() => book.id && removeBook(book.id)}
+                                                        title="Delete Book"
+                                                        className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            {/* ── Stats Grid ── */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard icon={<BookOpen className="text-blue-500" />} label="Total Books" value={books?.length || 0} />
                 <StatCard icon={<GraduationCap className="text-green-500" />} label="Active Students" value={users.length} />
@@ -838,9 +1159,8 @@ export default function AdminDashboard() {
                 <StatCard icon={<MapPin className="text-purple-500" />} label="Cities" value={selectedCity ? 1 : "All"} />
             </div>
 
-            {/* Charts Section - Keep usage of mock data for charts for now as we don't have enough real data points yet */}
+            {/* ── Charts ── */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* ... charts ... */}
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                     <h3 className="font-semibold mb-6">Books Read by School</h3>
                     <div className="h-[256px] w-full">
@@ -855,7 +1175,6 @@ export default function AdminDashboard() {
                         </ResponsiveContainer>
                     </div>
                 </div>
-
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                     <h3 className="font-semibold mb-6">Active Students by District</h3>
                     <div className="h-[256px] w-full">
@@ -872,48 +1191,21 @@ export default function AdminDashboard() {
                 </div>
             </div>
 
-            {/* Student Reporting Section */}
+            {/* ── Student Reports ── */}
             <section className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="p-6 border-b border-gray-100">
                     <h3 className="text-lg font-bold flex items-center gap-2">
                         <Search className="w-5 h-5 text-gray-500" />
-                        Student Reports (Real Data)
+                        Student Reports
                     </h3>
                 </div>
                 <div className="p-6 space-y-6">
-                    {/* Cascading Filters */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <Dropdown
-                            label="Select State"
-                            options={stateOptions}
-                            value={selectedState}
-                            onChange={handleStateChange}
-                            className="w-full"
-                        />
-                        <Dropdown
-                            label="Select City"
-                            options={cityOptions}
-                            value={selectedCity}
-                            onChange={handleCityChange}
-                            className="w-full"
-                        />
-                        <Dropdown
-                            label="Select Sector"
-                            options={sectorOptions}
-                            value={selectedSector}
-                            onChange={handleSectorChange}
-                            className="w-full"
-                        />
-                        <Dropdown
-                            label="Select School"
-                            options={schoolOptions}
-                            value={selectedSchool}
-                            onChange={setSelectedSchool}
-                            className="w-full"
-                        />
+                        <Dropdown label="Select State" options={stateOptions} value={selectedState} onChange={handleStateChange} className="w-full" />
+                        <Dropdown label="Select City" options={cityOptions} value={selectedCity} onChange={handleCityChange} className="w-full" />
+                        <Dropdown label="Select Sector" options={sectorOptions} value={selectedSector} onChange={handleSectorChange} className="w-full" />
+                        <Dropdown label="Select School" options={schoolOptions} value={selectedSchool} onChange={setSelectedSchool} className="w-full" />
                     </div>
-
-                    {/* Student Data Table */}
                     <div className="rounded-lg border border-gray-200 overflow-hidden">
                         <table className="w-full text-sm text-left">
                             <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-200">
@@ -932,321 +1224,17 @@ export default function AdminDashboard() {
                                         <td className="p-4 text-gray-500">{student.age}</td>
                                         <td className="p-4 text-gray-500">{student.school}</td>
                                         <td className="p-4 text-gray-500">{student.city}</td>
-                                        <td className="p-4 text-right font-bold text-green-600 px-2 py-1 rounded bg-green-50 inline-block mt-2">{student.totalPoints}</td>
+                                        <td className="p-4 text-right font-bold text-green-600">{student.totalPoints}</td>
                                     </tr>
                                 ))}
                                 {filteredStudents.length === 0 && (
                                     <tr>
-                                        <td colSpan={6} className="p-8 text-center text-gray-500">
-                                            No students found.
-                                        </td>
+                                        <td colSpan={5} className="p-8 text-center text-gray-500">No students found.</td>
                                     </tr>
                                 )}
                             </tbody>
                         </table>
                     </div>
-                </div>
-            </section>
-
-            {/* Book Management */}
-            <section className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-                    <h3 className="text-lg font-bold">Book Management</h3>
-                </div>
-
-                <div className="p-6 grid gap-8 lg:grid-cols-3">
-                    {/* Add Book Form */}
-                    <div className="lg:col-span-1 space-y-4">
-                        <h4 className="font-medium text-sm text-gray-500 uppercase">Add New Book</h4>
-                        <form onSubmit={handleAddBook} className="space-y-3">
-                            <input
-                                type="text"
-                                placeholder="Book Title"
-                                className="w-full p-2 border rounded"
-                                value={newBook.title}
-                                onChange={(e) => setNewBook({ ...newBook, title: e.target.value })}
-                                required
-                            />
-                            <input
-                                type="text"
-                                placeholder="Cover Page Google Drive Link (Optional)"
-                                className="w-full p-2 border rounded"
-                                value={newBook.coverUrl || ''}
-                                onChange={(e) => setNewBook({ ...newBook, coverUrl: e.target.value })}
-                            />
-                            <div className="grid grid-cols-2 gap-2">
-                                <select
-                                    className="p-2 border rounded"
-                                    value={newBook.grade}
-                                    onChange={(e) => setNewBook({ ...newBook, grade: e.target.value })}
-                                >
-                                    <option>Grade 9</option>
-                                    <option>Grade 10</option>
-                                    <option>Grade 11</option>
-                                    <option>Grade 12</option>
-                                </select>
-                                <input
-                                    type="number"
-                                    placeholder="Pages"
-                                    className="p-2 border rounded"
-                                    value={newBook.pages || ''}
-                                    onChange={(e) => setNewBook({ ...newBook, pages: Number(e.target.value) })}
-                                    required
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                                <select
-                                    className="p-2 border rounded"
-                                    value={newBook.level}
-                                    onChange={(e) => setNewBook({ ...newBook, level: e.target.value })}
-                                >
-                                    <option value="1">Level 1</option>
-                                    <option value="2">Level 2</option>
-                                    <option value="3">Level 3</option>
-                                    <option value="4">Level 4</option>
-                                </select>
-                                <select
-                                    className="p-2 border rounded"
-                                    value={newBook.subject}
-                                    onChange={(e) => setNewBook({ ...newBook, subject: e.target.value })}
-                                >
-                                    <option value="Science">Science</option>
-                                    <option value="Mathematics">Mathematics</option>
-                                    <option value="History">History</option>
-                                </select>
-                            </div>
-                            <select
-                                className="w-full p-2 border rounded"
-                                value={newBook.language}
-                                onChange={(e) => setNewBook({ ...newBook, language: e.target.value })}
-                            >
-                                <option value="English">English</option>
-                                <option value="Hindi">Hindi</option>
-                                <option value="Marathi">Marathi</option>
-                                <option value="Marathi-English">Marathi-English</option>
-                            </select>
-
-                            <button type="submit" disabled={isGeneratingQuestions} className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2">
-                                {isGeneratingQuestions ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} 
-                                {isGeneratingQuestions ? "Generating Questions..." : "Add Book"}
-                            </button>
-                        </form>
-                    </div>
-
-                    {/* Book List */}
-                    <div className="lg:col-span-2">
-                        <h4 className="font-medium text-sm text-gray-500 uppercase mb-4">Existing Books</h4>
-                        <div className="bg-gray-50 rounded-lg overflow-hidden border border-gray-200">
-                            <table className="w-full text-sm text-left">
-                                <thead className="bg-gray-100 text-gray-600 font-medium">
-                                    <tr>
-                                        <th className="p-3">Title</th>
-                                        <th className="p-3">Details</th>
-                                        <th className="p-3">Lang</th>
-                                        <th className="p-3 text-right">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200">
-                                    {books?.map((book) => (
-                                        <tr key={book.id}>
-                                            <td className="p-3 font-medium">{book.title}</td>
-                                            <td className="p-3 text-gray-500">
-                                                {book.subject} • Level {book.level} • {book.grade}
-                                            </td>
-                                            <td className="p-3 text-gray-500">{book.language}</td>
-                                            <td className="p-3 text-right">
-                                                <div className="flex justify-end gap-2">
-                                                    {(book.questions && book.questions.length > 0) && (
-                                                        <span title="Quiz Auto-Generated" className="p-1 text-green-500">
-                                                            <GraduationCap className="w-4 h-4" />
-                                                        </span>
-                                                    )}
-                                                    <button
-                                                        onClick={() => book.id && removeBook(book.id)}
-                                                        title="Delete Book"
-                                                        className="text-red-500 hover:text-red-700 p-1"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {books?.length === 0 && (
-                                        <tr>
-                                            <td colSpan={4} className="p-8 text-center text-gray-500">No books found.</td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            {/* Google Drive Batch Import */}
-            <section className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-                    <h3 className="text-lg font-bold flex items-center gap-2">
-                        <Cloud className="w-5 h-5 text-blue-500" />
-                        Google Drive Batch Import
-                    </h3>
-                    <p className="text-xs text-gray-400">Import PDFs and matching cover images automatically</p>
-                </div>
-                <div className="p-6 space-y-6">
-                    <div className="space-y-4">
-                        <div className="flex flex-col md:flex-row gap-4">
-                            <div className="relative flex-1">
-                                <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
-                                    <Cloud className="text-gray-400 w-4 h-4" />
-                                </div>
-                                <input
-                                    type="text"
-                                    placeholder="Paste Google Drive Folder ID or Link..."
-                                    className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 outline-none transition-all text-sm"
-                                    value={folderId}
-                                    onChange={(e) => setFolderId(e.target.value)}
-                                />
-                            </div>
-                            <div className="flex gap-2">
-                                <select
-                                    className="p-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                                    value={scanLevel}
-                                    onChange={(e) => setScanLevel(e.target.value)}
-                                >
-                                    <option value="">Auto Level</option>
-                                    <option value="1">Level 1</option>
-                                    <option value="2">Level 2</option>
-                                    <option value="3">Level 3</option>
-                                    <option value="4">Level 4</option>
-                                </select>
-                                <select
-                                    className="p-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                                    value={scanLanguage}
-                                    onChange={(e) => setScanLanguage(e.target.value)}
-                                >
-                                    <option value="English">English</option>
-                                    <option value="Hindi">Hindi</option>
-                                    <option value="Marathi">Marathi</option>
-                                    <option value="Gujarati">Gujarati</option>
-                                    <option value="Marathi-English">Marathi-English</option>
-                                </select>
-                            </div>
-                            <button
-                                onClick={handleScan}
-                                disabled={scanning || !folderId}
-                                className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 disabled:bg-gray-400 transition-all shadow-md shadow-blue-200 flex items-center gap-2 text-sm whitespace-nowrap"
-                            >
-                                {scanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                                Scan Folder
-                            </button>
-                        </div>
-                        <p className="text-[10px] text-gray-400 mt-1">
-                            Tip: If the folder name doesn't contain the level (e.g. just "Science"), select the starting Level manually above.
-                        </p>
-
-                        {!process.env.NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY && (
-                            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-600 flex items-center gap-2">
-                                <span className="font-bold">Missing API Key:</span>
-                                Please add NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY to your .env.local file and restart the server.
-                            </div>
-                        )}
-                    </div>
-
-                    {scanning && (
-                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-600 flex items-center gap-2 animate-pulse">
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                            <span>{scanStatus}</span>
-                        </div>
-                    )}
-
-                    {scanResults.length > 0 && (
-                        <div className="space-y-4">
-                            <div className="max-h-60 overflow-y-auto border rounded-xl bg-gray-50/50 shadow-inner">
-                                <table className="w-full text-xs text-left">
-                                    <thead className="bg-white border-b sticky top-0 z-10">
-                                        <tr>
-                                            <th className="p-3 font-bold text-gray-600">Book Name</th>
-                                            <th className="p-3 font-bold text-gray-600">Language</th>
-                                            <th className="p-3 font-bold text-gray-600 text-center">Level</th>
-                                            <th className="p-3 font-bold text-gray-600">Subject</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-200">
-                                        {scanResults.map((book, idx) => (
-                                            <tr key={idx} className="hover:bg-blue-50/30 transition-colors">
-                                                <td className="p-3 font-medium text-gray-900">{book.title}</td>
-                                                <td className="p-3 text-gray-500">
-                                                    <span className="px-2 py-0.5 bg-gray-100 rounded-full text-[10px]">{book.language}</span>
-                                                </td>
-                                                <td className="p-3 text-center">
-                                                    <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-bold">L{book.level}</span>
-                                                </td>
-                                                <td className="p-3 text-gray-500 italic">{book.subject}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            <div className="flex flex-col gap-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
-                                <div className="flex items-center justify-between">
-                                    <div className="text-sm text-blue-700">
-                                        Found <strong>{scanResults.length}</strong> books across hierarchies.
-                                        Metadata (Level/Subject) will be extracted from folder names where possible.
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-xs font-medium text-blue-700">Store Offline?</span>
-                                        <button
-                                            onClick={() => setStoreLocally(!storeLocally)}
-                                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${storeLocally ? 'bg-blue-600' : 'bg-gray-200'}`}
-                                        >
-                                            <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${storeLocally ? 'translate-x-4' : 'translate-x-0'}`} />
-                                        </button>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={handleImportAll}
-                                    disabled={importing}
-                                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 shadow-sm"
-                                >
-                                    {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                                    Import All
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                {/* Danger Zone */}
-                <div className="mt-8 pt-6 border-t border-red-100 flex flex-wrap gap-4">
-                    <div className="w-full">
-                        <h4 className="text-xs font-bold text-red-500 uppercase tracking-wider mb-3">Danger Zone</h4>
-                    </div>
-                    <button
-                        onClick={() => handleClearLibrary(false)}
-                        disabled={importing}
-                        className="text-xs flex items-center gap-2 bg-red-50 text-red-600 px-4 py-2 rounded-lg hover:bg-red-100 transition-colors border border-red-100 disabled:opacity-50"
-                    >
-                        <Trash2 className="w-3 h-3" />
-                        Clear Local Cache
-                    </button>
-                    <button
-                        onClick={handleClearDownloads}
-                        disabled={importing}
-                        className="text-xs flex items-center gap-2 bg-orange-50 text-orange-600 px-4 py-2 rounded-lg hover:bg-orange-100 transition-colors border border-orange-100 disabled:opacity-50"
-                    >
-                        <Download className="w-3 h-3 rotate-180" />
-                        Clear Local Downloads (Free Space)
-                    </button>
-                    <button
-                        onClick={() => handleClearLibrary(true)}
-                        disabled={importing}
-                        className="text-xs flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors shadow-sm disabled:opacity-50"
-                    >
-                        <Cloud className="w-3 h-3" />
-                        Reset Global Library (Supabase)
-                    </button>
                 </div>
             </section>
 

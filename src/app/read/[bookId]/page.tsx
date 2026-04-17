@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { PdfReader, PdfScrollThumbnails } from '@/components/pdf-reader';
-import { ArrowLeft, BookOpen, Trophy, CheckCircle2, XCircle, Plus, ChevronLeft, ChevronRight, Wifi, WifiOff, RefreshCw, Star, History, Clock, Calendar, Bell } from 'lucide-react';
+import { ArrowLeft, BookOpen, Trophy, CheckCircle2, XCircle, Plus, ChevronLeft, ChevronRight, Wifi, WifiOff, RefreshCw, Star, History, Clock, Calendar, Bell, Sparkles, Loader2, MessageSquare } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
 import { useLiveQuery } from "dexie-react-hooks";
@@ -285,6 +285,272 @@ function BookHistoryOverlay({
     );
 }
 
+// ─── Feedback Panel ──────────────────────────────────────────────────────────
+function FeedbackPanel({
+    bookId,
+    userId,
+    existingReview,
+    onClose,
+    onSubmitted,
+}: {
+    bookId: number;
+    userId: string;
+    existingReview?: { id?: number; rating: number; reviewText: string } | null;
+    onClose: () => void;
+    onSubmitted: () => void;
+}) {
+    const [rating, setRating] = useState(existingReview?.rating ?? 0);
+    const [hovered, setHovered] = useState(0);
+    const [reviewText, setReviewText] = useState(existingReview?.reviewText ?? '');
+    const [submitting, setSubmitting] = useState(false);
+    const [submitted, setSubmitted] = useState(false);
+
+    const handleSubmit = async () => {
+        if (rating === 0) return;
+        setSubmitting(true);
+        try {
+            const now = Date.now();
+            const reviewId = await db.bookReviews.add({
+                bookId,
+                userId,
+                rating,
+                reviewText: reviewText.trim(),
+                createdAt: now,
+                synced: 0,
+            });
+            await db.syncQueue.add({
+                type: 'SUBMIT_REVIEW',
+                payload: {
+                    bookId,
+                    userId,
+                    rating,
+                    reviewText: reviewText.trim(),
+                    originalReviewId: reviewId,
+                },
+                createdAt: now,
+                retryCount: 0,
+            });
+            setSubmitted(true);
+            setTimeout(() => { onSubmitted(); onClose(); }, 1200);
+        } catch (e) {
+            console.error('[Feedback] Submit failed:', e);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const display = hovered || rating;
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <div className="comic-modal w-full max-w-sm overflow-hidden">
+                {/* Header */}
+                <div className="px-6 py-4 bg-[#e63329] border-b-[3px] border-[#111] flex justify-between items-center">
+                    <div className="flex items-center gap-2 text-white font-black text-lg uppercase tracking-wide">
+                        <Star className="w-5 h-5 text-yellow-300 fill-yellow-300" />
+                        Rate This Book
+                    </div>
+                    <button onClick={onClose} className="text-white/60 hover:text-white font-black text-2xl leading-none">×</button>
+                </div>
+
+                {submitted ? (
+                    <div className="bg-white px-6 py-10 flex flex-col items-center gap-3">
+                        <CheckCircle2 className="w-12 h-12 text-green-500" />
+                        <p className="font-black text-[#111] text-lg uppercase">Thanks for rating!</p>
+                        <p className="text-sm text-gray-500 font-bold">Your review helps other readers.</p>
+                    </div>
+                ) : (
+                    <div className="bg-white px-6 py-6 space-y-5">
+                        {/* Star selector */}
+                        <div className="flex flex-col items-center gap-3">
+                            <div className="flex gap-1.5" onMouseLeave={() => setHovered(0)}>
+                                {Array.from({ length: 10 }, (_, i) => i + 1).map(n => (
+                                    <button
+                                        key={n}
+                                        onMouseEnter={() => setHovered(n)}
+                                        onClick={() => setRating(n)}
+                                        className="transition-transform hover:scale-125 active:scale-110"
+                                    >
+                                        <Star
+                                            className={`w-7 h-7 transition-colors ${n <= display ? 'fill-yellow-400 text-yellow-400' : 'text-gray-200'}`}
+                                        />
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="font-black text-2xl text-[#111] leading-none">
+                                {display > 0 ? (
+                                    <span>{display}<span className="text-base text-gray-400 font-bold"> / 10</span></span>
+                                ) : (
+                                    <span className="text-gray-300 text-base font-bold">Tap a star</span>
+                                )}
+                            </p>
+                        </div>
+
+                        {/* Text feedback */}
+                        <textarea
+                            value={reviewText}
+                            onChange={e => setReviewText(e.target.value)}
+                            placeholder="Tell others what you thought... (optional)"
+                            className="w-full p-3 rounded-2xl border-[2.5px] border-[#eee] focus:border-[#e63329] outline-none text-sm font-bold resize-none transition-colors"
+                            rows={3}
+                            maxLength={300}
+                        />
+
+                        <button
+                            onClick={handleSubmit}
+                            disabled={rating === 0 || submitting}
+                            className="w-full py-3 bg-[#e63329] text-white rounded-2xl font-black text-sm uppercase tracking-wide shadow-[0_4px_0_#111] active:translate-y-1 active:shadow-none transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+                        >
+                            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Star className="w-4 h-4 fill-white" />}
+                            {submitting ? 'Saving...' : existingReview ? 'Update Rating' : 'Submit Rating'}
+                        </button>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ─── AI Tutor Panel ──────────────────────────────────────────────────────────
+function AiTutorPanel({
+    book,
+    isOnline,
+    onClose,
+}: {
+    book: { title: string; grade: string; level: string; subject: string; extractedText?: string };
+    isOnline: boolean;
+    onClose: () => void;
+}) {
+    const [question, setQuestion] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [history, setHistory] = useState<Array<{ role: 'user' | 'assistant'; content: string; suggestions?: string[] }>>([]);
+    const bottomRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [history, loading]);
+
+    const handleAsk = async (q: string) => {
+        if (!q.trim() || loading || !isOnline) return;
+        setLoading(true);
+        setHistory(prev => [...prev, { role: 'user', content: q }]);
+        setQuestion('');
+
+        try {
+            const res = await fetch('/api/ai-tutor', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    question: q,
+                    bookContext: {
+                        title: book.title,
+                        grade: book.grade,
+                        level: book.level,
+                        subject: book.subject,
+                        text: book.extractedText || '',
+                    },
+                    conversationHistory: history
+                        .slice(-4)
+                        .map(h => ({ role: h.role, content: h.content })),
+                }),
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                setHistory(prev => [
+                    ...prev,
+                    { role: 'assistant', content: data.answer, suggestions: data.followUpSuggestions },
+                ]);
+            } else {
+                setHistory(prev => [...prev, { role: 'assistant', content: "Oops! I couldn't connect right now. Try again!" }]);
+            }
+        } catch {
+            setHistory(prev => [...prev, { role: 'assistant', content: "I had trouble answering that. Are you still online?" }]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <div className="comic-modal w-full max-w-md overflow-hidden flex flex-col max-h-[85vh]">
+                {/* Header */}
+                <div className="px-6 py-4 bg-[#e63329] border-b-[3px] border-[#111] flex justify-between items-center">
+                    <div className="flex items-center gap-2 text-white font-black text-lg uppercase tracking-wide">
+                        <Sparkles className="w-5 h-5 text-yellow-300" />
+                        BookBuddy
+                    </div>
+                    <button onClick={onClose} className="text-white/60 hover:text-white font-black text-2xl leading-none">×</button>
+                </div>
+
+                {/* Conversation */}
+                <div className="flex-1 overflow-y-auto p-4 bg-white space-y-3">
+                    {history.length === 0 && (
+                        <p className="text-center text-gray-400 text-sm font-bold py-8">
+                            Ask me anything about &quot;{book.title}&quot;!
+                        </p>
+                    )}
+                    {history.map((entry, i) => (
+                        <div key={i} className={`flex ${entry.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                            <div
+                                className={`max-w-[80%] p-3 rounded-2xl text-sm font-bold ${
+                                    entry.role === 'user'
+                                        ? 'bg-[#e63329] text-white rounded-br-none'
+                                        : 'bg-[#f5f5f5] text-[#111] rounded-bl-none border-2 border-[#eee]'
+                                }`}
+                            >
+                                {entry.content}
+                                {entry.role === 'assistant' && entry.suggestions && entry.suggestions.length > 0 && (
+                                    <div className="mt-2 flex flex-col gap-1">
+                                        {entry.suggestions.map((s, si) => (
+                                            <button
+                                                key={si}
+                                                onClick={() => handleAsk(s)}
+                                                className="text-left text-xs text-[#e63329] underline font-bold hover:no-underline"
+                                            >
+                                                {s}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                    {loading && (
+                        <div className="flex justify-start">
+                            <div className="bg-[#f5f5f5] p-3 rounded-2xl rounded-bl-none border-2 border-[#eee]">
+                                <Loader2 className="w-4 h-4 animate-spin text-[#e63329]" />
+                            </div>
+                        </div>
+                    )}
+                    <div ref={bottomRef} />
+                </div>
+
+                {/* Input */}
+                <div className="p-4 bg-gray-50 border-t-2 border-[#eee] flex gap-2">
+                    <input
+                        type="text"
+                        value={question}
+                        onChange={e => setQuestion(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleAsk(question)}
+                        placeholder="Ask about the book..."
+                        className="flex-1 px-4 py-3 rounded-2xl border-[2.5px] border-[#111] text-sm font-bold outline-none focus:border-[#e63329] transition-colors"
+                        maxLength={500}
+                        disabled={loading || !isOnline}
+                    />
+                    <button
+                        onClick={() => handleAsk(question)}
+                        disabled={loading || !question.trim() || !isOnline}
+                        className="px-5 py-3 bg-[#e63329] text-white rounded-2xl font-black text-sm shadow-[0_4px_0_#111] active:translate-y-1 active:shadow-none transition-all disabled:opacity-40"
+                    >
+                        Ask
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function ReadPage() {
 
     const params = useParams();
@@ -294,6 +560,12 @@ export default function ReadPage() {
     const book = useLiveQuery(() => db.books.get(bookIdNum), [bookIdNum]);
     const pdfUrl = book?.pdfUrl || '/sample.pdf';
     const { isOnline, isSyncing, syncQueueCount } = useSync();
+
+    // Current user (same priority as dashboard: real user > local-user)
+    const _users = useLiveQuery(() => db.users.toArray()) || [];
+    const user = _users.find(u => u.id !== 'local-user' && u.id !== 'local-admin')
+               || _users.find(u => u.id === 'local-user')
+               || _users[0];
 
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(0);
@@ -340,6 +612,14 @@ export default function ReadPage() {
     const questions = book?.questions || [];
     const [showQuiz, setShowQuiz] = useState(false);
     const [showHistory, setShowHistory] = useState(false);
+    const [showTutor, setShowTutor] = useState(false);
+    const [showFeedback, setShowFeedback] = useState(false);
+
+    // Load existing review for this user+book (to pre-fill if they re-open)
+    const existingReview = useLiveQuery(
+        () => db.bookReviews.where('bookId').equals(bookIdNum).and(r => r.userId === (user?.id || '__none__')).last(),
+        [bookIdNum, user?.id]
+    );
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
 
     // Auto-clear toast after 6 seconds
@@ -362,8 +642,6 @@ export default function ReadPage() {
         if (window.location.hash !== '#quiz') return;
         if (questions?.length > 0) {
             openQuiz();
-        } else if (book) {
-            setShowHistory(true);
         }
     }, [questions?.length, book?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -672,6 +950,26 @@ export default function ReadPage() {
                         <History className="w-4 h-4" />
                         History
                     </button>
+                    {isOnline && (
+                        <button
+                            onClick={() => setShowTutor(true)}
+                            className="flex items-center gap-2 text-white font-bold text-xs px-4 py-2 rounded-lg transition-all hover:bg-white/10 active:scale-95"
+                            style={{ background: 'rgba(0,0,0,0.25)' }}
+                            title="Ask BookBuddy about this book"
+                        >
+                            <Sparkles className="w-4 h-4 text-yellow-300" />
+                            Ask AI
+                        </button>
+                    )}
+                    <button
+                        onClick={() => setShowFeedback(true)}
+                        className="flex items-center gap-2 text-white font-bold text-xs px-4 py-2 rounded-lg transition-all hover:bg-white/10 active:scale-95"
+                        style={{ background: existingReview ? 'rgba(234,179,8,0.35)' : 'rgba(0,0,0,0.25)' }}
+                        title={existingReview ? `Your rating: ${existingReview.rating}/10` : 'Rate this book'}
+                    >
+                        <Star className={`w-4 h-4 ${existingReview ? 'fill-yellow-300 text-yellow-300' : 'text-white'}`} />
+                        {existingReview ? `${existingReview.rating}/10` : 'Rate'}
+                    </button>
                     {questions.length > 0 && (
                         <button
                             onClick={() => { quizAnswersRef.current = []; setCurrentQuestionIndex(0); setScore(0); setQuizCompleted(false); setSelectedOption(null); setShowQuiz(true); }}
@@ -871,14 +1169,23 @@ export default function ReadPage() {
                     </div>
                 </div>
             )}
+            {/* ── Feedback ── */}
+            {showFeedback && user && (
+                <FeedbackPanel
+                    bookId={bookIdNum}
+                    userId={user.id}
+                    existingReview={existingReview ?? null}
+                    onClose={() => setShowFeedback(false)}
+                    onSubmitted={() => setShowFeedback(false)}
+                />
+            )}
 
-            {/* ── History & Sessions Dashboard ── */}
-            {showHistory && (
-                <BookHistoryOverlay
-                    bookIdNum={bookIdNum}
-                    bookIdString={bookIdString}
-                    onClose={() => setShowHistory(false)}
-                    quizReady={questions.length > 0}
+            {/* ── AI Tutor ── */}
+            {showTutor && book && (
+                <AiTutorPanel
+                    book={book}
+                    isOnline={isOnline}
+                    onClose={() => setShowTutor(false)}
                 />
             )}
 

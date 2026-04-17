@@ -15,7 +15,12 @@ function getQuestionCount(wordCount: number, pages: number): number {
 
 function parseAndValidateQuestions(raw: string): any[] {
     try {
-        const clean = raw.replace(/```json/g, '').replace(/```/g, '').trim();
+        let clean = raw.trim();
+        const start = clean.indexOf('[');
+        const end = clean.lastIndexOf(']');
+        if (start !== -1 && end !== -1 && end > start) {
+            clean = clean.substring(start, end + 1);
+        }
         const parsed = JSON.parse(clean);
         return (Array.isArray(parsed) ? parsed : []).filter((q: any) =>
             q &&
@@ -26,6 +31,7 @@ function parseAndValidateQuestions(raw: string): any[] {
             q.options.includes(q.correctAnswer)
         );
     } catch {
+        // Fallback to empty array on catastrophic parse failure
         return [];
     }
 }
@@ -34,7 +40,7 @@ export async function POST(req: Request) {
     try {
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) {
-            return NextResponse.json({ error: "GEMINI_API_KEY is missing" }, { status: 500 });
+            throw new Error("GEMINI_API_KEY is not configured.");
         }
 
         const { text, pages, title, grade, level, subject, wordCount } = await req.json();
@@ -56,69 +62,58 @@ export async function POST(req: Request) {
                 promptText.slice(-third);
         }
 
-        const systemPrompt = `You are an expert educational quiz author creating reading comprehension questions for Indian school students.
+        const isFallback = promptText.includes("(Full text could not be extracted.)");
+        
+        const systemPrompt = `You are an expert educational quiz author creating reading comprehension questions for children in Indian schools (ages 5-12).
 
 RULES:
 - Generate ONLY a valid JSON array — no markdown, no extra text, no code fences.
 - Each element must have exactly three keys:
-    "question"     – a clear, specific question about the actual content of the text
+    "question"     – a clear, age-appropriate question about the actual content of the text
     "options"      – an array of exactly 4 distinct answer strings
     "correctAnswer"– a string that exactly matches one element of "options"
-- Questions must be grounded in the actual text provided, not generic.
+${isFallback 
+    ? `- Since the full text could not be provided, you MUST creatively make up plausible, generic reading comprehension questions based ONLY on the title of the book.` 
+    : `- Questions must be grounded in the actual text provided, not generic.`}
 - Options must be plausible and varied (no obviously wrong distractors).
-- Difficulty should match Grade ${grade}, Level ${level}.
-- Do NOT generate meta-questions like "What is the title?" or "How many pages?".`;
+- Use simple language suitable for Grade ${grade}, Level ${level}.
+- If the provided text is in a local language (e.g. Marathi, Hindi), the questions and options MUST be generated in that exact same language.
+- Do NOT generate meta-questions like "What is the title?" or "How many pages?".
+- Never include violent, scary, or adult content.`;
 
-        const userPrompt = `Generate exactly ${count} reading comprehension questions based on the following text excerpt from the book "${title}" (${subject}, ${grade}, Level ${level}).
+        const userPrompt = `Generate exactly ${count} reading comprehension questions based on the following text excerpt from "${title}" (${subject}, ${grade}, Level ${level}).
 
 Text:
 ${promptText}
 
 Return ONLY the raw JSON array, starting with [ and ending with ].`;
 
-        const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-            {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: userPrompt }] }],
-                    systemInstruction: { parts: [{ text: systemPrompt }] },
-                    generationConfig: {
-                        responseMimeType: "application/json",
-                        temperature: 0.4,
-                        topP: 0.9,
-                    }
-                })
-            }
-        );
+        const geminiPayload = {
+            contents: [{ parts: [{ text: userPrompt }] }],
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            generationConfig: { temperature: 0.4, maxOutputTokens: 1024 }
+        };
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(geminiPayload)
+        });
 
         if (!response.ok) {
-            const errorText = await response.text();
-            console.error("[Quiz] Gemini error:", response.status, errorText);
-            
-            // Return detailed error if possible
-            let errorMsg = "GEMINI_ERROR";
-            try {
-                const errJson = JSON.parse(errorText);
-                errorMsg = errJson.error?.message || errorMsg;
-            } catch {
-                errorMsg = errorText.slice(0, 100);
-            }
-            
-            return NextResponse.json({ 
-                error: errorMsg,
-                status: response.status 
-            }, { status: response.status === 429 ? 429 : 500 });
+            throw new Error(`Gemini API error: ${response.statusText}`);
         }
 
-        const result = await response.json();
-        const raw = result.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
+        const jsonResponse = await response.json();
+        const raw = jsonResponse.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
         const questions = parseAndValidateQuestions(raw);
 
-        return NextResponse.json({ questions, wordCount: wordCount || 0, provider: 'gemini' });
+        return NextResponse.json({ questions, wordCount: wordCount || 0, provider: 'claude' });
 
     } catch (error: any) {
+        if (error?.status === 429) {
+            return NextResponse.json({ error: 'Rate limit exceeded', status: 429 }, { status: 429 });
+        }
         console.error("Generate questions error:", error);
         return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
     }

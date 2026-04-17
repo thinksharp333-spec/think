@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     try {
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) {
-            return NextResponse.json({ error: 'GEMINI_API_KEY missing' }, { status: 500 });
+            throw new Error("GEMINI_API_KEY is not configured.");
         }
 
         const { books }: { books: BookInput[] } = await req.json();
@@ -49,13 +49,14 @@ export async function POST(req: Request) {
             };
         });
 
-        const systemPrompt = `You are an expert educational quiz author for Indian school students.
+        const systemPrompt = `You are an expert educational quiz author for children in Indian schools (ages 5-12).
 
 Return ONLY a valid JSON array — no markdown, no code fences, no extra text.
 Each element must be: { "id": <number>, "questions": [ { "question": <string>, "options": [<4 strings>], "correctAnswer": <string matching one option> } ] }
 
 Rules for every question:
 - Grounded in the actual book text provided, not generic
+- Age-appropriate language; never violent or adult
 - No meta-questions like "What is the title?" or "How many pages?"
 - correctAnswer must exactly match one of the 4 options
 - Difficulty matches the given grade and level`;
@@ -69,41 +70,24 @@ ${JSON.stringify(booksPayload, null, 2)}
 
 Return ONLY the JSON array, starting with [ and ending with ].`;
 
-        const body = {
+        const geminiPayload = {
             contents: [{ parts: [{ text: userPrompt }] }],
             systemInstruction: { parts: [{ text: systemPrompt }] },
-            generationConfig: {
-                responseMimeType: 'application/json',
-                temperature: 0.4,
-                topP: 0.9,
-            },
+            generationConfig: { temperature: 0.2, maxOutputTokens: 8192 }
         };
 
-        const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-            { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
-        );
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(geminiPayload)
+        });
 
         if (!response.ok) {
-            const txt = await response.text();
-            console.error('Gemini batch error:', response.status, txt);
-
-            let errorMsg = 'GEMINI_BATCH_ERROR';
-            try {
-                const errJson = JSON.parse(txt);
-                errorMsg = errJson.error?.message || errorMsg;
-            } catch {
-                errorMsg = txt.slice(0, 100);
-            }
-
-            return NextResponse.json({ 
-                error: errorMsg,
-                status: response.status 
-            }, { status: response.status === 429 ? 429 : 500 });
+            throw new Error(`Gemini API error: ${response.statusText}`);
         }
 
-        const result = await response.json();
-        const raw = result.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
+        const jsonResponse = await response.json();
+        const raw = jsonResponse.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
 
         let parsed: { id: number; questions: any[] }[] = [];
         try {
@@ -130,6 +114,9 @@ Return ONLY the JSON array, starting with [ and ending with ].`;
         return NextResponse.json({ results });
 
     } catch (err: any) {
+        if (err?.status === 429) {
+            return NextResponse.json({ error: 'CLAUDE_RATE_LIMIT', status: 429 }, { status: 429 });
+        }
         console.error('Batch generate error:', err);
         return NextResponse.json({ error: err.message }, { status: 500 });
     }

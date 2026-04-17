@@ -12,12 +12,23 @@ import { useBooks } from "@/hooks/useBooks";
 import { useReadingHistory } from "@/hooks/useReadingHistory";
 import { getThumbnailUrl, extractFileId } from "@/lib/google-drive";
 import { db } from "@/lib/db";
+import { AvatarStageImage } from "@/components/avatar-stage-image";
 
 export default function Dashboard() {
     const { user } = useUser();
     const { isOnline } = useSync();
     const { books, syncLibrary } = useBooks();
     const { recentBooks } = useReadingHistory();
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+    useEffect(() => {
+        if (!supabase) return;
+        supabase.auth.getSession().then(({ data }) => setIsAuthenticated(!!data.session));
+        const { data: listener } = supabase.auth.onAuthStateChange((_, session) => {
+            setIsAuthenticated(!!session);
+        });
+        return () => listener.subscription.unsubscribe();
+    }, []);
 
     useEffect(() => {
         if (isOnline) syncLibrary();
@@ -157,6 +168,22 @@ export default function Dashboard() {
                             className="chip chip-dark text-xs hidden md:flex cursor-pointer">
                             <LogOut className="h-3.5 w-3.5" /> Logout
                         </button>
+<<<<<<< HEAD
+=======
+                        <button className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 transition-all">
+                            <User className="h-5 w-5" />
+                        </button>
+                        {isAuthenticated ? (
+                            <button onClick={async () => { if (supabase) { await supabase.auth.signOut(); window.location.reload(); } }}
+                                className="chip chip-dark text-xs hidden md:flex">
+                                <LogOut className="h-3.5 w-3.5" /> Logout
+                            </button>
+                        ) : (
+                            <Link href="/login" className="chip chip-dark text-xs hidden md:flex">
+                                <LogIn className="h-3.5 w-3.5" /> Login
+                            </Link>
+                        )}
+>>>>>>> b2f6045 (login changes)
                     </div>
                 </div>
 
@@ -225,16 +252,27 @@ export default function Dashboard() {
                             <div className="absolute -right-10 -top-10 w-48 h-48 rounded-full bg-white/5" />
                             <div className="absolute right-4 bottom-0 w-32 h-32 rounded-full bg-white/5" />
                             <div className="relative flex items-center justify-between flex-wrap gap-4">
-                                <div>
-                                    <p className="text-white/70 text-sm font-black uppercase tracking-widest mb-1">
-                                        <Sparkles className="inline h-4 w-4 mr-1" />Welcome Back
-                                    </p>
-                                    <h2 className="comic-title text-4xl md:text-5xl text-white">
-                                        {firstName}&apos;s Quest!
-                                    </h2>
-                                    <p className="text-white/80 font-bold mt-2 max-w-sm">
-                                        Browse story worlds, keep your streak alive, and jump back into books you started.
-                                    </p>
+                                <div className="flex items-center gap-4 md:gap-6">
+                                    {user?.avatarBaseId && (
+                                        <div className="h-16 w-16 md:h-24 md:w-24 flex-shrink-0 rounded-full border-[4px] border-[#111] overflow-hidden bg-[#fff9ee] shadow-[0_4px_0_#111] mb-2">
+                                            <AvatarStageImage 
+                                                avatarBaseId={user.avatarBaseId} 
+                                                stage={user.currentAvatarStage || 0} 
+                                                size={96} 
+                                            />
+                                        </div>
+                                    )}
+                                    <div>
+                                        <p className="text-white/70 text-sm font-black uppercase tracking-widest mb-1">
+                                            <Sparkles className="inline h-4 w-4 mr-1" />Welcome Back
+                                        </p>
+                                        <h2 className="comic-title text-4xl md:text-5xl text-white">
+                                            {firstName}&apos;s Quest!
+                                        </h2>
+                                        <p className="text-white/80 font-bold mt-2 max-w-sm hidden sm:block">
+                                            Browse story worlds, keep your streak alive, and jump back into books you started.
+                                        </p>
+                                    </div>
                                 </div>
                                 <div className="flex gap-4 flex-wrap">
                                     <div className="bg-white/15 rounded-2xl px-5 py-4 text-center border border-white/20 backdrop-blur">
@@ -377,11 +415,26 @@ export default function Dashboard() {
                         <Trophy className="w-6 h-6" />
                         <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Rank</span>
                     </Link>
+<<<<<<< HEAD
                     <button onClick={async () => { if (supabase) { await supabase.auth.signOut(); } document.cookie = "user_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"; window.location.href = "/"; }}
                         className="flex flex-col items-center text-[#777] hover:text-[#e63329] transition-colors cursor-pointer">
                         <LogOut className="w-6 h-6" />
                         <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Logout</span>
                     </button>
+=======
+                    {isAuthenticated ? (
+                        <button onClick={async () => { if (supabase) { await supabase.auth.signOut(); window.location.reload(); } }}
+                            className="flex flex-col items-center text-[#777] hover:text-[#e63329] transition-colors">
+                            <LogOut className="w-6 h-6" />
+                            <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Logout</span>
+                        </button>
+                    ) : (
+                        <Link href="/login" className="flex flex-col items-center text-[#777] hover:text-[#e63329] transition-colors">
+                            <LogIn className="w-6 h-6" />
+                            <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Login</span>
+                        </Link>
+                    )}
+>>>>>>> b2f6045 (login changes)
                 </div>
             </nav>
         </div>
