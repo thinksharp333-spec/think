@@ -143,7 +143,7 @@ export default function SignUpPage() {
             }
 
             // 2. Save Local (Dexie) - Keeping for offline cache/session
-            await db.users.add(userData);
+            await db.users.put(userData);
 
             // Set as current local user
             await db.users.delete('local-user');

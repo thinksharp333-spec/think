@@ -134,157 +134,6 @@ function AvatarEvolutionOverlay({ evolvedStage, onClose }: { evolvedStage: numbe
     );
 }
 
-// ─── Reading & Quiz History Overlay ──────────────────────────────────────────
-function BookHistoryOverlay({
-        bookIdNum,
-        bookIdString,
-        onClose,
-        quizReady
-    }: {
-        bookIdNum: number;
-        bookIdString: string;
-        onClose: () => void;
-        quizReady: boolean
-    }) {
-    const [activeTab, setActiveTab] = useState<'reading'|'quiz'>('reading');
-
-    const quizAttempts = useLiveQuery(() =>
-        db.quizAttempts.where('bookId').equals(bookIdNum).reverse().sortBy('completedAt'),
-        [bookIdNum]
-    ) || [];
-
-    const readingSessions = useLiveQuery(() =>
-        db.readings.where('bookId').equals(bookIdString).reverse().sortBy('startTime'),
-        [bookIdString]
-    ) || [];
-
-    const formatDate = (ts: number) => {
-        return new Date(ts).toLocaleDateString('en-IN', {
-            day: 'numeric',
-            month: 'short',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    };
-
-    const formatDuration = (start: number, end?: number) => {
-        if (!end) return 'In Progress';
-        const totalSecs = Math.floor((end - start) / 1000);
-        const mins = Math.floor(totalSecs / 60);
-        const secs = totalSecs % 60;
-        return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-    };
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="comic-modal w-full max-w-md overflow-hidden flex flex-col max-h-[85vh]">
-                {/* Header */}
-                <div className="px-6 py-4 bg-[#111] border-b-[3px] border-[#111] flex justify-between items-center">
-                    <div className="flex items-center gap-2 text-white font-black uppercase tracking-wider">
-                        <History className="w-5 h-5 text-yellow-400" />
-                        Book Activity
-                    </div>
-                    <button onClick={onClose} className="text-white/60 hover:text-white font-black text-xl">×</button>
-                </div>
-
-                {/* Tabs */}
-                <div className="flex bg-[#f5f5f5] p-1 gap-1 border-b-[2px] border-[#eee]">
-                    <button
-                        onClick={() => setActiveTab('reading')}
-                        className={`flex-1 py-2 rounded-xl text-xs font-black uppercase transition-all ${
-                            activeTab === 'reading' ? 'bg-white text-[#111] shadow-sm border-[2.5px] border-[#111]' : 'text-gray-400'
-                        }`}>
-                        Reading Logs
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('quiz')}
-                        className={`flex-1 py-2 rounded-xl text-xs font-black uppercase transition-all ${
-                            activeTab === 'quiz' ? 'bg-white text-[#111] shadow-sm border-[2.5px] border-[#111]' : 'text-gray-400'
-                        }`}>
-                        Quiz History
-                    </button>
-                </div>
-
-                {/* Scrollable Content */}
-                <div className="flex-1 overflow-y-auto p-4 bg-white space-y-3">
-                    {activeTab === 'reading' ? (
-                        readingSessions.length > 0 ? (
-                            readingSessions.map((s, i) => (
-                                <div key={i} className="p-3 rounded-2xl border-[2.5px] border-[#eee] flex items-center justify-between">
-                                    <div className="flex flex-col gap-0.5">
-                                        <div className="flex items-center gap-1.5 text-xs font-black text-[#111]">
-                                            <Calendar className="w-3.5 h-3.5 text-gray-400" />
-                                            {formatDate(s.startTime)}
-                                        </div>
-                                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-                                            <Clock className="w-3.5 h-3.5" />
-                                            {formatDuration(s.startTime, s.endTime)}
-                                        </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <div className="text-[10px] font-black text-[#111] uppercase opacity-40">Status</div>
-                                        <div className="text-xs font-black text-green-600 uppercase italic">Logged</div>
-                                    </div>
-                                </div>
-                            ))
-                        ) : (
-                            <div className="py-12 text-center">
-                                <BookOpen className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-                                <p className="font-black text-gray-300 uppercase tracking-widest text-sm">No reading logs found</p>
-                            </div>
-                        )
-                    ) : (
-                        <div className="space-y-3">
-                            {!quizReady && (
-                                <div className="p-3 rounded-xl bg-yellow-50 border-2 border-yellow-200 text-[10px] font-bold text-yellow-700 uppercase flex items-center gap-2 mb-4">
-                                    <RefreshCw className="w-4 h-4 animate-spin-slow" />
-                                    New quiz is being generated...
-                                </div>
-                            )}
-
-                            {quizAttempts.length > 0 ? (
-                                quizAttempts.map((a, i) => (
-                                    <div key={i} className="p-3 rounded-2xl border-[2.5px] border-[#111] bg-[#fafafa] flex items-center justify-between shadow-[0_4px_0_#111]">
-                                        <div className="flex flex-col gap-0.5">
-                                            <div className="text-xs font-black text-[#111]">
-                                                {formatDate(a.completedAt)}
-                                            </div>
-                                            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-                                                Attempt #{quizAttempts.length - i}
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <div className="text-right">
-                                                <div className="text-2xl font-black text-[#e63329] leading-none">{a.score}/{a.totalQuestions}</div>
-                                                <div className="text-[9px] font-black text-[#111] uppercase tracking-tighter">Correct Answers</div>
-                                            </div>
-                                            <div className="w-10 h-10 rounded-full bg-[#111] flex items-center justify-center text-white">
-                                                <Trophy className={`w-5 h-5 ${a.score === a.totalQuestions ? 'text-yellow-400' : 'text-white'}`} />
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))
-                            ) : (
-                                <div className="py-12 text-center">
-                                    <Trophy className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-                                    <p className="font-black text-gray-300 uppercase tracking-widest text-sm">No quiz scores yet</p>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                {/* Footer Action */}
-                <div className="p-4 bg-gray-50 border-t-[2px] border-[#eee]">
-                    <button onClick={onClose} className="w-full bg-[#111] text-white py-3 rounded-2xl font-black text-sm uppercase shadow-[0_4px_0_#333] active:translate-y-1 active:shadow-none transition-all">
-                        Back to Book
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-}
-
 // ─── Feedback Panel ──────────────────────────────────────────────────────────
 function FeedbackPanel({
     bookId,
@@ -411,145 +260,6 @@ function FeedbackPanel({
     );
 }
 
-// ─── AI Tutor Panel ──────────────────────────────────────────────────────────
-function AiTutorPanel({
-    book,
-    isOnline,
-    onClose,
-}: {
-    book: { title: string; grade: string; level: string; subject: string; extractedText?: string };
-    isOnline: boolean;
-    onClose: () => void;
-}) {
-    const [question, setQuestion] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [history, setHistory] = useState<Array<{ role: 'user' | 'assistant'; content: string; suggestions?: string[] }>>([]);
-    const bottomRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [history, loading]);
-
-    const handleAsk = async (q: string) => {
-        if (!q.trim() || loading || !isOnline) return;
-        setLoading(true);
-        setHistory(prev => [...prev, { role: 'user', content: q }]);
-        setQuestion('');
-
-        try {
-            const res = await fetch('/api/ai-tutor', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    question: q,
-                    bookContext: {
-                        title: book.title,
-                        grade: book.grade,
-                        level: book.level,
-                        subject: book.subject,
-                        text: book.extractedText || '',
-                    },
-                    conversationHistory: history
-                        .slice(-4)
-                        .map(h => ({ role: h.role, content: h.content })),
-                }),
-            });
-
-            if (res.ok) {
-                const data = await res.json();
-                setHistory(prev => [
-                    ...prev,
-                    { role: 'assistant', content: data.answer, suggestions: data.followUpSuggestions },
-                ]);
-            } else {
-                setHistory(prev => [...prev, { role: 'assistant', content: "Oops! I couldn't connect right now. Try again!" }]);
-            }
-        } catch {
-            setHistory(prev => [...prev, { role: 'assistant', content: "I had trouble answering that. Are you still online?" }]);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="comic-modal w-full max-w-md overflow-hidden flex flex-col max-h-[85vh]">
-                {/* Header */}
-                <div className="px-6 py-4 bg-[#e63329] border-b-[3px] border-[#111] flex justify-between items-center">
-                    <div className="flex items-center gap-2 text-white font-black text-lg uppercase tracking-wide">
-                        <Sparkles className="w-5 h-5 text-yellow-300" />
-                        BookBuddy
-                    </div>
-                    <button onClick={onClose} className="text-white/60 hover:text-white font-black text-2xl leading-none">×</button>
-                </div>
-
-                {/* Conversation */}
-                <div className="flex-1 overflow-y-auto p-4 bg-white space-y-3">
-                    {history.length === 0 && (
-                        <p className="text-center text-gray-400 text-sm font-bold py-8">
-                            Ask me anything about &quot;{book.title}&quot;!
-                        </p>
-                    )}
-                    {history.map((entry, i) => (
-                        <div key={i} className={`flex ${entry.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                            <div
-                                className={`max-w-[80%] p-3 rounded-2xl text-sm font-bold ${
-                                    entry.role === 'user'
-                                        ? 'bg-[#e63329] text-white rounded-br-none'
-                                        : 'bg-[#f5f5f5] text-[#111] rounded-bl-none border-2 border-[#eee]'
-                                }`}
-                            >
-                                {entry.content}
-                                {entry.role === 'assistant' && entry.suggestions && entry.suggestions.length > 0 && (
-                                    <div className="mt-2 flex flex-col gap-1">
-                                        {entry.suggestions.map((s, si) => (
-                                            <button
-                                                key={si}
-                                                onClick={() => handleAsk(s)}
-                                                className="text-left text-xs text-[#e63329] underline font-bold hover:no-underline"
-                                            >
-                                                {s}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    ))}
-                    {loading && (
-                        <div className="flex justify-start">
-                            <div className="bg-[#f5f5f5] p-3 rounded-2xl rounded-bl-none border-2 border-[#eee]">
-                                <Loader2 className="w-4 h-4 animate-spin text-[#e63329]" />
-                            </div>
-                        </div>
-                    )}
-                    <div ref={bottomRef} />
-                </div>
-
-                {/* Input */}
-                <div className="p-4 bg-gray-50 border-t-2 border-[#eee] flex gap-2">
-                    <input
-                        type="text"
-                        value={question}
-                        onChange={e => setQuestion(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && handleAsk(question)}
-                        placeholder="Ask about the book..."
-                        className="flex-1 px-4 py-3 rounded-2xl border-[2.5px] border-[#111] text-sm font-bold outline-none focus:border-[#e63329] transition-colors"
-                        maxLength={500}
-                        disabled={loading || !isOnline}
-                    />
-                    <button
-                        onClick={() => handleAsk(question)}
-                        disabled={loading || !question.trim() || !isOnline}
-                        className="px-5 py-3 bg-[#e63329] text-white rounded-2xl font-black text-sm shadow-[0_4px_0_#111] active:translate-y-1 active:shadow-none transition-all disabled:opacity-40"
-                    >
-                        Ask
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-}
 
 export default function ReadPage() {
 
@@ -611,8 +321,6 @@ export default function ReadPage() {
 
     const questions = book?.questions || [];
     const [showQuiz, setShowQuiz] = useState(false);
-    const [showHistory, setShowHistory] = useState(false);
-    const [showTutor, setShowTutor] = useState(false);
     const [showFeedback, setShowFeedback] = useState(false);
 
     // Load existing review for this user+book (to pre-fill if they re-open)
@@ -926,65 +634,45 @@ export default function ReadPage() {
     }, [atLastPage]);
 
     return (
-        <div className="h-screen w-full flex flex-col overflow-hidden"
+        <div className="h-[100dvh] w-full flex flex-col overflow-hidden"
             style={{ backgroundColor: '#2e2e2e', backgroundImage: 'url(/reader-bg.png)', backgroundSize: '600px 600px', backgroundRepeat: 'repeat' }}>
 
             {/* ─── HEADER ─── */}
-            <header className="relative z-50 flex-shrink-0 h-14 flex items-center justify-between px-5"
+            <header className="relative z-50 flex-shrink-0 h-12 md:h-14 [@media(max-height:500px)]:h-10 flex items-center justify-between px-2 md:px-5"
                 style={{ background: 'linear-gradient(180deg, #d9342a 0%, #b82520 100%)', boxShadow: '0 3px 16px rgba(0,0,0,0.4)' }}>
 
                 {/* Left: Back + Quiz button */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 md:gap-2">
                     <button onClick={handleBack}
-                        className="flex items-center gap-2 text-white font-bold text-xs px-4 py-2 rounded-lg transition-all hover:bg-white/10 active:scale-95"
+                        className="flex items-center gap-1.5 text-white font-bold text-[10px] md:text-xs px-2.5 py-1.5 md:px-4 md:py-2 rounded-lg transition-all hover:bg-white/10 active:scale-95"
                         style={{ background: 'rgba(0,0,0,0.25)' }}>
-                        <ArrowLeft className="w-4 h-4" />
-                        Library
+                        <ArrowLeft className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                        <span className="hidden sm:inline">Library</span>
                     </button>
-                    <button
-                        onClick={() => setShowHistory(true)}
-                        className="flex items-center gap-2 text-white font-bold text-xs px-4 py-2 rounded-lg transition-all hover:bg-white/10 active:scale-95"
-                        style={{ background: 'rgba(0,0,0,0.25)' }}
-                        title="View reading and quiz history"
-                    >
-                        <History className="w-4 h-4" />
-                        History
-                    </button>
-                    {isOnline && (
-                        <button
-                            onClick={() => setShowTutor(true)}
-                            className="flex items-center gap-2 text-white font-bold text-xs px-4 py-2 rounded-lg transition-all hover:bg-white/10 active:scale-95"
-                            style={{ background: 'rgba(0,0,0,0.25)' }}
-                            title="Ask BookBuddy about this book"
-                        >
-                            <Sparkles className="w-4 h-4 text-yellow-300" />
-                            Ask AI
-                        </button>
-                    )}
                     <button
                         onClick={() => setShowFeedback(true)}
-                        className="flex items-center gap-2 text-white font-bold text-xs px-4 py-2 rounded-lg transition-all hover:bg-white/10 active:scale-95"
+                        className="flex items-center gap-1.5 text-white font-bold text-[10px] md:text-xs px-2.5 py-1.5 md:px-4 md:py-2 rounded-lg transition-all hover:bg-white/10 active:scale-95"
                         style={{ background: existingReview ? 'rgba(234,179,8,0.35)' : 'rgba(0,0,0,0.25)' }}
-                        title={existingReview ? `Your rating: ${existingReview.rating}/10` : 'Rate this book'}
+                        title="Rate book"
                     >
-                        <Star className={`w-4 h-4 ${existingReview ? 'fill-yellow-300 text-yellow-300' : 'text-white'}`} />
-                        {existingReview ? `${existingReview.rating}/10` : 'Rate'}
+                        <Star className={`w-3.5 h-3.5 md:w-4 md:h-4 ${existingReview ? 'fill-yellow-300 text-yellow-300' : 'text-white'}`} />
+                        <span className="hidden md:inline">{existingReview ? `${existingReview.rating}/10` : 'Rate'}</span>
                     </button>
                     {questions.length > 0 && (
                         <button
                             onClick={() => { quizAnswersRef.current = []; setCurrentQuestionIndex(0); setScore(0); setQuizCompleted(false); setSelectedOption(null); setShowQuiz(true); }}
-                            className="flex items-center gap-1.5 text-white font-black text-xs px-3 py-2 rounded-lg transition-all hover:scale-105 active:scale-95"
-                            style={{ background: 'rgba(0,0,0,0.35)', border: '2px solid rgba(255,215,0,0.5)' }}
-                            title="Take the quiz for this book"
+                            className="flex items-center gap-1.5 text-white font-black text-[10px] md:text-xs px-2.5 py-1.5 md:px-3 md:py-2 rounded-lg transition-all hover:scale-105 active:scale-95 border md:border-2 border-[rgba(255,215,0,0.5)]"
+                            style={{ background: 'rgba(0,0,0,0.35)' }}
+                            title="Quiz"
                         >
-                            <Trophy className="w-3.5 h-3.5 text-yellow-300 fill-yellow-300" />
-                            <span className="text-yellow-200">Quiz</span>
+                            <Trophy className="w-3 h-3 md:w-3.5 md:h-3.5 text-yellow-300 fill-yellow-300" />
+                            <span className="hidden sm:inline text-yellow-200">Quiz</span>
                         </button>
                     )}
                 </div>
 
                 {/* Centre: Book title + logo */}
-                <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
+                <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 pointer-events-none hidden xl:flex">
                     <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-md" style={{ transform: 'rotate(-3deg)' }}>
                         <BookOpen className="w-5 h-5 text-[#d9342a]" />
                     </div>
@@ -992,127 +680,147 @@ export default function ReadPage() {
                 </div>
 
                 {/* Right: sync status + XP bar */}
-                <div className="flex flex-col items-end gap-0.5">
+                <div className="flex flex-col items-end gap-[1px]">
                     {/* GAP-01: Sync status indicator */}
-                    <div className="flex items-center gap-1 mb-0.5">
+                    <div className="flex items-center gap-1">
                         {!isOnline ? (
-                            <span className="flex items-center gap-1 text-[9px] font-bold text-yellow-300/90 uppercase tracking-wide">
-                                <WifiOff className="w-3 h-3" /> Offline
+                            <span className="flex items-center gap-1 text-[8px] md:text-[9px] font-bold text-yellow-300/90 uppercase tracking-wide">
+                                <WifiOff className="w-2.5 h-2.5 md:w-3 md:h-3" /> <span className="hidden xs:inline">Offline</span>
                             </span>
                         ) : isSyncing ? (
-                            <span className="flex items-center gap-1 text-[9px] font-bold text-white/70 uppercase tracking-wide">
-                                <RefreshCw className="w-3 h-3 animate-spin" /> Syncing…
+                            <span className="flex items-center gap-1 text-[8px] md:text-[9px] font-bold text-white/70 uppercase tracking-wide">
+                                <RefreshCw className="w-2.5 h-2.5 md:w-3 md:h-3 animate-spin" /> <span className="hidden xs:inline">Syncing…</span>
                             </span>
                         ) : syncQueueCount > 0 ? (
-                            <span className="flex items-center gap-1 text-[9px] font-bold text-white/50 uppercase tracking-wide">
-                                <Wifi className="w-3 h-3" /> {syncQueueCount} pending
+                            <span className="flex items-center gap-1 text-[8px] md:text-[9px] font-bold text-white/50 uppercase tracking-wide">
+                                <Wifi className="w-2.5 h-2.5 md:w-3 md:h-3" /> <span className="hidden xs:inline">{syncQueueCount} pending</span>
                             </span>
                         ) : (
-                            <span className="flex items-center gap-1 text-[9px] font-bold text-green-300/70 uppercase tracking-wide">
-                                <Wifi className="w-3 h-3" /> Saved
+                            <span className="flex items-center gap-1 text-[8px] md:text-[9px] font-bold text-green-300/70 uppercase tracking-wide">
+                                <Wifi className="w-2.5 h-2.5 md:w-3 md:h-3" /> <span className="hidden xs:inline">Saved</span>
                             </span>
                         )}
                     </div>
-                    <div className="flex items-center gap-1.5">
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center border-[3px] flex-shrink-0"
+                    <div className="flex items-center gap-1 md:gap-1.5">
+                        <div className="hidden xs:flex w-6 h-6 md:w-8 md:h-8 rounded-full items-center justify-center border-2 md:border-[3px] flex-shrink-0"
                             style={{ background: '#b82520', borderColor: '#fbbf24' }}>
-                            <span className="text-white font-black text-[8px]">XP</span>
+                            <span className="text-white font-black text-[7px] md:text-[8px]">XP</span>
                         </div>
-                        <div className="h-5 w-36 rounded-full overflow-hidden"
-                            style={{ background: 'rgba(0,0,0,0.35)', border: '2px solid rgba(255,255,255,0.15)' }}>
+                        <div className="h-3 md:h-5 w-20 md:w-36 rounded-full overflow-hidden"
+                            style={{ background: 'rgba(0,0,0,0.35)', border: '1.5px md:border-2 solid rgba(255,255,255,0.15)' }}>
                             <div className="h-full rounded-full transition-all duration-700"
                                 style={{ width: `${Math.max(xpPercent, 3)}%`, background: 'linear-gradient(90deg, #f59e0b, #fbbf24, #f59e0b)', boxShadow: '0 0 8px rgba(251,191,36,0.5)' }} />
                         </div>
                     </div>
-                    <span className="text-white/60 text-[9px] font-bold">{currentXP}/{MAX_XP} XP</span>
+                    <span className="text-white/60 text-[8px] md:text-[9px] font-bold hidden xs:inline">{currentXP}/{MAX_XP} XP</span>
                 </div>
             </header>
 
             {/* ─── MAIN ─── */}
-            <main className="relative z-10 flex-1 flex flex-col overflow-hidden px-4 pt-4 pb-3 gap-3">
+            <main className="relative z-10 flex-1 flex flex-col overflow-hidden px-2 md:px-4 pt-2 md:pt-4 pb-2 md:pb-3 gap-2 md:gap-3 [@media(max-height:500px)]:pt-1 [@media(max-height:500px)]:pb-1 [@media(max-height:500px)]:gap-1">
 
                 {/* ── Book + side arrows ── */}
-                <div className="flex-1 min-h-0 flex items-stretch justify-center gap-3">
+                <div className="flex-1 min-h-0 flex items-stretch justify-center relative w-full mx-auto max-w-5xl">
 
-                    {/* Prev arrow */}
-                    <div className="flex items-center">
+                    {/* Prev arrow - relative on md, absolute on small */}
+                    <div className="hidden sm:flex items-center mr-3 z-30">
                         <button
                             onClick={() => goToPage(Math.max(1, currentPage - 1))}
                             disabled={currentPage <= 1}
-                            className="w-11 h-11 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95 disabled:opacity-20 shadow-2xl"
+                            className="w-10 h-10 md:w-11 md:h-11 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95 disabled:opacity-20 shadow-2xl"
                             style={{ background: 'rgba(0,0,0,0.5)', border: '2px solid rgba(255,255,255,0.12)', color: 'white' }}>
                             <ChevronLeft className="w-6 h-6" />
                         </button>
                     </div>
+
+                    {/* Mobile Prev Arrow - Absolute Overlay */}
+                    <button
+                        onClick={() => goToPage(Math.max(1, currentPage - 1))}
+                        disabled={currentPage <= 1}
+                        className="sm:hidden absolute left-1 top-1/2 -translate-y-1/2 z-40 w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-95 disabled:opacity-20 shadow-2xl bg-black/60 border border-white/20 text-white"
+                        aria-label="Previous page">
+                        <ChevronLeft className="w-5 h-5 -ml-0.5" />
+                    </button>
 
                     {/* Book frame */}
                     <div className="flex-1 min-w-0 h-full relative"
                         style={{
                             background: 'linear-gradient(165deg, #c0352b 0%, #8c2019 45%, #6b1812 100%)',
                             borderRadius: '6px 16px 16px 6px',
-                            padding: '10px 14px 10px 22px',
                             boxShadow: '0 24px 64px rgba(0,0,0,0.65), 0 8px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08)',
                         }}>
+                        <div className="absolute inset-0 p-[4px_6px_4px_12px] md:p-[10px_14px_10px_22px] pointer-events-none" />
 
-                        {/* Spine */}
-                        <div className="absolute top-0 bottom-0 left-0 w-[18px] z-20 pointer-events-none"
-                            style={{ background: 'linear-gradient(90deg, #3d0d0a 0%, #5e1510 40%, #7a1c14 70%, transparent 100%)', borderRadius: '6px 0 0 6px', boxShadow: '3px 0 10px rgba(0,0,0,0.4)' }} />
-                        {/* Spine highlight lines */}
-                        <div className="absolute top-8 bottom-8 left-[6px] w-px z-20 pointer-events-none" style={{ background: 'rgba(255,255,255,0.07)' }} />
-                        <div className="absolute top-8 bottom-8 left-[10px] w-px z-20 pointer-events-none" style={{ background: 'rgba(255,255,255,0.04)' }} />
-                        {/* Top sheen */}
-                        <div className="absolute top-0 left-5 right-3 h-px z-10" style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.12) 30%, rgba(255,255,255,0.12) 70%, transparent)' }} />
+                        <div className="w-full h-full p-[4px_6px_4px_12px] md:p-[10px_14px_10px_22px]">
+                            {/* Spine */}
+                            <div className="absolute top-0 bottom-0 left-0 w-[12px] md:w-[18px] z-20 pointer-events-none"
+                                style={{ background: 'linear-gradient(90deg, #3d0d0a 0%, #5e1510 40%, #7a1c14 70%, transparent 100%)', borderRadius: '6px 0 0 6px', boxShadow: '3px 0 10px rgba(0,0,0,0.4)' }} />
+                            {/* Spine highlight lines */}
+                            <div className="absolute top-4 md:top-8 bottom-4 md:bottom-8 left-[4px] md:left-[6px] w-px z-20 pointer-events-none" style={{ background: 'rgba(255,255,255,0.07)' }} />
+                            <div className="absolute top-4 md:top-8 bottom-4 md:bottom-8 left-[6px] md:left-[10px] w-px z-20 pointer-events-none" style={{ background: 'rgba(255,255,255,0.04)' }} />
+                            {/* Top sheen */}
+                            <div className="absolute top-0 left-5 right-3 h-px z-10 pointer-events-none" style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.12) 30%, rgba(255,255,255,0.12) 70%, transparent)' }} />
 
-                        {/* Page area */}
-                        <div className="w-full h-full overflow-hidden relative"
-                            style={{ background: '#faf6ed', borderRadius: '3px 10px 10px 3px', boxShadow: 'inset 8px 0 20px rgba(0,0,0,0.08), inset 0 2px 6px rgba(0,0,0,0.04), inset 0 -2px 4px rgba(0,0,0,0.03)' }}>
-                            {/* Left gutter shadow */}
-                            <div className="absolute inset-y-0 left-0 w-8 z-10 pointer-events-none" style={{ background: 'linear-gradient(90deg, rgba(0,0,0,0.09), transparent)' }} />
-                            {/* Top/right subtle shadows */}
-                            <div className="absolute top-0 left-0 right-0 h-5 z-10 pointer-events-none" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.05), transparent)' }} />
-                            <div className="absolute inset-y-0 right-0 w-4 z-10 pointer-events-none" style={{ background: 'linear-gradient(-90deg, rgba(0,0,0,0.04), transparent)' }} />
+                            {/* Page area */}
+                            <div className="w-full h-full overflow-hidden relative"
+                                style={{ background: '#faf6ed', borderRadius: '3px 10px 10px 3px', boxShadow: 'inset 8px 0 20px rgba(0,0,0,0.08), inset 0 2px 6px rgba(0,0,0,0.04), inset 0 -2px 4px rgba(0,0,0,0.03)' }}>
+                                {/* Left gutter shadow */}
+                                <div className="absolute inset-y-0 left-0 w-8 z-10 pointer-events-none" style={{ background: 'linear-gradient(90deg, rgba(0,0,0,0.09), transparent)' }} />
+                                {/* Top/right subtle shadows */}
+                                <div className="absolute top-0 left-0 right-0 h-5 z-10 pointer-events-none" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.05), transparent)' }} />
+                                <div className="absolute inset-y-0 right-0 w-4 z-10 pointer-events-none" style={{ background: 'linear-gradient(-90deg, rgba(0,0,0,0.04), transparent)' }} />
 
-                            <PdfReader
-                                url={pdfUrl}
-                                book={book}
-                                bookIdNum={bookIdNum}
-                                pageNumber={currentPage}
-                                twoPageView={false}
-                                onNumPagesChange={setTotalPages}
-                                onWordCount={handleWordCount}
-                            />
-                        </div>
+                                <PdfReader
+                                    url={pdfUrl}
+                                    book={book}
+                                    bookIdNum={bookIdNum}
+                                    pageNumber={currentPage}
+                                    twoPageView={false}
+                                    onNumPagesChange={setTotalPages}
+                                    onWordCount={handleWordCount}
+                                />
+                            </div>
 
-                        {/* Page stack — bottom */}
-                        <div className="absolute bottom-[4px] left-[22px] right-[10px] h-[4px] rounded-b z-0 pointer-events-none"
-                            style={{ background: '#eee8d9', boxShadow: '0 2px 0 #e6dece, 0 4px 0 #ddd6c4, 0 6px 0 #d4ccb9' }} />
-                        {/* Page stack — right */}
-                        <div className="absolute top-[14px] bottom-[18px] right-[4px] w-[3px] rounded-r z-0 pointer-events-none"
-                            style={{ background: '#eee8d9', boxShadow: '2px 0 0 #e6dece, 4px 0 0 #ddd6c4' }} />
+                            {/* Page stack — bottom */}
+                            <div className="absolute bottom-[2px] md:bottom-[4px] left-[14px] md:left-[22px] right-[6px] md:right-[10px] h-[2px] md:h-[4px] rounded-b z-0 pointer-events-none"
+                                style={{ background: '#eee8d9', boxShadow: '0 1px 0 #e6dece, 0 2px 0 #ddd6c4, 0 3px 0 #d4ccb9' }} />
+                            {/* Page stack — right */}
+                            <div className="absolute top-[8px] md:top-[14px] bottom-[10px] md:bottom-[18px] right-[2px] md:right-[4px] w-[2px] md:w-[3px] rounded-r z-0 pointer-events-none"
+                                style={{ background: '#eee8d9', boxShadow: '1px 0 0 #e6dece, 2px 0 0 #ddd6c4' }} />
 
-                        {/* Page number badge */}
-                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 pointer-events-none"
-                            style={{ background: 'rgba(0,0,0,0.12)', borderRadius: '999px', padding: '2px 10px' }}>
-                            <span className="text-[10px] font-bold text-black/30 tracking-widest select-none">
-                                {currentPage} / {totalPages || '—'}
-                            </span>
+                            {/* Page number badge */}
+                            <div className="absolute bottom-2 md:bottom-3 left-1/2 -translate-x-1/2 z-20 pointer-events-none"
+                                style={{ background: 'rgba(0,0,0,0.12)', borderRadius: '999px', padding: '2px 8px md:2px 10px' }}>
+                                <span className="text-[9px] md:text-[10px] font-bold text-black/40 md:text-black/30 tracking-widest select-none">
+                                    {currentPage} / {totalPages || '—'}
+                                </span>
+                            </div>
                         </div>
                     </div>
 
-                    {/* Next arrow */}
-                    <div className="flex items-center">
+                    {/* Next arrow - relative on md, absolute on small */}
+                    <div className="hidden sm:flex items-center ml-3 z-30">
                         <button
                             onClick={() => goToPage(Math.min(totalPages || 9999, currentPage + 1))}
                             disabled={atLastPage}
-                            className="w-11 h-11 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95 disabled:opacity-20 shadow-2xl"
+                            className="w-10 h-10 md:w-11 md:h-11 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95 disabled:opacity-20 shadow-2xl"
                             style={{ background: 'rgba(0,0,0,0.5)', border: '2px solid rgba(255,255,255,0.12)', color: 'white' }}>
                             <ChevronRight className="w-6 h-6" />
                         </button>
                     </div>
+
+                    {/* Mobile Next Arrow - Absolute Overlay */}
+                    <button
+                        onClick={() => goToPage(Math.min(totalPages || 9999, currentPage + 1))}
+                        disabled={atLastPage}
+                        className="sm:hidden absolute right-1 top-1/2 -translate-y-1/2 z-40 w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-95 disabled:opacity-20 shadow-2xl bg-black/60 border border-white/20 text-white"
+                        aria-label="Next page">
+                        <ChevronRight className="w-5 h-5 -mr-0.5" />
+                    </button>
                 </div>
 
                 {/* ── Book Scroll strip ── */}
-                <div className="flex-shrink-0 flex flex-col items-center gap-1.5">
+                <div className="flex-shrink-0 flex flex-col items-center gap-1.5 hidden [@media(min-height:500px)]:flex">
                     <div className="w-full rounded-2xl px-3 py-2"
                         style={{ background: 'rgba(0,0,0,0.38)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.06)' }}>
                         <div className="overflow-x-auto flex justify-center" style={{ scrollbarWidth: 'none' }}>
@@ -1177,15 +885,6 @@ export default function ReadPage() {
                     existingReview={existingReview ?? null}
                     onClose={() => setShowFeedback(false)}
                     onSubmitted={() => setShowFeedback(false)}
-                />
-            )}
-
-            {/* ── AI Tutor ── */}
-            {showTutor && book && (
-                <AiTutorPanel
-                    book={book}
-                    isOnline={isOnline}
-                    onClose={() => setShowTutor(false)}
                 />
             )}
 

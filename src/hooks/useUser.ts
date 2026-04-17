@@ -109,8 +109,7 @@ export function useUser() {
                 fetchUserProfile(session.user.id);
             } else if (event === 'SIGNED_OUT') {
                 await db.users.clear();
-                // Re-create guest
-                await db.users.add({
+                await db.users.put({
                     id: 'local-user',
                     name: 'Student',
                     mobile: '',
@@ -130,7 +129,7 @@ export function useUser() {
         const initUser = async () => {
             const count = await db.users.count();
             if (count === 0) {
-                await db.users.add({
+                await db.users.put({
                     id: 'local-user',
                     name: 'Student',
                     mobile: '',

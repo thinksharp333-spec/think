@@ -60,10 +60,10 @@ export function BookCard({ id, fileId, title, grade, pages, pdfUrl, coverUrl, ha
     return (
         <Link href={`/read/${id}`} className="block group/card relative">
             {/* Card wrapper */}
-            <div className="book-card h-full overflow-visible relative active:scale-95 transition-all duration-200">
+            <div className="book-card h-full overflow-hidden relative active:scale-95 transition-all duration-200 flex flex-col">
 
                 {/* ── Cover image area ──────────────────────────── */}
-                <div className="relative aspect-[3/4] w-full overflow-hidden rounded-t-[17px]">
+                <div className="relative aspect-[3/4] w-full shrink-0">
                     {coverSrc && !imgError ? (
                         <img
                             src={coverSrc}
@@ -90,60 +90,43 @@ export function BookCard({ id, fileId, title, grade, pages, pdfUrl, coverUrl, ha
                         </div>
                     )}
 
-                    {/* Gradient overlay at bottom of cover */}
-                    <div className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none"
-                        style={{ background: "linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 100%)" }} />
+                </div>
 
-                    {/* Rating badge — top right corner */}
-                    {avgRating && avgRating > 0 ? (
-                        <div className="absolute top-2 right-2 flex items-center gap-1 bg-[#111]/80 backdrop-blur-sm text-yellow-400 text-[11px] font-black px-2 py-1 rounded-full border border-yellow-400/30">
-                            <Star className="w-3 h-3 fill-yellow-400" />
-                            {avgRating.toFixed(1)}
-                            {reviewCount && reviewCount > 0 &&
-                                <span className="text-white/50 font-bold">({reviewCount})</span>
-                            }
-                        </div>
-                    ) : null}
-
-                    {/* Offline ready badge */}
-                    {isOfflineReady && (
-                        <div className="absolute top-2 left-2 bg-[#22c55e] text-white text-[9px] font-black px-2 py-1 rounded-full border-2 border-white/30 uppercase tracking-wide">
-                            ✓ Offline
-                        </div>
-                    )}
-
-                    {/* Share + Download + Quiz — bottom right of cover */}
-                    <div className="absolute bottom-2 right-2 flex gap-1.5 items-end">
-                        <button
-                            onClick={(e) => { e.preventDefault(); window.location.href = `/read/${id}#quiz`; }}
-                            className={`flex items-center gap-1 text-[10px] font-black px-2.5 py-2 rounded-full border-2 transition-all shadow-lg hover:-translate-y-0.5 ${
-                                hasQuiz
-                                    ? 'bg-[#e63329] text-white border-white/30 hover:bg-[#b91c1c]'
-                                    : 'bg-white/80 text-[#666] border-[#ccc] hover:bg-white'
-                            }`}
-                        >
-                            <Trophy className={`w-3.5 h-3.5 ${hasQuiz ? '' : 'text-[#999]'}`} /> Quiz
-                        </button>
-                        <button onClick={(e) => {
-                            e.preventDefault();
-                            if (navigator.share) {
-                                navigator.share({ title, text: `Check out ${title}!`, url: `${window.location.origin}/read/${id}` }).catch(console.warn);
-                            } else {
-                                navigator.clipboard.writeText(`${window.location.origin}/read/${id}`);
-                                alert("Link copied!");
-                            }
-                        }} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/90 shadow-lg border-2 border-[#111] hover:-translate-y-0.5 transition-transform"
-                            title="Share">
-                            <Share2 className="w-3.5 h-3.5 text-[#111]" />
-                        </button>
-                        <button onClick={handleDownload} disabled={downloading || isOfflineReady}
-                            className={`w-8 h-8 flex items-center justify-center rounded-full shadow-lg border-2 border-[#111] transition-all hover:-translate-y-0.5 ${isOfflineReady ? 'bg-[#bbf7d0]' : 'bg-white/90'}`}
-                            title="Download for offline">
-                            {downloading ? <Loader2 className="w-3.5 h-3.5 text-[#111] animate-spin" /> :
-                                isOfflineReady ? <CheckCircle2 className="w-3.5 h-3.5 text-[#22c55e]" /> :
-                                    <Download className="w-3.5 h-3.5 text-[#111]" />}
-                        </button>
-                    </div>
+                {/* ── Action Buttons (Below Cover) ──────────────── */}
+                <div className="flex-1 bg-[#fffbf3] border-t-[3px] border-[#111] p-2.5 flex gap-1.5 md:gap-2 justify-end items-center">
+                    <button
+                        onClick={(e) => { e.preventDefault(); window.location.href = `/read/${id}#quiz`; }}
+                        className={`group/btn flex items-center gap-1.5 text-[10px] md:text-xs font-black px-3 py-2 rounded-xl transition-all ${
+                            hasQuiz
+                                ? 'bg-[#e63329] text-white hover:bg-[#b91c1c] active:scale-95'
+                                : 'bg-[#f0f0f0] text-[#999] hover:bg-[#e0e0e0] active:scale-95'
+                        }`}
+                        title={hasQuiz ? "Take Quiz" : "No Quiz Available"}
+                    >
+                        <Trophy className={`w-3.5 h-3.5 md:w-4 md:h-4 transition-transform group-hover/btn:scale-110 ${hasQuiz ? 'text-yellow-300' : ''}`} /> 
+                        <span className="hidden sm:inline">Quiz</span>
+                    </button>
+                    
+                    <button onClick={(e) => {
+                        e.preventDefault();
+                        if (navigator.share) {
+                            navigator.share({ title, text: `Check out ${title}!`, url: `${window.location.origin}/read/${id}` }).catch(console.warn);
+                        } else {
+                            navigator.clipboard.writeText(`${window.location.origin}/read/${id}`);
+                            alert("Link copied!");
+                        }
+                    }} className="group/btn relative w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-xl bg-white border-2 border-[#111] shadow-[0_3px_0_#111] hover:-translate-y-0.5 hover:shadow-[0_4px_0_#111] active:translate-y-[2px] active:shadow-none transition-all shrink-0"
+                        title="Share">
+                        <Share2 className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#111] transition-transform group-hover/btn:scale-110" />
+                    </button>
+                    
+                    <button onClick={handleDownload} disabled={downloading || isOfflineReady}
+                        className={`group/btn relative w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-xl shadow-[0_3px_0_#111] border-2 border-[#111] transition-all hover:-translate-y-0.5 hover:shadow-[0_4px_0_#111] active:translate-y-[2px] active:shadow-none shrink-0 ${isOfflineReady ? 'bg-[#22c55e] text-white' : 'bg-white text-[#111]'}`}
+                        title="Download for offline">
+                        {downloading ? <Loader2 className="w-3.5 h-3.5 md:w-4 md:h-4 animate-spin" /> :
+                            isOfflineReady ? <CheckCircle2 className="w-3.5 h-3.5 md:w-4 md:h-4 transition-transform group-hover/btn:scale-110" /> :
+                                <Download className="w-3.5 h-3.5 md:w-4 md:h-4 transition-transform group-hover/btn:scale-110" />}
+                    </button>
                 </div>
 
                 {/* Bottom highlight strip on hover */}

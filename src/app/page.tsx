@@ -62,23 +62,25 @@ export default function LandingPage() {
           </div>
 
           {/* Right actions */}
-          <div className="flex items-center gap-3">
-            <button className="text-white/70 hover:text-white p-2 rounded-full hover:bg-white/10 transition-all">
-              <Search className="h-5 w-5" />
+          <div className="flex items-center gap-1 md:gap-3">
+            <button className="text-white/70 hover:text-white p-1.5 md:p-2 rounded-full hover:bg-white/10 transition-all">
+              <Search className="h-4 w-4 md:h-5 md:w-5" />
             </button>
             {isLoggedIn ? (
-              <div className="flex items-center gap-2">
-                <Link href="/dashboard" className="btn-red py-2 px-5 text-sm">
-                  <LayoutDashboard className="h-4 w-4" /> Dashboard
+              <div className="flex items-center gap-1 md:gap-2">
+                <Link href="/dashboard" className="btn-red py-1.5 px-3 md:py-2 md:px-5 text-xs md:text-sm">
+                  <LayoutDashboard className="h-4 w-4 md:mr-1 inline-block" />
+                  <span className="hidden sm:inline">Dashboard</span>
                 </Link>
                 <button onClick={async () => { if (supabase) { await supabase.auth.signOut(); window.location.reload(); } }}
-                  className="text-white/60 hover:text-white px-3 py-2 rounded-full hover:bg-white/10 text-sm font-bold transition-all flex items-center gap-1">
-                  <LogOut className="h-4 w-4" /> Out
+                  className="text-white/60 hover:text-white px-2 py-1.5 md:px-3 md:py-2 rounded-full hover:bg-white/10 text-xs md:text-sm font-bold transition-all flex items-center gap-1">
+                  <LogOut className="h-4 w-4" /> <span className="hidden sm:inline">Out</span>
                 </button>
               </div>
             ) : (
-              <Link href="/login" className="btn-red py-2.5 px-6 text-sm">
-                <LogIn className="h-4 w-4" /> Login
+              <Link href="/login" className="btn-red py-1.5 px-4 md:py-2.5 md:px-6 text-xs md:text-sm">
+                <LogIn className="h-4 w-4 md:mr-1 inline-block" />
+                <span className="hidden sm:inline">Login</span>
               </Link>
             )}
           </div>
@@ -133,7 +135,7 @@ export default function LandingPage() {
           {/* RIGHT: Monster mascot + floating cards */}
           <div className="flex-1 flex items-center justify-center relative py-10 lg:py-0 min-h-[440px]">
             {/* Floating card 1 - top left */}
-            <div className="absolute top-12 left-8 card-flat p-4 max-w-[160px] animate-float" style={{ animationDelay: "0s" }}>
+            <div className="hidden lg:block absolute top-12 left-8 card-flat p-4 max-w-[160px] animate-float" style={{ animationDelay: "0s" }}>
               <div className="flex items-center gap-2 mb-1">
                 <Trophy className="h-4 w-4" style={{ color: "var(--gold)" }} />
                 <span className="font-black text-xs uppercase tracking-wide text-[#111]">Top Reader</span>
@@ -142,7 +144,7 @@ export default function LandingPage() {
             </div>
 
             {/* Floating card 2 - bottom right */}
-            <div className="absolute bottom-16 right-6 card-flat p-4 max-w-[170px] animate-float-delay">
+            <div className="hidden lg:block absolute bottom-16 right-6 card-flat p-4 max-w-[170px] animate-float-delay">
               <div className="flex items-center gap-1 mb-1">
                 <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                 <span className="font-black text-sm text-[#111]">9.2/10</span>
@@ -151,13 +153,13 @@ export default function LandingPage() {
             </div>
 
             {/* Floating badge */}
-            <div className="absolute top-8 right-10 star-burst w-16 h-16 flex items-center justify-center animate-wiggle" style={{ background: "var(--gold)" }}>
+            <div className="hidden sm:flex absolute top-8 right-10 star-burst w-16 h-16 items-center justify-center animate-wiggle" style={{ background: "var(--gold)" }}>
               <span className="text-[#111] font-black text-xs text-center leading-tight">NEW<br/>QUEST</span>
             </div>
 
             {/* The big monster SVG */}
             <div className="animate-float" style={{ animationDelay: "0.5s" }}>
-              <svg width="320" height="380" viewBox="0 0 320 380" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <svg width="100%" height="auto" viewBox="0 0 320 380" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ maxWidth: 320, display: "block", margin: "0 auto" }}>
                 {/* Body */}
                 <ellipse cx="160" cy="240" rx="105" ry="112" fill="#e63329" stroke="#111" strokeWidth="4"/>
                 {/* Belly */}
@@ -267,9 +269,6 @@ export default function LandingPage() {
                 A thrilling tale of secret shelves, clever clues, and brave readers who discover friendship in the heart of a magical library.
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-4">
-                <Link href={isLoggedIn ? "/dashboard" : "/signup"} className="btn-red text-base px-8 py-4">
-                  Read Now
-                </Link>
                 {isLoggedIn ? (
                   <button onClick={async () => { if (supabase) { await supabase.auth.signOut(); window.location.reload(); } }}
                     className="btn-outline text-sm px-6 py-4">

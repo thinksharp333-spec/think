@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Baloo_2, Bungee } from "next/font/google";
 import "./globals.css";
-import { SyncStatus } from "@/components/sync-status";
 
 const baloo = Baloo_2({
   subsets: ["latin"],
@@ -38,7 +37,6 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${baloo.variable} ${bungee.variable}`}>
         {children}
-        <SyncStatus />
       </body>
     </html>
   );
