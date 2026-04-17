@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Search, Flame, Compass } from 'lucide-react';
+import { ArrowLeft, Trophy, Loader2, Star, BookOpen, Crown, Medal, Flame } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
@@ -74,7 +74,7 @@ export default function LeaderboardPage() {
 
     return (
         <div className="flex flex-col font-sans bg-black max-w-full overflow-x-hidden" style={{ minHeight: '100vh', height: '100vh' }}>
-            
+
             {/* ─── HEADER ────────────────────────────────────────────── */}
             <header className="bg-[#d32f2f] h-16 sm:h-20 flex items-center justify-between px-4 sm:px-8 border-b-4 border-black relative z-50 flex-shrink-0">
                 {/* EXTREME LEFT: League */}
@@ -89,7 +89,7 @@ export default function LeaderboardPage() {
                     <div className="w-8 h-8 rounded-full border-[3px] border-black flex items-center justify-center bg-gray-100">
                         <Compass className="w-5 h-5 text-red-600" />
                     </div>
-                    <span className="comic-title text-black text-sm sm:text-lg leading-none tracking-wide text-center">Reading<br/>Adventure</span>
+                    <span className="comic-title text-black text-sm sm:text-lg leading-none tracking-wide text-center">Reading<br />Adventure</span>
                 </div>
 
                 {/* NAV LINKS */}
@@ -107,26 +107,26 @@ export default function LeaderboardPage() {
             </header>
 
             {/* ─── MAIN CONTENT ──────────────────────────────────────── */}
-            <main className="flex-1 relative bg-cover bg-center bg-no-repeat overflow-hidden flex flex-col items-center pt-8 md:pt-12 pb-16 min-h-0" 
-                  style={{ backgroundImage: "url('/dragons_hoard_bg.png')" }}>
-                
+            <main className="flex-1 relative bg-cover bg-center bg-no-repeat overflow-hidden flex flex-col items-center pt-8 md:pt-12 pb-16 min-h-0"
+                style={{ backgroundImage: "url('/dragons_hoard_bg.png')" }}>
+
                 {/* Background Dimmer for text clarity */}
                 <div className="absolute inset-0 bg-black/20 pointer-events-none"></div>
 
                 {/* Title */}
-                <h1 className="comic-title text-white text-3xl sm:text-5xl md:text-6xl drop-shadow-[0_6px_12px_rgba(0,0,0,0.8)] mb-8 text-center relative z-10 w-full px-4" 
+                <h1 className="comic-title text-white text-3xl sm:text-5xl md:text-6xl drop-shadow-[0_6px_12px_rgba(0,0,0,0.8)] mb-8 text-center relative z-10 w-full px-4"
                     style={{ WebkitTextStroke: '2px black' }}>
                     DRAGON'S HOARD LEADERBOARD
                 </h1>
 
                 {/* ─── PODIUM ────────────────────────────────────────── */}
                 <div className="flex items-end justify-center gap-2 sm:gap-6 md:gap-12 mb-8 relative z-10 w-full px-4 mx-auto max-w-5xl flex-shrink-0">
-                    
+
                     {/* 2nd Place */}
                     <div className="flex flex-col items-center z-10 w-[30%] max-w-[200px] transform translate-y-6 sm:translate-y-10 hover:-translate-y-2 hover:scale-105 transition-all duration-300">
                         <div className="relative">
-                            <img src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${top2.name}&backgroundColor=transparent`} 
-                                 className="w-24 h-24 sm:w-36 sm:h-36 object-contain drop-shadow-[0_8px_4px_rgba(0,0,0,0.5)]" alt="2nd place avatar" />
+                            <img src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${top2.name}&backgroundColor=transparent`}
+                                className="w-24 h-24 sm:w-36 sm:h-36 object-contain drop-shadow-[0_8px_4px_rgba(0,0,0,0.5)]" alt="2nd place avatar" />
                             <div className="absolute -bottom-4 -left-3 sm:-left-6 w-10 h-10 sm:w-14 sm:h-14 bg-gradient-to-br from-gray-200 to-gray-400 rounded-full border-[3px] border-black flex items-center justify-center shadow-[0_4px_0_#111] comic-title text-black text-sm sm:text-xl">
                                 2nd
                             </div>
@@ -144,8 +144,8 @@ export default function LeaderboardPage() {
                     {/* 1st Place */}
                     <div className="flex flex-col items-center z-20 w-[40%] max-w-[280px] hover:-translate-y-4 hover:scale-110 transition-all duration-300">
                         <div className="relative">
-                            <img src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${top1.name}&backgroundColor=transparent`} 
-                                 className="w-32 h-32 sm:w-48 sm:h-48 md:w-56 md:h-56 object-contain drop-shadow-[0_12px_8px_rgba(0,0,0,0.6)]" alt="1st place avatar" />
+                            <img src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${top1.name}&backgroundColor=transparent`}
+                                className="w-32 h-32 sm:w-48 sm:h-48 md:w-56 md:h-56 object-contain drop-shadow-[0_12px_8px_rgba(0,0,0,0.6)]" alt="1st place avatar" />
                         </div>
                         <div className="bg-[#e63329] border-4 border-black rounded-xl px-4 sm:px-8 py-2 sm:py-3 mt-4 text-white font-black whitespace-nowrap shadow-[0_8px_0_#111] relative comic-title text-sm sm:text-xl md:text-2xl transform sm:scale-110 w-full text-center z-10">
                             <span className="relative z-10">1st Place: {top1.name.split('_')[0]}</span>
@@ -160,8 +160,8 @@ export default function LeaderboardPage() {
                     {/* 3rd Place */}
                     <div className="flex flex-col items-center z-10 w-[30%] max-w-[200px] transform translate-y-8 sm:translate-y-12 hover:-translate-y-2 hover:scale-105 transition-all duration-300">
                         <div className="relative">
-                            <img src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${top3rd.name}&backgroundColor=transparent`} 
-                                 className="w-24 h-24 sm:w-36 sm:h-36 object-contain drop-shadow-[0_8px_4px_rgba(0,0,0,0.5)]" alt="3rd place avatar" />
+                            <img src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${top3rd.name}&backgroundColor=transparent`}
+                                className="w-24 h-24 sm:w-36 sm:h-36 object-contain drop-shadow-[0_8px_4px_rgba(0,0,0,0.5)]" alt="3rd place avatar" />
                             <div className="absolute -bottom-4 -left-3 sm:-left-6 w-10 h-10 sm:w-14 sm:h-14 bg-gradient-to-br from-[#cd7f32] to-[#8b5a2b] rounded-full border-[3px] border-black flex items-center justify-center shadow-[0_4px_0_#111] comic-title text-white text-sm sm:text-xl transform -rotate-12">
                                 3rd
                             </div>
@@ -182,10 +182,10 @@ export default function LeaderboardPage() {
                     <div className="p-4 sm:p-6 pb-2 border-b-[3px] border-gray-200 flex-shrink-0 bg-white shadow-sm z-10">
                         <h2 className="comic-title text-center text-2xl sm:text-3xl text-black tracking-wide">LEADERBOARD LIST</h2>
                     </div>
-                    
+
                     <div className="overflow-y-auto w-full custom-scrollbar flex-1 relative bg-white pb-6 pt-2">
                         {loading && <div className="absolute inset-0 flex items-center justify-center text-xl comic-title">Loading...</div>}
-                        
+
                         <table className="w-full text-left min-w-[600px] border-separate border-spacing-y-2 px-4 sm:px-8 relative">
                             <thead className="bg-white z-10">
                                 <tr>
@@ -205,7 +205,7 @@ export default function LeaderboardPage() {
                                 {others.map((u, i) => {
                                     // Calculate progress relative to rank 1 (capped at 100%, min 5%)
                                     const levelPct = Math.min(100, Math.max(5, Math.floor((u.totalPoints / top1Pct) * 100)));
-                                    
+
                                     // Fun fake badges for visually matching the design
                                     let badgeLabel = "ADVANCED";
                                     if (u.rank && u.rank <= 5) badgeLabel = "EXPERT";
@@ -223,16 +223,16 @@ export default function LeaderboardPage() {
                                             <td className="py-3 px-6">
                                                 {/* Custom Progress Bar matching design */}
                                                 <div className="flex items-center w-full max-w-[250px] mx-auto h-6 sm:h-7 bg-red-50 border-[3px] border-[#111] rounded-full relative z-0 shadow-[0_2px_0_rgba(255,255,255,1)] overflow-visible">
-                                                    
+
                                                     {/* The Red Fill */}
-                                                    <div className="absolute left-0 top-0 bottom-0 bg-[#e63329] rounded-l-full flex items-center pl-3 sm:pl-4 font-bold text-[9px] sm:text-[11px] text-white tracking-widest z-10 transition-all duration-1000 ease-out border-y-[1px] border-l-[1px] border-[#c62020]" 
-                                                         style={{ width: `${levelPct}%` }}>
+                                                    <div className="absolute left-0 top-0 bottom-0 bg-[#e63329] rounded-l-full flex items-center pl-3 sm:pl-4 font-bold text-[9px] sm:text-[11px] text-white tracking-widest z-10 transition-all duration-1000 ease-out border-y-[1px] border-l-[1px] border-[#c62020]"
+                                                        style={{ width: `${levelPct}%` }}>
                                                         <span className="truncate pr-4 text-shadow-sm">Fire Level: {levelPct}%</span>
                                                     </div>
-                                                    
+
                                                     {/* The Black Pill Cap matching image */}
-                                                    <div className="absolute top-1/2 -translate-y-1/2 w-4 sm:w-5 bg-black rounded-full z-20 border-[2px] border-black shadow-[0_2px_0_#555]" 
-                                                         style={{ left: `calc(${levelPct}% - 6px)`, height: '140%' }}></div>
+                                                    <div className="absolute top-1/2 -translate-y-1/2 w-4 sm:w-5 bg-black rounded-full z-20 border-[2px] border-black shadow-[0_2px_0_#555]"
+                                                        style={{ left: `calc(${levelPct}% - 6px)`, height: '140%' }}></div>
                                                 </div>
                                             </td>
                                             <td className="py-3 px-6">
@@ -258,17 +258,18 @@ export default function LeaderboardPage() {
                 <Link href="/privacy" className="hover:underline hover:text-yellow-200 transition-colors hidden sm:block">Privacy Policy</Link>
                 <Link href="/terms" className="hover:underline hover:text-yellow-200 transition-colors hidden sm:block">Terms of Service</Link>
                 <Link href="/contact" className="hover:underline hover:text-yellow-200 transition-colors hidden sm:block">Contact</Link>
-                
+
                 <span className="text-white/80 scale-90 sm:scale-100 font-medium">© 2024 Reading Adventure. All rights reserved.</span>
-                
+
                 {/* Cute Monster peeking from bottom matching design */}
                 <div className="absolute bottom-0 right-[5%] sm:right-[15%] w-16 h-16 sm:w-20 sm:h-20 pointer-events-none overflow-hidden flex items-end">
-                    <img src="https://api.dicebear.com/7.x/bottts/svg?seed=monstra&backgroundColor=transparent&primaryColor=e63329" 
-                         className="w-full h-[80%] object-cover object-top transform translate-y-2" alt="peeking monster" />
+                    <img src="https://api.dicebear.com/7.x/bottts/svg?seed=monstra&backgroundColor=transparent&primaryColor=e63329"
+                        className="w-full h-[80%] object-cover object-top transform translate-y-2" alt="peeking monster" />
                 </div>
             </footer>
 
-            <style dangerouslySetInnerHTML={{__html: `
+            <style dangerouslySetInnerHTML={{
+                __html: `
                 .custom-scrollbar::-webkit-scrollbar {
                     width: 8px;
                 }
