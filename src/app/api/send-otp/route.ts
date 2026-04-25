@@ -27,6 +27,8 @@ export async function POST(request: Request) {
         if (dbError) {
             console.error('Failed to save OTP to database:', dbError);
             return NextResponse.json({ error: 'Failed to generate OTP' }, { status: 500 });
+        }
+
         // Send via AuthKey using Default Template.
         // We removed `sid=38874` because AuthKey threw "Both SID and SMS not allowed".
         // Instead, we just pass the exact literal string.

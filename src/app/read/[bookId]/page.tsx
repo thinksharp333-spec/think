@@ -642,7 +642,7 @@ export default function ReadPage() {
     }, [atLastPage]);
 
     return (
-        <div className="h-[100dvh] w-full flex flex-col overflow-hidden"
+        <div className="fixed inset-0 w-full h-full flex flex-col overflow-hidden select-none"
             style={{ backgroundColor: '#2e2e2e', backgroundImage: 'url(/reader-bg.png)', backgroundSize: '600px 600px', backgroundRepeat: 'repeat' }}>
 
             {/* ─── HEADER ─── */}
@@ -725,10 +725,10 @@ export default function ReadPage() {
             </header>
 
             {/* ─── MAIN ─── */}
-            <main className="relative z-10 flex-1 flex flex-col overflow-hidden px-2 md:px-4 pt-2 md:pt-4 pb-2 md:pb-3 gap-2 md:gap-3 [@media(max-height:500px)]:pt-1 [@media(max-height:500px)]:pb-1 [@media(max-height:500px)]:gap-1">
+            <main className="relative z-10 flex-1 flex flex-col overflow-hidden px-2 md:px-4 pt-4 md:pt-4 pb-4 md:pb-4 gap-4 md:gap-6 [@media(max-height:500px)]:pt-2 [@media(max-height:500px)]:pb-2 [@media(max-height:500px)]:gap-2">
 
                 {/* ── Book + side arrows ── */}
-                <div className="flex-1 min-h-0 flex items-stretch justify-center relative w-full mx-auto max-w-5xl">
+                <div className="flex-1 min-h-0 flex items-center justify-center relative w-full mx-auto max-w-5xl">
 
                     {/* Prev arrow - relative on md, absolute on small */}
                     <div className="hidden sm:flex items-center mr-3 z-30">
@@ -751,7 +751,7 @@ export default function ReadPage() {
                     </button>
 
                     {/* Book frame */}
-                    <div className="flex-1 min-w-0 h-full relative"
+                    <div className="flex-1 min-w-0 h-full max-h-full relative"
                         style={{
                             background: 'linear-gradient(165deg, #c0352b 0%, #8c2019 45%, #6b1812 100%)',
                             borderRadius: '6px 16px 16px 6px',
@@ -759,7 +759,7 @@ export default function ReadPage() {
                         }}>
                         <div className="absolute inset-0 p-[4px_6px_4px_12px] md:p-[10px_14px_10px_22px] pointer-events-none" />
 
-                        <div className="w-full h-full p-[4px_6px_4px_12px] md:p-[10px_14px_10px_22px]">
+                        <div className="w-full h-full p-[8px_8px_8px_14px] md:p-[12px_12px_12px_22px]">
                             {/* Spine */}
                             <div className="absolute top-0 bottom-0 left-0 w-[12px] md:w-[18px] z-20 pointer-events-none"
                                 style={{ background: 'linear-gradient(90deg, #3d0d0a 0%, #5e1510 40%, #7a1c14 70%, transparent 100%)', borderRadius: '6px 0 0 6px', boxShadow: '3px 0 10px rgba(0,0,0,0.4)' }} />

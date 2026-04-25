@@ -8,7 +8,23 @@ import { supabase } from "@/lib/supabase";
 
 export default function LandingPage() {
   const { user } = useUser();
-  const isLoggedIn = user && user.id !== "local-user";
+  const [mounted, setMounted] = useState(false);
+  const [hasSupabaseSession, setHasSupabaseSession] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    // Direct check for supabase session to avoid lag in dexie sync
+    async function checkSession() {
+      if (!supabase) return;
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        setHasSupabaseSession(true);
+      }
+    }
+    checkSession();
+  }, []);
+
+  const isLoggedIn = mounted && (hasSupabaseSession || (user && user.id !== "local-user"));
 
   const howItWorks = [
     {
@@ -114,7 +130,7 @@ export default function LandingPage() {
             ) : (
               <Link href="/signup" className="btn-red py-1.5 px-4 md:py-2.5 md:px-6 text-xs md:text-sm whitespace-nowrap shadow-[0_4px_0_#991b1b]">
                 <User className="h-4 w-4 md:mr-1 inline-block" />
-                <span className="hidden sm:inline">Join Now</span>
+                <span className="hidden sm:inline">Register</span>
               </Link>
             )}
           </div>
@@ -146,7 +162,7 @@ export default function LandingPage() {
             </p>
             <div className="mt-10 flex flex-wrap gap-4 animate-pop-in" style={{ animationDelay: "240ms" }}>
               <Link href={isLoggedIn ? "/dashboard" : "/signup"} className="btn-red text-lg px-10 py-5">
-                Start Reading <Star className="h-5 w-5 fill-white" />
+                {isLoggedIn ? "Continue Reading" : "Start Reading"} <Star className="h-5 w-5 fill-white" />
               </Link>
               <Link href="#reviews" className="btn-outline text-base px-8 py-5">
                 Reviews <ArrowRight className="h-5 w-5" />
@@ -331,20 +347,9 @@ export default function LandingPage() {
                   {featuredBook.info}
                 </p>
                 <div className="mt-8 flex flex-wrap items-center gap-4">
-                  {isLoggedIn ? (
-                    <Link href="/dashboard" className="btn-red text-sm px-8 py-4">
-                      Read This Book <ArrowRight className="h-4 w-4" />
-                    </Link>
-                  ) : (
-                    <>
-                      <Link href="/signup" className="btn-outline text-sm px-6 py-4">
-                        <ArrowRight className="h-4 w-4" /> Join the Club
-                      </Link>
-                      <Link href="/login" className="btn-outline text-sm px-6 py-4">
-                        <LogIn className="h-4 w-4" /> Login
-                      </Link>
-                    </>
-                  )}
+                  <Link href={isLoggedIn ? "/dashboard" : "/signup"} className="btn-red text-sm px-8 py-4">
+                    Read This Book <ArrowRight className="h-4 w-4" />
+                  </Link>
                 </div>
               </div>
             </div>

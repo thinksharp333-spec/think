@@ -147,10 +147,7 @@ export default function SignUpPage() {
 
             // Set as current local user
             await db.users.delete('local-user');
-            await db.users.put({
-                ...userData,
-                id: 'local-user'
-            });
+            await db.users.put(userData);
 
             // Set session cookie for middleware
             document.cookie = `user_session=${id}; path=/; max-age=86400`;

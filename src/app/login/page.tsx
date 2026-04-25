@@ -38,7 +38,7 @@ export default function LoginPage() {
                         // SYNC DOWN: Update local DB with latest cloud data
                         // Map Supabase snake_case columns to local camelCase
                         await db.users.put({
-                            id: 'local-user',
+                            id: data.id,
                             name: data.name || 'Student',
                             mobile: data.mobile || '',
                             password: data.password,
@@ -59,7 +59,7 @@ export default function LoginPage() {
                 if (user) {
                     await db.users.delete('local-user');
                     await db.users.put({
-                        id: 'local-user',
+                        id: user.id,
                         name: user.name || 'Student',
                         mobile: user.mobile || '',
                         password: user.password,

@@ -51,18 +51,27 @@ export function PdfReader({
 
     const computeWidth = () => {
         if (!containerRef.current) return;
-        const w = containerRef.current.clientWidth;
-        const h = containerRef.current.clientHeight;
+        
+        // Use virtually all available space, but keep a 6% "safe zone"
+        // for varying screen aspect ratios to guarantee visibility.
+        const w = Math.floor(containerRef.current.clientWidth * 0.98);
+        const h = Math.floor(containerRef.current.clientHeight * 0.94);
+        
+        if (w <= 0 || h <= 0) return;
+
         let effective: number;
         if (twoPageView) {
-            effective = Math.floor((w - 6) / 2);
+            effective = Math.floor((w - 10) / 2);
         } else {
-            // Fit within both dimensions using known aspect ratio (fall back to full width until known)
+            // Fit within both dimensions using known aspect ratio
             const aspect = pageAspectRef.current;
             const maxWFromHeight = aspect && h > 0 ? Math.floor(h * aspect) : w;
+            
+            // Final fit ensures we respect the 6% safe height gutter
             effective = Math.min(w, maxWFromHeight);
         }
-        if (effective > 0 && Math.abs(effective - stableWidth.current) > 10) {
+
+        if (effective > 0 && (Math.abs(effective - stableWidth.current) > 2 || stableWidth.current === 400)) {
             stableWidth.current = effective;
             setPageWidth(effective);
         }
@@ -164,11 +173,13 @@ export function PdfReader({
         finally { setDownloading(false); }
     }
 
+    const memoizedOptions = useMemo(() => PDF_OPTIONS, []);
+
     const leftPage = Math.min(pageNumber, numPages || pageNumber);
     const rightPage = pageNumber + 1;
 
     return (
-        <div ref={containerRef} className="w-full h-full flex items-center justify-center relative overflow-hidden">
+        <div ref={containerRef} className="w-full h-full flex flex-col items-center justify-center relative overflow-hidden bg-[#faf6ed]">
             {!isOfflineReady && (
                 <button onClick={handleDownload} disabled={downloading}
                     className="absolute top-3 right-3 z-40 bg-green-600 text-white p-2 rounded-full shadow-lg hover:bg-green-700 disabled:opacity-50 transition-all hover:scale-110"
@@ -190,15 +201,15 @@ export function PdfReader({
                     file={activeUrl}
                     onLoadSuccess={onDocumentLoadSuccess}
                     onLoadError={(err) => { console.error("PDF Error:", err); setLoading(false); }}
-                    options={PDF_OPTIONS}
+                    options={memoizedOptions}
                     loading={null}
-                    className="w-full h-full flex items-center justify-center"
+                    className="flex flex-col items-center justify-center anim-page-fade-in"
                 >
                     {numPages > 0 && pageWidth > 0 && (
                         twoPageView ? (
-                            <div className="flex h-full items-center justify-center">
+                            <div className="flex items-center justify-center gap-1">
                                 {/* Left page */}
-                                <div className="flex items-center justify-center overflow-hidden">
+                                <div className="shadow-lg border border-black/5 bg-white overflow-hidden">
                                     <Page
                                         key={`${activeUrl}-L-${leftPage}`}
                                         pageNumber={leftPage}
@@ -207,14 +218,12 @@ export function PdfReader({
                                         renderAnnotationLayer={false}
                                         renderTextLayer={false}
                                         loading={null}
-                                        className="max-h-full"
                                     />
                                 </div>
-                                {/* Centre spine shadow */}
-                                <div className="flex-shrink-0 self-stretch w-[5px]"
-                                    style={{ background: 'linear-gradient(90deg, rgba(0,0,0,0.14), rgba(0,0,0,0.03) 60%, transparent)' }} />
+                                {/* Centre spine shadow - narrow */}
+                                <div className="flex-shrink-0 self-stretch w-[1px] bg-black/5" />
                                 {/* Right page */}
-                                <div className="flex items-center justify-center overflow-hidden">
+                                <div className="shadow-lg border border-black/5 bg-white overflow-hidden">
                                     {rightPage <= numPages ? (
                                         <Page
                                             key={`${activeUrl}-R-${rightPage}`}
@@ -224,7 +233,6 @@ export function PdfReader({
                                             renderAnnotationLayer={false}
                                             renderTextLayer={false}
                                             loading={null}
-                                            className="max-h-full"
                                         />
                                     ) : (
                                         <div style={{ width: pageWidth }}
@@ -235,16 +243,18 @@ export function PdfReader({
                                 </div>
                             </div>
                         ) : (
-                            <Page
-                                key={`${activeUrl}-${leftPage}`}
-                                pageNumber={leftPage}
-                                width={pageWidth}
-                                onLoadSuccess={onPageLoadSuccess}
-                                renderAnnotationLayer={false}
-                                renderTextLayer={false}
-                                loading={null}
-                                className="max-w-full max-h-full"
-                            />
+                            <div className="shadow-2xl border border-black/5 bg-white overflow-hidden max-w-full max-h-full">
+                                <Page
+                                    key={`${activeUrl}-${leftPage}`}
+                                    pageNumber={leftPage}
+                                    width={pageWidth}
+                                    onLoadSuccess={onPageLoadSuccess}
+                                    renderAnnotationLayer={false}
+                                    renderTextLayer={false}
+                                    loading={null}
+                                    className="max-h-full"
+                                />
+                            </div>
                         )
                     )}
                 </Document>
@@ -289,6 +299,8 @@ export function PdfScrollThumbnails({ url, book, numPages, activePage, onPageCli
         [numPages]
     );
 
+    const memoizedOptions = useMemo(() => PDF_OPTIONS, []);
+
     if (numPages === 0) return (
         <div className="flex gap-2 items-center">
             {[1, 2, 3, 4, 5].map(i => (
@@ -302,7 +314,7 @@ export function PdfScrollThumbnails({ url, book, numPages, activePage, onPageCli
         <Document
             key={`scroll-${activeUrl}`}
             file={activeUrl}
-            options={PDF_OPTIONS}
+            options={memoizedOptions}
             loading={null}
             className="flex gap-2 items-center"
         >

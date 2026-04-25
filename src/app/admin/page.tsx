@@ -2,11 +2,11 @@
 
 import { useBooks } from "@/hooks/useBooks";
 import { Book, db, User, getSyncKey } from "@/lib/db";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import { generateCoverFromPdf } from "@/lib/pdf-utils";
 import { useLiveQuery } from "dexie-react-hooks";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Trash2, Plus, BookOpen, GraduationCap, MapPin, Search, Cloud, Download, Loader2, LayoutDashboard, CheckCircle2 } from "lucide-react";
+import { Trash2, Plus, BookOpen, GraduationCap, MapPin, Search, Cloud, Download, Loader2, LayoutDashboard, CheckCircle2, ChevronDown, ChevronRight } from "lucide-react";
 import { Dropdown } from "@/components/dropdown";
 import { fetchDriveContents, fetchDriveItem, getDirectDownloadUrl, DriveItem } from "@/lib/google-drive";
 import Link from "next/link";
@@ -98,6 +98,17 @@ export default function AdminDashboard() {
     });
 
     const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
+    const [expandedLangs, setExpandedLangs] = useState<string[]>([]);
+    const [expandedLevels, setExpandedLevels] = useState<string[]>([]);
+
+    const toggleLang = (lang: string) => {
+        setExpandedLangs(prev => prev.includes(lang) ? prev.filter(l => l !== lang) : [...prev, lang]);
+    };
+
+    const toggleLevel = (lang: string, level: string) => {
+        const key = `${lang}-${level}`;
+        setExpandedLevels(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
+    };
 
     // Google Drive Import State
     const [folderId, setFolderId] = useState("");
@@ -410,34 +421,34 @@ export default function AdminDashboard() {
             const discoveredBooks: Book[] = [];
 
             // Metadata Detection Helper
-            const detectMetadata = (name: string, current: { level?: string, subject?: string, language?: string }) => {
+            const detectMetadata = (name: string, depth: number, current: { level?: string, subject?: string, language?: string }) => {
                 const nameLower = name.trim().toLowerCase();
                 let nextLevel = current.level;
                 let nextSubject = current.subject;
                 let nextLanguage = current.language;
 
-                // 1. Language Detection
-                if (nameLower.includes("english")) nextLanguage = "English";
-                else if (nameLower.includes("hindi")) nextLanguage = "Hindi";
-                else if (nameLower.includes("marathi")) {
-                    if (nameLower.includes("marathi-english")) nextLanguage = "Marathi-English";
+                // 1. Language Detection (Prioritize Root Labels)
+                if (nameLower === "english" || nameLower.includes("english")) nextLanguage = "English";
+                else if (nameLower === "hindi" || nameLower.includes("hindi")) nextLanguage = "Hindi";
+                else if (nameLower === "marathi" || nameLower.includes("marathi")) {
+                    if (nameLower.includes("marathi-english") || nameLower.includes("english")) nextLanguage = "Marathi-English";
                     else nextLanguage = "Marathi";
                 }
                 else if (nameLower.includes("gujarati")) nextLanguage = "Gujarati";
 
-                // 2. Level Detection (Flexible: Level 4, Grade 4, L4, or just "4")
-                const levelMatch = name.match(/(?:level|lv|grade|std|class|l|g)\s*(\d+)/i);
+                // 2. Level Detection (Flexible: Level 4, Grade 4, L4, Level-4, or just "4")
+                const levelMatch = name.match(/(?:level|lv|grade|std|class|l|g|lvl)[-\s]*(\d+)/i);
                 if (levelMatch) {
                     nextLevel = levelMatch[1];
-                } else if (/(\d+)$/.test(name.trim())) {
-                    // If the folder name ends in a digit (e.g. "Math 4")
+                } else if (/(\d+)$/.test(name.trim()) && depth < 3) {
+                    // Only use suffix numbers for levels if we aren't too deep (to avoid page counts or other numbers)
                     const match = name.trim().match(/(\d+)$/);
                     if (match) nextLevel = match[1];
                 }
 
                 // 3. Subject Detection (Non-category folders)
-                const isPureCategoryFolder = /^(?:english|hindi|marathi|gujarati|level|grade|std|class|combined)\s*\d*$/i.test(nameLower);
-                if (!isPureCategoryFolder) {
+                const isPureCategoryFolder = /^(?:english|hindi|marathi|gujarati|level|grade|std|class|combined|level-\d+)\s*\d*$/i.test(nameLower);
+                if (!isPureCategoryFolder && name.trim().length > 3) {
                     nextSubject = name.trim();
                 }
 
@@ -468,7 +479,7 @@ export default function AdminDashboard() {
                     const targetId = isShortcut ? (folder as any).shortcutDetails?.targetId : folder.id;
                     if (!targetId) continue;
 
-                    let { level: nextLevel, subject: nextSubject, language: nextLanguage } = detectMetadata(folder.name, {
+                    let { level: nextLevel, subject: nextSubject, language: nextLanguage } = detectMetadata(folder.name, depth + 1, {
                         level: currentLevel,
                         subject: currentSubject,
                         language: currentLanguage
@@ -501,7 +512,7 @@ export default function AdminDashboard() {
             const rootInfo = await fetchDriveItem(rootId);
 
             // Detect initial metadata from root folder name, using user selections as baseline
-            const initialMeta = detectMetadata(rootInfo.name, {
+            const initialMeta = detectMetadata(rootInfo.name, 0, {
                 level: scanLevel || undefined,
                 subject: rootInfo.name,
                 language: scanLanguage
@@ -528,170 +539,160 @@ export default function AdminDashboard() {
     const handleImportAll = async () => {
         if (scanResults.length === 0) return;
         setImporting(true);
+        setScanStatus("Importing books...");
         let importedCount = 0;
+        let errorCount = 0;
+
         try {
             // Deduplicate scan results by normalized composite key
             const uniqueResults = Array.from(new Map(
                 scanResults.map(item => [getSyncKey(item), item])
             ).values());
 
-            for (const book of uniqueResults) {
-                setScanStatus(`Importing Content: ${book.title}...`);
-
-                let pdfBlob: Blob | undefined;
-                // We ALWAYS fetch the blob temporarily if we want to generate a cover, 
-                // even if we don't store it locally permanently.
+            for (let i = 0; i < uniqueResults.length; i++) {
+                const book = uniqueResults[i];
                 try {
-                    // Use the proxy API to avoid CORS issues
-                    const proxyUrl = `/api/proxy-pdf?fileId=${book.fileId}`;
-                    const response = await fetch(proxyUrl);
-                    if (response.ok) {
-                        pdfBlob = await response.blob();
-                    }
-                } catch (e) {
-                    console.error(`Failed to fetch PDF for ${book.title} via proxy`, e);
-                }
+                    setScanStatus(`[${i + 1}/${uniqueResults.length}] Importing: ${book.title}...`);
 
-                // Match existing book by normalized composite key
-                const sKey = getSyncKey(book);
-                const localBooks = await db.books.toArray();
-                const existing = localBooks.find(lb => getSyncKey(lb) === sKey);
-
-                let questions = existing?.questions || [];
-
-                // Generate quiz questions if missing or dummy
-                if (isDummyQuiz(questions) && pdfBlob) {
+                    let pdfBlob: Blob | undefined;
+                    // We ALWAYS fetch the blob temporarily if we want to generate a cover, 
+                    // even if we don't store it locally permanently.
                     try {
-                        setScanStatus(`Generating Quiz: ${book.title}...`);
-                        const { text: extractedText, wordCount } = await extractTextFromPdf(
-                            pdfBlob,
-                            Number(book.pages || 0)
-                        ).catch(() => ({ text: '', wordCount: 0 }));
+                        // Use the proxy API to avoid CORS issues
+                        const proxyUrl = `/api/proxy-pdf?fileId=${book.fileId}`;
+                        const response = await fetch(proxyUrl);
+                        if (response.ok) {
+                            pdfBlob = await response.blob();
+                        }
+                    } catch (e) {
+                        console.error(`Failed to fetch PDF for ${book.title} via proxy`, e);
+                    }
 
-                        if (extractedText) {
-                            const qRes = await fetch('/api/generate-questions', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    text: extractedText,
-                                    wordCount,
-                                    pages: book.pages,
-                                    title: book.title,
-                                    grade: book.grade || "Grade 10",
-                                    level: book.level || "1",
-                                    subject: book.subject || "Science",
-                                }),
-                            });
-                            if (qRes.ok) {
-                                const qData = await qRes.json();
-                                const generated = qData.questions || [];
-                                if (!isDummyQuiz(generated)) questions = generated;
+                    // Match existing book by normalized composite key
+                    const sKey = getSyncKey(book);
+                    const localBooks = await db.books.toArray();
+                    const existing = localBooks.find(lb => getSyncKey(lb) === sKey);
+
+                    let questions = existing?.questions || [];
+
+                    // ─── DECOUPLED QUIZ GENERATION ───
+                    // We no longer wait for AI generation here to avoid rate limits and timeouts.
+                    // The background worker (processQuizQueue) will pick these up automatically.
+
+                    // Extract and cache text if not already cached (needed for background quiz worker)
+                    let cachedText = existing?.extractedText || "";
+                    let cachedWordCount = existing?.extractedWordCount || 0;
+                    if (!cachedText && pdfBlob) {
+                        try {
+                            const extracted = await extractTextFromPdf(pdfBlob, Number(book.pages || 0))
+                                .catch(() => ({ text: '', wordCount: 0 }));
+                            cachedText = extracted.text;
+                            cachedWordCount = extracted.wordCount;
+                        } catch (extError) {
+                            console.warn(`Text extraction failed for ${book.title}`, extError);
+                        }
+                    }
+
+                    await db.books.put({
+                        ...book,
+                        id: existing?.id,
+                        questions,
+                        extractedText: cachedText || undefined,
+                        extractedWordCount: cachedWordCount || undefined,
+                        pdfBlob: storeLocally ? (pdfBlob || existing?.pdfBlob) : undefined
+                    });
+
+                    // Global Sharing: Upload to Supabase
+                    if (supabase) {
+                        let finalPdfUrl = book.pdfUrl;
+                        let finalCoverUrl = book.coverUrl;
+
+                        // 1. Handle Cover (Always Generate from PDF for consistency)
+                        if (pdfBlob) {
+                            try {
+                                const coverBlob = await generateCoverFromPdf(pdfBlob);
+                                if (coverBlob) {
+                                    const coverName = `covers/${book.fileId || 'v'}_${Date.now()}.jpg`;
+                                    const { data: cData, error: cError } = await supabase.storage
+                                        .from('books')
+                                        .upload(coverName, coverBlob, {
+                                            contentType: 'image/jpeg',
+                                            upsert: false
+                                        });
+
+                                    if (cData) {
+                                        const { data: { publicUrl } } = supabase.storage
+                                            .from('books')
+                                            .getPublicUrl(coverName);
+                                        finalCoverUrl = publicUrl;
+                                    }
+                                }
+                            } catch (covErr) {
+                                console.error(`Cover generation/upload failed for ${book.title}`, covErr);
                             }
                         }
-                    } catch (qe) {
-                        console.error(`Quiz generation failed for ${book.title}:`, qe);
-                    }
-                }
 
-                // Extract and cache text if not already cached
-                let cachedText = existing?.extractedText || "";
-                let cachedWordCount = existing?.extractedWordCount || 0;
-                if (!cachedText && pdfBlob) {
-                    const extracted = await extractTextFromPdf(pdfBlob, Number(book.pages || 0))
-                        .catch(() => ({ text: '', wordCount: 0 }));
-                    cachedText = extracted.text;
-                    cachedWordCount = extracted.wordCount;
-                }
-
-                await db.books.put({
-                    ...book,
-                    id: existing?.id,
-                    questions,
-                    extractedText: cachedText || undefined,
-                    extractedWordCount: cachedWordCount || undefined,
-                    pdfBlob: storeLocally ? (pdfBlob || existing?.pdfBlob) : undefined
-                });
-
-                // Global Sharing: Upload to Supabase
-                if (supabase) {
-                    setScanStatus(`Sharing Globally: ${book.title}...`);
-                    let finalPdfUrl = book.pdfUrl;
-                    let finalCoverUrl = book.coverUrl;
-
-                    // 1. Handle Cover (Always Generate from PDF for consistency)
-                    if (pdfBlob) {
-                        setScanStatus(`Generating Cover: ${book.title}...`);
-                        const coverBlob = await generateCoverFromPdf(pdfBlob);
-                        if (coverBlob) {
-                            const coverName = `covers/${book.fileId || 'v'}_${Date.now()}.jpg`;
-                            const { data: cData, error: cError } = await supabase.storage
-                                .from('books')
-                                .upload(coverName, coverBlob, {
-                                    contentType: 'image/jpeg',
-                                    upsert: false
-                                });
-
-                            if (cData) {
-                                const { data: { publicUrl } } = supabase.storage
+                        // 2. Upload PDF to Storage
+                        if (pdfBlob) {
+                            try {
+                                const fileName = `${book.fileId || 'v'}_${Date.now()}.pdf`;
+                                const { data, error: uploadError } = await supabase.storage
                                     .from('books')
-                                    .getPublicUrl(coverName);
-                                finalCoverUrl = publicUrl;
-                            } else {
-                                console.error(`[CoverGen] Failed to upload cover for ${book.title}:`, cError);
+                                    .upload(fileName, pdfBlob, {
+                                        contentType: 'application/pdf',
+                                        upsert: false
+                                    });
+
+                                if (data && supabase) {
+                                    const { data: { publicUrl } } = supabase.storage
+                                        .from('books')
+                                        .getPublicUrl(fileName);
+                                    finalPdfUrl = publicUrl;
+                                }
+                            } catch (upErr) {
+                                console.error(`PDF storage upload failed for ${book.title}`, upErr);
                             }
                         }
-                    }
 
-                    // 2. Upload PDF to Storage
-                    if (pdfBlob) {
-                        const fileName = `${book.fileId || 'v'}_${Date.now()}.pdf`;
-                        const { data, error: uploadError } = await supabase.storage
+                        // 3. Save metadata to shared books table
+                        const { error: dbError } = await supabase
                             .from('books')
-                            .upload(fileName, pdfBlob, {
-                                contentType: 'application/pdf',
-                                upsert: false
-                            });
+                            .upsert({
+                                title: book.title,
+                                fileId: book.fileId,
+                                grade: book.grade,
+                                pages: book.pages,
+                                pdfUrl: finalPdfUrl,
+                                level: book.level,
+                                subject: book.subject,
+                                language: book.language,
+                                coverUrl: finalCoverUrl,
+                                questions: questions,
+                            }, { onConflict: 'title,level,language,subject' });
 
-                        if (data && supabase) {
-                            const { data: { publicUrl } } = supabase.storage
-                                .from('books')
-                                .getPublicUrl(fileName);
-                            finalPdfUrl = publicUrl;
-                        } else if (uploadError) {
-                            console.error(`[Supabase] Upload error for ${book.title}:`, uploadError);
+                        if (dbError) {
+                            console.error(`[Supabase] DB error for ${book.title}:`, dbError.message);
+                            errorCount++;
+                            continue;
                         }
                     }
 
-                    // 3. Save metadata to shared books table
-                    const { error: dbError } = await supabase
-                        .from('books')
-                        .upsert({
-                            title: book.title,
-                            fileId: book.fileId,
-                            grade: book.grade,
-                            pages: book.pages,
-                            pdfUrl: finalPdfUrl,
-                            level: book.level,
-                            subject: book.subject,
-                            language: book.language,
-                            coverUrl: finalCoverUrl,
-                            questions: questions,
-                        }, { onConflict: 'title,level,language,subject' }); // Match composite unique constraint
-
-                    if (dbError) {
-                        console.error(`[Supabase] DB error for ${book.title}:`, dbError.message, dbError.details);
-                        alert(`Cloud save failed for "${book.title}": ${dbError.message}\n\nDid you run the SQL command in Supabase?`);
-                        throw new Error(`Supabase error: ${dbError.message}`);
-                    }
+                    importedCount++;
+                } catch (itemError) {
+                    console.error(`Critical failure importing "${book.title}":`, itemError);
+                    errorCount++;
                 }
-
-                importedCount++;
             }
 
             setScanResults([]);
             setFolderId("");
             await syncLibrary(); // Refresh local view from shared server
-            alert(`Successfully imported ${importedCount} books with full content!`);
+
+            if (errorCount > 0) {
+                alert(`Import Complete with issues.\n\nSuccessfully imported: ${importedCount} books.\nFailed: ${errorCount} books.\n\nQuizzes for new books will be generated in batches in the background over the next few minutes.`);
+            } else {
+                alert(`Successfully imported all ${importedCount} books!\n\nNote: Quizzes are being generated in the background.`);
+            }
         } catch (error: any) {
             alert("Import failed: " + error.message);
         } finally {
@@ -791,12 +792,14 @@ export default function AdminDashboard() {
         return (a.subject || '').localeCompare(b.subject || '');
     });
 
-    // Group sorted books by language for the table
-    const booksByLanguage: Record<string, typeof sortedBooks> = {};
+    // Group sorted books by Language and then Level
+    const booksByLanguageAndLevel: Record<string, Record<string, Book[]>> = {};
     for (const book of sortedBooks) {
         const lang = book.language || 'Unknown';
-        if (!booksByLanguage[lang]) booksByLanguage[lang] = [];
-        booksByLanguage[lang].push(book);
+        const level = book.level ? `Level ${book.level}` : 'No Level';
+        if (!booksByLanguageAndLevel[lang]) booksByLanguageAndLevel[lang] = {};
+        if (!booksByLanguageAndLevel[lang][level]) booksByLanguageAndLevel[lang][level] = [];
+        booksByLanguageAndLevel[lang][level].push(book);
     }
 
     return (
@@ -835,6 +838,93 @@ export default function AdminDashboard() {
                     </div>
                 </div>
             </header>
+
+            {/* ── Stats Grid (Moved Up) ── */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <StatCard icon={<BookOpen className="text-blue-500" />} label="Total Books" value={books?.length || 0} />
+                <StatCard icon={<GraduationCap className="text-green-500" />} label="Active Students" value={users.length} />
+                <StatCard icon={<MapPin className="text-orange-500" />} label="Schools Reached" value={selectedSchool ? 1 : "All"} />
+                <StatCard icon={<MapPin className="text-purple-500" />} label="Cities" value={selectedCity ? 1 : "All"} />
+            </div>
+
+            {/* ── Charts (Moved Up) ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h3 className="font-semibold mb-6">Books Read by School</h3>
+                    <div className="h-[256px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={schoolData}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                <XAxis dataKey="name" fontSize={12} />
+                                <YAxis fontSize={12} />
+                                <Tooltip />
+                                <Bar dataKey="booksRead" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h3 className="font-semibold mb-6">Active Students by District</h3>
+                    <div className="h-[256px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={districtData}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                <XAxis dataKey="name" fontSize={12} />
+                                <YAxis fontSize={12} />
+                                <Tooltip />
+                                <Bar dataKey="activeStudent" fill="#10b981" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            </div>
+
+            {/* ── Student Reports (Moved Up) ── */}
+            <section className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="p-6 border-b border-gray-100">
+                    <h3 className="text-lg font-bold flex items-center gap-2">
+                        <Search className="w-5 h-5 text-gray-500" />
+                        Student Reports
+                    </h3>
+                </div>
+                <div className="p-6 space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <Dropdown label="Select State" options={stateOptions} value={selectedState} onChange={handleStateChange} className="w-full" />
+                        <Dropdown label="Select City" options={cityOptions} value={selectedCity} onChange={handleCityChange} className="w-full" />
+                        <Dropdown label="Select Sector" options={sectorOptions} value={selectedSector} onChange={handleSectorChange} className="w-full" />
+                        <Dropdown label="Select School" options={schoolOptions} value={selectedSchool} onChange={setSelectedSchool} className="w-full" />
+                    </div>
+                    <div className="rounded-lg border border-gray-200 overflow-hidden">
+                        <table className="w-full text-sm text-left">
+                            <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-200">
+                                <tr>
+                                    <th className="p-4">Student Name</th>
+                                    <th className="p-4">Age</th>
+                                    <th className="p-4">School</th>
+                                    <th className="p-4">City</th>
+                                    <th className="p-4 text-right">Points</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {filteredStudents.map((student: User) => (
+                                    <tr key={student.id} className="hover:bg-gray-50">
+                                        <td className="p-4 font-medium text-gray-900">{student.name}</td>
+                                        <td className="p-4 text-gray-500">{student.age}</td>
+                                        <td className="p-4 text-gray-500">{student.school}</td>
+                                        <td className="p-4 text-gray-500">{student.city}</td>
+                                        <td className="p-4 text-right font-bold text-green-600">{student.totalPoints}</td>
+                                    </tr>
+                                ))}
+                                {filteredStudents.length === 0 && (
+                                    <tr>
+                                        <td colSpan={5} className="p-8 text-center text-gray-500">No students found.</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
 
             {/* ── Quick Actions ── */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -1063,6 +1153,39 @@ export default function AdminDashboard() {
                     )}
                 </div>
 
+                {/* Migration Hub */}
+                <div className="px-5 py-6 border-t border-blue-100 bg-blue-50/20">
+                    <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div className="space-y-1">
+                            <h4 className="text-sm font-bold text-blue-900 flex items-center gap-2">
+                                <Cloud className="w-4 h-4 text-blue-600" />
+                                Magic Migration Hub
+                            </h4>
+                            <p className="text-[10px] text-blue-500 max-w-sm">
+                                Clears the current library (Cloud & Local) and performs a deep recursive scan of the Root Drive folder to auto-populate the entire platform.
+                            </p>
+                        </div>
+                        <button 
+                            onClick={() => {
+                                const rootFolderId = "1ja2zembV0wp_QvVwFx5LV98_HxGU3rTX";
+                                if (confirm("⚠️ FULL RESET: Delete all current books and re-import EVERYTHING from the Root Drive folder?\n\nThis will take several minutes.")) {
+                                    setFolderId(rootFolderId);
+                                    handleClearLibrary(true).then(() => {
+                                        setTimeout(() => {
+                                            handleScan();
+                                        }, 1000);
+                                    });
+                                }
+                            }}
+                            disabled={scanning || importing}
+                            className="bg-indigo-600 text-white px-5 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest hover:bg-indigo-700 disabled:bg-gray-400 shadow-lg shadow-indigo-100 transition-all flex items-center gap-2"
+                        >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Reset & Re-import Entire Drive
+                        </button>
+                    </div>
+                </div>
+
                 {/* Danger Zone */}
                 <div className="px-5 py-4 border-t border-red-100 bg-red-50/30 flex flex-wrap items-center gap-3">
                     <span className="text-xs font-bold text-red-400 uppercase tracking-wider mr-1">Danger Zone:</span>
@@ -1081,7 +1204,7 @@ export default function AdminDashboard() {
                 </div>
             </section>
 
-            {/* ── Book Library (sorted: Language → Level → Subject) ── */}
+            {/* ── Book Library (Nested Accordions) ── */}
             <section className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="p-5 border-b border-gray-100 flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -1089,154 +1212,90 @@ export default function AdminDashboard() {
                         <h3 className="text-lg font-bold">Library</h3>
                         <span className="ml-1 px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full text-xs font-bold">{sortedBooks.length}</span>
                     </div>
-                    <p className="text-xs text-gray-400">Sorted by Language → Level → Subject</p>
                 </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="bg-gray-50 text-gray-500 text-xs font-semibold uppercase tracking-wider">
-                            <tr>
-                                <th className="px-4 py-3">Title</th>
-                                <th className="px-4 py-3">Subject</th>
-                                <th className="px-4 py-3 text-center">Level</th>
-                                <th className="px-4 py-3 text-center">Quiz</th>
-                                <th className="px-4 py-3 text-right">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {sortedBooks.length === 0 ? (
-                                <tr>
-                                    <td colSpan={5} className="px-4 py-10 text-center text-gray-400 text-sm">No books yet. Add one above.</td>
-                                </tr>
-                            ) : (
-                                Object.entries(booksByLanguage).map(([lang, langBooks]) => (
-                                    <>
-                                        <tr key={`header-${lang}`} className="bg-gray-100 border-y border-gray-200">
-                                            <td colSpan={5} className="px-4 py-2">
-                                                <span className="font-bold text-xs uppercase tracking-wider text-gray-600">{lang}</span>
-                                                <span className="ml-2 text-xs text-gray-400">{langBooks.length} book{langBooks.length !== 1 ? 's' : ''}</span>
-                                            </td>
-                                        </tr>
-                                        {langBooks.map((book) => (
-                                            <tr key={book.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                                                <td className="px-4 py-3 font-medium text-gray-900 max-w-xs truncate">{book.title}</td>
-                                                <td className="px-4 py-3 text-gray-500 text-xs">{book.subject}</td>
-                                                <td className="px-4 py-3 text-center">
-                                                    <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-xs font-bold">L{book.level}</span>
-                                                </td>
-                                                <td className="px-4 py-3 text-center">
-                                                    {book.questions && book.questions.length > 0 ? (
-                                                        <span title={`${book.questions.length} questions`} className="text-green-500">
-                                                            <CheckCircle2 className="w-4 h-4 inline" />
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-gray-300">—</span>
-                                                    )}
-                                                </td>
-                                                <td className="px-4 py-3 text-right">
-                                                    <button
-                                                        onClick={() => book.id && removeBook(book.id)}
-                                                        title="Delete Book"
-                                                        className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </td>
-                                            </tr>
+                
+                <div className="divide-y divide-gray-100">
+                    {sortedBooks.length === 0 ? (
+                        <div className="p-10 text-center text-gray-400 text-sm">No books yet. Add one above.</div>
+                    ) : (
+                        Object.entries(booksByLanguageAndLevel).map(([lang, levels]) => (
+                            <div key={lang} className="overflow-hidden">
+                                <button 
+                                    onClick={() => toggleLang(lang)}
+                                    className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors border-b border-gray-100"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        {expandedLangs.includes(lang) ? <ChevronDown className="w-5 h-5 text-slate-500" /> : <ChevronRight className="w-5 h-5 text-slate-400" />}
+                                        <span className="font-black text-sm uppercase tracking-widest text-slate-800">{lang}</span>
+                                    </div>
+                                    <span className="px-2 py-0.5 bg-slate-200 text-slate-600 rounded-full text-[10px] font-black">
+                                        {Object.values(levels).flat().length}
+                                    </span>
+                                </button>
+                                
+                                {expandedLangs.includes(lang) && (
+                                    <div className="bg-white">
+                                        {Object.entries(levels).map(([level, books]) => (
+                                            <div key={`${lang}-${level}`} className="border-b border-gray-50 last:border-0">
+                                                <button 
+                                                    onClick={() => toggleLevel(lang, level)}
+                                                    className="w-full flex items-center justify-between p-4 pl-10 hover:bg-blue-50/30 transition-colors"
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        {expandedLevels.includes(`${lang}-${level}`) ? <ChevronDown className="w-4 h-4 text-blue-500" /> : <ChevronRight className="w-4 h-4 text-blue-300" />}
+                                                        <span className="font-bold text-gray-700 text-sm">{level}</span>
+                                                    </div>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">{books.length} items</span>
+                                                </button>
+                                                
+                                                {expandedLevels.includes(`${lang}-${level}`) && (
+                                                    <div className="pl-16 pr-4 pb-4 overflow-x-auto">
+                                                        <table className="w-full text-xs text-left border-t border-gray-100 mt-1">
+                                                            <thead className="text-gray-400 font-black uppercase tracking-tighter">
+                                                                <tr>
+                                                                    <th className="py-3 pr-4">Title</th>
+                                                                    <th className="py-3 px-4">Subject</th>
+                                                                    <th className="py-3 px-4 text-center">Quiz</th>
+                                                                    <th className="py-3 pl-4 text-right">Delete</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="divide-y divide-gray-50">
+                                                                {books.map((book) => (
+                                                                    <tr key={book.id || book.title} className="hover:bg-gray-50/50 group transition-colors">
+                                                                        <td className="py-3 pr-4 font-medium text-gray-900">{book.title}</td>
+                                                                        <td className="py-3 px-4 text-gray-500">{book.subject}</td>
+                                                                        <td className="py-3 px-4 text-center">
+                                                                            {book.questions && book.questions.length > 0 ? (
+                                                                                <CheckCircle2 className="w-3.5 h-3.5 inline text-green-500" />
+                                                                            ) : (
+                                                                                <span className="text-gray-200">—</span>
+                                                                            )}
+                                                                        </td>
+                                                                        <td className="py-3 pl-4 text-right">
+                                                                            <button
+                                                                                onClick={() => book.id && removeBook(book.id)}
+                                                                                className="text-gray-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                                                                            >
+                                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                                            </button>
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                )}
+                                            </div>
                                         ))}
-                                    </>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-
-            {/* ── Stats Grid ── */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard icon={<BookOpen className="text-blue-500" />} label="Total Books" value={books?.length || 0} />
-                <StatCard icon={<GraduationCap className="text-green-500" />} label="Active Students" value={users.length} />
-                <StatCard icon={<MapPin className="text-orange-500" />} label="Schools Reached" value={selectedSchool ? 1 : "All"} />
-                <StatCard icon={<MapPin className="text-purple-500" />} label="Cities" value={selectedCity ? 1 : "All"} />
-            </div>
-
-            {/* ── Charts ── */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <h3 className="font-semibold mb-6">Books Read by School</h3>
-                    <div className="h-[256px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={schoolData}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                <XAxis dataKey="name" fontSize={12} />
-                                <YAxis fontSize={12} />
-                                <Tooltip />
-                                <Bar dataKey="booksRead" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <h3 className="font-semibold mb-6">Active Students by District</h3>
-                    <div className="h-[256px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={districtData}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                <XAxis dataKey="name" fontSize={12} />
-                                <YAxis fontSize={12} />
-                                <Tooltip />
-                                <Bar dataKey="activeStudent" fill="#10b981" radius={[4, 4, 0, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-            </div>
-
-            {/* ── Student Reports ── */}
-            <section className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="p-6 border-b border-gray-100">
-                    <h3 className="text-lg font-bold flex items-center gap-2">
-                        <Search className="w-5 h-5 text-gray-500" />
-                        Student Reports
-                    </h3>
-                </div>
-                <div className="p-6 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <Dropdown label="Select State" options={stateOptions} value={selectedState} onChange={handleStateChange} className="w-full" />
-                        <Dropdown label="Select City" options={cityOptions} value={selectedCity} onChange={handleCityChange} className="w-full" />
-                        <Dropdown label="Select Sector" options={sectorOptions} value={selectedSector} onChange={handleSectorChange} className="w-full" />
-                        <Dropdown label="Select School" options={schoolOptions} value={selectedSchool} onChange={setSelectedSchool} className="w-full" />
-                    </div>
-                    <div className="rounded-lg border border-gray-200 overflow-hidden">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-200">
-                                <tr>
-                                    <th className="p-4">Student Name</th>
-                                    <th className="p-4">Age</th>
-                                    <th className="p-4">School</th>
-                                    <th className="p-4">City</th>
-                                    <th className="p-4 text-right">Points</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {filteredStudents.map((student: User) => (
-                                    <tr key={student.id} className="hover:bg-gray-50">
-                                        <td className="p-4 font-medium text-gray-900">{student.name}</td>
-                                        <td className="p-4 text-gray-500">{student.age}</td>
-                                        <td className="p-4 text-gray-500">{student.school}</td>
-                                        <td className="p-4 text-gray-500">{student.city}</td>
-                                        <td className="p-4 text-right font-bold text-green-600">{student.totalPoints}</td>
-                                    </tr>
-                                ))}
-                                {filteredStudents.length === 0 && (
-                                    <tr>
-                                        <td colSpan={5} className="p-8 text-center text-gray-500">No students found.</td>
-                                    </tr>
+                                    </div>
                                 )}
-                            </tbody>
-                        </table>
-                    </div>
+                            </div>
+                        ))
+                    )}
                 </div>
             </section>
+
+
 
         </div>
     );

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Dropdown } from "@/components/dropdown";
-import { BookOpen, Trophy, Flame, Wifi, WifiOff, LogIn, LogOut, Search, Clock, Sparkles, Star, ArrowRight, User, Menu, X, Download, Loader2 } from "lucide-react";
+import { BookOpen, Trophy, Flame, Wifi, WifiOff, LogOut, Search, Clock, Sparkles, Star, ArrowRight, User, Menu, X, Download, Loader2 } from "lucide-react";
 import Link from 'next/link';
 import { useUser } from "@/hooks/useUser";
 import { supabase } from "@/lib/supabase";
@@ -19,17 +19,6 @@ export default function Dashboard() {
     const { isOnline } = useSync();
     const { books, syncLibrary } = useBooks();
     const { recentBooks } = useReadingHistory();
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-    useEffect(() => {
-        if (!supabase) return;
-        supabase.auth.getSession().then(({ data }) => setIsAuthenticated(!!data.session));
-        const { data: listener } = supabase.auth.onAuthStateChange((_, session) => {
-            setIsAuthenticated(!!session);
-        });
-        return () => listener.subscription.unsubscribe();
-    }, []);
-
     useEffect(() => {
         if (isOnline) syncLibrary();
     }, [isOnline, syncLibrary]);
@@ -39,28 +28,6 @@ export default function Dashboard() {
     const [selectedLanguage, setSelectedLanguage] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
     const [showSidebar, setShowSidebar] = useState(false);
-
-    // Ensure a default avatar if none exists
-    useEffect(() => {
-        if (user && !user.avatarBaseId) {
-            db.users.update(user.id, {
-                avatarBaseId: 'dragon',
-                currentAvatarStage: 0,
-                currentAvatarUrl: '/avatars/dragon_sheet.jpeg'
-            });
-        }
-    }, [user]);
-    
-    const handleLogout = async () => {
-        try {
-            if (supabase) await supabase.auth.signOut();
-        } catch (_) {}
-        try {
-            await db.users.clear();
-        } catch (_) {}
-        document.cookie = "user_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
-        window.location.replace("/login");
-    };
 
     // Bulk Download States
     const [isDownloadingAll, setIsDownloadingAll] = useState(false);
@@ -186,18 +153,20 @@ export default function Dashboard() {
                             <Trophy className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500" /> {points} pts
                         </span>
 
-                        {user?.avatarBaseId && (
-                            <div className="h-10 w-10 ml-2 rounded-full border-[2.5px] border-[#111] overflow-hidden bg-[#fff9ee] shadow-[0_2px_0_#111] flex-shrink-0 hidden sm:block">
+                        <Link href="/profile" className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 transition-all overflow-hidden border border-white/20">
+                            {user?.avatarBaseId ? (
                                 <AvatarStageImage 
                                     avatarBaseId={user.avatarBaseId} 
                                     stage={user.currentAvatarStage || 0} 
                                     size={40} 
+                                    rounded={false}
                                 />
-                            </div>
-                        )}
-
-                        <button onClick={handleLogout}
-                            className="chip chip-dark text-xs hidden md:flex cursor-pointer">
+                            ) : (
+                                <User className="h-5 w-5" />
+                            )}
+                        </Link>
+                        <button onClick={async () => { if (supabase) { await supabase.auth.signOut(); window.location.reload(); } }}
+                            className="chip chip-dark text-xs hidden md:flex">
                             <LogOut className="h-3.5 w-3.5" /> Logout
                         </button>
                     </div>
@@ -264,45 +233,47 @@ export default function Dashboard() {
                     <div className="px-4 py-5 md:px-8 md:py-6 space-y-6 md:space-y-8">
 
                         {/* Welcome banner */}
-                        <div className="relative overflow-hidden rounded-2xl md:rounded-3xl border-3 border-[#111] shadow-[0_6px_0_#111] md:shadow-[0_8px_0_#111] bg-gradient-to-r from-[#e63329] to-[#b91c1c] p-5 md:p-8">
+                        <div className="relative overflow-hidden rounded-3xl border-3 border-[#111] shadow-[0_8px_0_#111] bg-gradient-to-r from-[#e63329] to-[#b91c1c] p-6 md:p-8">
                             <div className="absolute -right-10 -top-10 w-48 h-48 rounded-full bg-white/5" />
                             <div className="absolute right-4 bottom-0 w-32 h-32 rounded-full bg-white/5" />
-                            <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-5 md:gap-4">
-                                <div className="flex items-center gap-3 md:gap-6">
+                            <div className="relative flex items-center justify-between flex-wrap gap-4">
+                                <div className="flex items-center gap-4 md:gap-6">
                                     {user?.avatarBaseId && (
-                                        <div className="h-14 w-14 md:h-24 md:w-24 flex-shrink-0 rounded-full border-[3px] md:border-[4px] border-[#111] overflow-hidden bg-[#fff9ee] shadow-[0_3px_0_#111] md:shadow-[0_4px_0_#111] mb-1 md:mb-2 text-xs md:text-base">
+                                        <div className="relative group">
+                                            <div className="absolute -inset-1 rounded-full bg-white/20 blur opacity-0 group-hover:opacity-100 transition-opacity" />
                                             <AvatarStageImage 
                                                 avatarBaseId={user.avatarBaseId} 
                                                 stage={user.currentAvatarStage || 0} 
-                                                size={96} 
+                                                size={80}
+                                                className="relative border-4 border-white/30 shadow-xl"
                                             />
                                         </div>
                                     )}
-                                    <div>
-                                        <p className="text-white/70 text-[10px] md:text-sm font-black uppercase tracking-widest mb-0.5 md:mb-1">
-                                            <Sparkles className="inline h-3 w-3 md:h-4 md:w-4 mr-1" />Welcome Back
+                                    <div className="flex-1">
+                                        <p className="text-white/70 text-sm font-black uppercase tracking-widest mb-1">
+                                            <Sparkles className="inline h-4 w-4 mr-1" />Welcome Back
                                         </p>
-                                        <h2 className="comic-title text-2xl sm:text-4xl md:text-5xl text-white leading-none">
+                                        <h2 className="comic-title text-4xl md:text-5xl text-white">
                                             {firstName}&apos;s Quest!
                                         </h2>
-                                        <p className="text-white/80 font-bold mt-1.5 md:mt-2 max-w-sm hidden sm:block text-xs md:text-base">
+                                        <p className="text-white/80 font-bold mt-2 max-w-sm hidden sm:block">
                                             Browse story worlds, keep your streak alive, and jump back into books you started.
                                         </p>
                                     </div>
                                 </div>
-                                <div className="flex gap-2 w-full md:w-auto">
-                                    <div className="flex-1 bg-white/15 rounded-xl md:rounded-2xl px-3 py-2 md:px-5 md:py-4 text-center border border-white/20 backdrop-blur">
-                                        <p className="comic-title text-2xl md:text-3xl text-white">{books?.length || 0}</p>
-                                        <p className="text-white/70 text-[10px] md:text-xs font-black uppercase tracking-wider">Books</p>
+                                <div className="flex gap-4 flex-wrap">
+                                    <div className="bg-white/15 rounded-2xl px-5 py-4 text-center border border-white/20 backdrop-blur">
+                                        <p className="comic-title text-3xl text-white">{books?.length || 0}</p>
+                                        <p className="text-white/70 text-xs font-black uppercase tracking-wider">Books</p>
                                     </div>
-                                    <div className="flex-1 bg-white/15 rounded-xl md:rounded-2xl px-3 py-2 md:px-5 md:py-4 text-center border border-white/20 backdrop-blur">
-                                        <p className="comic-title text-2xl md:text-3xl text-yellow-300">{points}</p>
-                                        <p className="text-white/70 text-[10px] md:text-xs font-black uppercase tracking-wider">Points</p>
+                                    <div className="bg-white/15 rounded-2xl px-5 py-4 text-center border border-white/20 backdrop-blur">
+                                        <p className="comic-title text-3xl text-yellow-300">{points}</p>
+                                        <p className="text-white/70 text-xs font-black uppercase tracking-wider">Points</p>
                                     </div>
                                 </div>
                             </div>
-                            <div className="mt-4 md:mt-5 flex gap-3 flex-wrap">
-                                <Link href="/leaderboard" className="btn-dark text-xs md:text-sm py-2 px-4 md:py-3 md:px-6 w-full sm:w-auto">
+                            <div className="mt-5 flex gap-3 flex-wrap">
+                                <Link href="/leaderboard" className="btn-dark text-sm py-3 px-6">
                                     View Leaderboard <ArrowRight className="h-4 w-4" />
                                 </Link>
                             </div>
@@ -431,11 +402,12 @@ export default function Dashboard() {
                         <Trophy className="w-6 h-6" />
                         <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Rank</span>
                     </Link>
-                    <button onClick={handleLogout}
-                        className="flex flex-col items-center text-[#777] hover:text-[#e63329] transition-colors cursor-pointer">
+                    <button onClick={async () => { if (supabase) { await supabase.auth.signOut(); window.location.reload(); } }}
+                        className="flex flex-col items-center text-[#777] hover:text-[#e63329] transition-colors">
                         <LogOut className="w-6 h-6" />
                         <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Logout</span>
                     </button>
+
                 </div>
             </nav>
         </div>
