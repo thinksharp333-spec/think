@@ -165,16 +165,22 @@ export default function Dashboard() {
                                 <User className="h-5 w-5" />
                             )}
                         </Link>
-                        <button onClick={async () => { 
-                            const client = supabase;
-                            if (client) { 
-                                await client.auth.signOut(); 
-                                window.location.reload(); 
-                            } 
-                        }}
-                        className="chip chip-dark text-xs hidden md:flex">
-                         <LogOut className="h-3.5 w-3.5" /> Logout
-                        </button>
+                        {user ? (
+                            <button onClick={async () => { 
+                                const client = supabase;
+                                if (client) { 
+                                    await client.auth.signOut(); 
+                                    window.location.reload(); 
+                                } 
+                            }}
+                            className="chip chip-dark text-xs hidden md:flex">
+                             <LogOut className="h-3.5 w-3.5" /> Logout
+                            </button>
+                        ) : (
+                            <Link href="/login" className="chip chip-dark text-xs hidden md:flex">
+                             <User className="h-3.5 w-3.5" /> Login
+                            </Link>
+                        )}
                     </div>
                 </div>
 
@@ -408,17 +414,24 @@ export default function Dashboard() {
                         <Trophy className="w-6 h-6" />
                         <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Rank</span>
                     </Link>
-                    <button onClick={async () => { 
-                        const client = supabase;
-                        if (client) { 
-                            await client.auth.signOut(); 
-                            window.location.reload(); 
-                        } 
-                    }}
-                        className="flex flex-col items-center text-[#777] hover:text-[#e63329] transition-colors">
-                        <LogOut className="w-6 h-6" />
-                        <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Logout</span>
-                    </button>
+                    {user ? (
+                        <button onClick={async () => { 
+                            const client = supabase;
+                            if (client) { 
+                                await client.auth.signOut(); 
+                                window.location.reload(); 
+                            } 
+                        }}
+                            className="flex flex-col items-center text-[#777] hover:text-[#e63329] transition-colors">
+                            <LogOut className="w-6 h-6" />
+                            <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Logout</span>
+                        </button>
+                    ) : (
+                        <Link href="/login" className="flex flex-col items-center text-[#777] hover:text-[#e63329] transition-colors">
+                            <User className="w-6 h-6" />
+                            <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Login</span>
+                        </Link>
+                    )}
 
                 </div>
             </nav>
