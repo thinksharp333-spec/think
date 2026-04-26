@@ -23,7 +23,7 @@ export function useBooks() {
 
                 // Clear orphans: if local IDs don't match server IDs, wipe and re-sync
                 // This ensures local ID 1, 2, 3 always matches Supabase ID 1, 2, 3
-                const serverIds = new Set(data.map(b => b.id));
+                const serverIds = new Set(data.map((b: any) => b.id));
                 const orphans = localBooks.filter(lb => !serverIds.has(lb.id));
                 if (orphans.length > 0) {
                     await db.books.clear();
