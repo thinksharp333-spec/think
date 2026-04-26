@@ -208,54 +208,41 @@ export default function LeaderboardPage() {
         let mounted = true;
 
         const fetchLeaderboard = async (isBackground = false) => {
-            if (!supabase) return;
             if (!isBackground) setLoading(true);
             try {
-                const { data, error } = await supabase.from('users').select('id, name, totalPoints, streak, last_points_date').order('totalPoints', { ascending: false });
-                if (error) throw error;
-                if (data && mounted) {
+                const res = await fetch('/api/leaderboard');
+                if (!res.ok) throw new Error('Leaderboard API error');
+                const { users: usersData, books: booksData, reviews: reviewsData, sessions: sessionsData } = await res.json();
+
+                if (usersData && mounted) {
                     const now = new Date();
                     const today = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().split('T')[0];
                     const yesterdayObj = new Date(now.getTime() - 86400000 - now.getTimezoneOffset() * 60000);
                     const yesterday = yesterdayObj.toISOString().split('T')[0];
 
-                    const usersList = data.map((u, i) => {
+                    const usersList = usersData.map((u: any, i: number) => {
                         let effStreak = u.streak || 0;
-                        if (effStreak > 0 && u.last_points_date !== today && u.last_points_date !== yesterday) {
-                            effStreak = 0;
-                        }
+                        if (effStreak > 0 && u.last_points_date !== today && u.last_points_date !== yesterday) effStreak = 0;
                         return { id: u.id, name: u.name || 'Anonymous', totalPoints: u.totalPoints || 0, streak: effStreak, rank: i + 1 };
                     });
                     setLeaderboard(usersList);
 
                     if (currentUser) {
-                        const me = usersList.find(u => u.id === currentUser.id);
+                        const me = usersList.find((u: any) => u.id === currentUser.id);
                         if (me) {
                             const myLg = LEAGUES.find(l => me.totalPoints >= l.min && me.totalPoints <= l.max);
                             if (myLg) setSelectedLeague(myLg.id);
                         }
                     }
                 }
-                const { data: booksData } = await supabase.from('books').select('id, title, "coverUrl", avg_rating, review_count');
-                const { data: reviewsData } = await supabase.from('book_reviews').select('book_id, user_id, rating, created_at');
-                // ── Books Read leaderboard ──────────────────────────────
-                const { data: sessionsData } = await supabase
-                    .from('reading_sessions')
-                    .select('user_id, book_id')
-                    .eq('completed', true);
+
                 if (sessionsData && mounted) {
-                    // Count unique books per user
                     const booksByUser = new Map<string, Set<string>>();
                     for (const s of sessionsData) {
                         if (!booksByUser.has(s.user_id)) booksByUser.set(s.user_id, new Set());
                         booksByUser.get(s.user_id)!.add(String(s.book_id));
                     }
-                    // Build display list joined with user names
-                    const { data: usersForBooks } = await supabase
-                        .from('users')
-                        .select('id, name')
-                        .in('id', Array.from(booksByUser.keys()));
-                    const nameMap = new Map((usersForBooks || []).map(u => [u.id, u.name || 'Anonymous']));
+                    const nameMap = new Map((usersData || []).map((u: any) => [u.id, u.name || 'Anonymous']));
                     const entries: BooksReadEntry[] = Array.from(booksByUser.entries())
                         .map(([userId, books]) => ({ userId, name: nameMap.get(userId) || 'Anonymous', booksRead: books.size }))
                         .sort((a, b) => b.booksRead - a.booksRead)
@@ -270,33 +257,25 @@ export default function LeaderboardPage() {
                         cur.push({ userId: r.user_id, rating: r.rating, createdAt: new Date(r.created_at).getTime() });
                         reviewMap.set(r.book_id, cur);
                     }
-                    const statsByBook = booksData.map((book) => {
+                    const statsByBook = booksData.map((book: any) => {
                         const rs = getBookRatingStats(reviewMap.get(book.id) || []);
                         return { id: book.id, title: book.title, coverUrl: book.coverUrl, avg_rating: rs.reviewCount > 0 ? rs.averageRating : (book.avg_rating || 0), review_count: rs.reviewCount > 0 ? rs.reviewCount : (book.review_count || 0) };
-                    }).filter(b => b.review_count > 0);
-                    const globalAvg = statsByBook.length > 0 ? statsByBook.reduce((s, b) => s + b.avg_rating, 0) / statsByBook.length : 0;
-                    const minVotes = Math.max(3, Math.ceil(statsByBook.reduce((s, b) => s + b.review_count, 0) / Math.max(1, statsByBook.length)));
-                    setTopBooks(statsByBook.map(b => ({ ...b, weighted_rating: getImdbWeightedRating(b.avg_rating, b.review_count, globalAvg, minVotes) })).sort((a, b) => b.weighted_rating - a.weighted_rating || b.avg_rating - a.avg_rating).slice(0, 20));
+                    }).filter((b: any) => b.review_count > 0);
+                    const globalAvg = statsByBook.length > 0 ? statsByBook.reduce((s: number, b: any) => s + b.avg_rating, 0) / statsByBook.length : 0;
+                    const minVotes = Math.max(3, Math.ceil(statsByBook.reduce((s: number, b: any) => s + b.review_count, 0) / Math.max(1, statsByBook.length)));
+                    setTopBooks(statsByBook.map((b: any) => ({ ...b, weighted_rating: getImdbWeightedRating(b.avg_rating, b.review_count, globalAvg, minVotes) })).sort((a: any, b: any) => b.weighted_rating - a.weighted_rating || b.avg_rating - a.avg_rating).slice(0, 20));
                 }
             } catch (err) { console.error(err); }
             finally { if (!isBackground && mounted) setLoading(false); }
         };
         fetchLeaderboard();
 
-        if (!supabase) return;
-
-        const channel = supabase.channel('leaderboard_updates')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
-                if (mounted) fetchLeaderboard(true);
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'reading_sessions' }, () => {
-                if (mounted) fetchLeaderboard(true);
-            })
-            .subscribe();
+        // Poll every 30s for live updates (replaces realtime subscription which needs anon client)
+        const interval = setInterval(() => { if (mounted) fetchLeaderboard(true); }, 30000);
 
         return () => {
             mounted = false;
-            supabase?.removeChannel(channel);
+            clearInterval(interval);
         };
     }, []);
 
