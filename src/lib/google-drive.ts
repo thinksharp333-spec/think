@@ -144,5 +144,5 @@ export function extractFileId(url: string): string {
 }
 
 export function getThumbnailUrl(fileId: string): string {
-    return `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`; // Width 400px
+    return `https://lh3.googleusercontent.com/d/${fileId}=w400`; // Width 400px, direct endpoint
 }

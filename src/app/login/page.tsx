@@ -1,16 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Wifi, WifiOff, Phone, Loader2, BookOpen, ChevronRight, Rocket, Bot, Sparkles, Footprints, WandSparkles } from "lucide-react";
 import { db } from "@/lib/db";
 import { useSync } from "@/hooks/useSync";
 import { supabase } from "@/lib/supabase";
+import { useUser } from "@/hooks/useUser";
 
 export default function LoginPage() {
     const router = useRouter();
     const { isOnline } = useSync();
+    const { user } = useUser();
+
+    // Already Logged In Guard
+    useEffect(() => {
+        if (user && user.id !== 'local-user' && user.id !== 'local-admin') {
+            router.push('/dashboard');
+        }
+    }, [user, router]);
+
     const [mobile, setMobile] = useState("");
     const [password, setPassword] = useState("");
     const [showForgotPassword, setShowForgotPassword] = useState(false);

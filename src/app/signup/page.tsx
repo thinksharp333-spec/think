@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { User, Lock, ArrowRight, ArrowLeft, Phone, Calendar, WifiOff, CheckCircle2 } from "lucide-react";
@@ -10,11 +10,20 @@ import { db } from "@/lib/db";
 
 import { useSync } from "@/hooks/useSync";
 import { supabase } from "@/lib/supabase";
+import { useUser } from "@/hooks/useUser";
 import { SchoolSelector } from "@/components/school-selector";
 
 export default function SignUpPage() {
     const router = useRouter();
     const { isOnline } = useSync();
+    const { user } = useUser();
+
+    // Already Logged In Guard
+    useEffect(() => {
+        if (user && user.id !== 'local-user' && user.id !== 'local-admin') {
+            router.push('/dashboard');
+        }
+    }, [user, router]);
 
     // Form State
     const [formData, setFormData] = useState({

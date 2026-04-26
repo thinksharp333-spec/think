@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Dropdown } from "@/components/dropdown";
 import { BookOpen, Trophy, Flame, Wifi, WifiOff, LogOut, Search, Clock, Sparkles, Star, ArrowRight, User, Menu, X, Download, Loader2 } from "lucide-react";
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useUser } from "@/hooks/useUser";
 import { supabase } from "@/lib/supabase";
 import { BookCard } from "@/components/book-card";
@@ -16,12 +17,20 @@ import { AvatarStageImage } from "@/components/avatar-stage-image";
 
 export default function Dashboard() {
     const { user } = useUser();
+    const router = useRouter();
     const { isOnline } = useSync();
     const { books, syncLibrary } = useBooks();
     const { recentBooks } = useReadingHistory();
     useEffect(() => {
         if (isOnline) syncLibrary();
     }, [isOnline, syncLibrary]);
+
+    // Auth Guard: Redirect to landing if no real user session
+    useEffect(() => {
+        if (user && user.id === 'local-user') {
+            router.push('/');
+        }
+    }, [user, router]);
 
     const [selectedLevel, setSelectedLevel] = useState("");
     const [selectedSubject, setSelectedSubject] = useState("");
@@ -166,11 +175,8 @@ export default function Dashboard() {
                             )}
                         </Link>
                         <button onClick={async () => { 
-                            const client = supabase;
-                            if (client) { 
-                                await client.auth.signOut(); 
-                                window.location.reload(); 
-                            } 
+                            await supabase.auth.signOut(); 
+                            router.push('/');
                         }}
                         className="chip chip-dark text-xs hidden md:flex">
                          <LogOut className="h-3.5 w-3.5" /> Logout
@@ -207,9 +213,9 @@ export default function Dashboard() {
                                     <Link key={book.id} href={`/read/${book.id}`} onClick={() => setShowSidebar(false)}
                                         className="flex items-center gap-3 p-2 rounded-2xl hover:bg-[#fff3ef] transition-colors group">
                                         <div className="h-14 w-11 flex-shrink-0 rounded-xl border-2 border-[#111] overflow-hidden shadow-[0_4px_0_#111] bg-[#fff4ef]">
-                                            {book.coverUrl ? (
-                                                <img src={book.coverUrl.includes('drive.google.com') ? getThumbnailUrl(extractFileId(book.coverUrl)) : book.coverUrl}
-                                                    alt={book.title} className="w-full h-full object-cover" loading="lazy" />
+                                            {book.coverUrl || book.fileId ? (
+                                                <img src={book.coverUrl ? (book.coverUrl.includes('drive.google.com') ? getThumbnailUrl(extractFileId(book.coverUrl)) : book.coverUrl) : getThumbnailUrl(book.fileId!)}
+                                                    alt={book.title} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
                                             ) : <div className="w-full h-full flex items-center justify-center text-[#e63329]"><BookOpen className="w-5 h-5" /></div>}
                                         </div>
                                         <div className="flex-1 min-w-0">
@@ -269,8 +275,8 @@ export default function Dashboard() {
                                 </div>
                                 <div className="flex gap-4 flex-wrap">
                                     <div className="bg-white/15 rounded-2xl px-5 py-4 text-center border border-white/20 backdrop-blur">
-                                        <p className="comic-title text-3xl text-white">{books?.length || 0}</p>
-                                        <p className="text-white/70 text-xs font-black uppercase tracking-wider">Books</p>
+                                        <p className="comic-title text-3xl text-white">{user?.totalBooksRead || user?.booksRead || 0}</p>
+                                        <p className="text-white/70 text-xs font-black uppercase tracking-wider">Books Read</p>
                                     </div>
                                     <div className="bg-white/15 rounded-2xl px-5 py-4 text-center border border-white/20 backdrop-blur">
                                         <p className="comic-title text-3xl text-yellow-300">{points}</p>
@@ -409,11 +415,8 @@ export default function Dashboard() {
                         <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Rank</span>
                     </Link>
                     <button onClick={async () => { 
-                        const client = supabase;
-                        if (client) { 
-                            await client.auth.signOut(); 
-                            window.location.reload(); 
-                        } 
+                        await supabase.auth.signOut(); 
+                        router.push('/');
                     }}
                         className="flex flex-col items-center text-[#777] hover:text-[#e63329] transition-colors">
                         <LogOut className="w-6 h-6" />

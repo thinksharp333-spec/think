@@ -264,6 +264,7 @@ function FeedbackPanel({
 export default function ReadPage() {
 
     const params = useParams();
+    const router = useRouter();
     const bookIdString = typeof params.bookId === 'string' ? params.bookId : '1';
     const bookIdNum = parseInt(bookIdString);
 
@@ -276,6 +277,13 @@ export default function ReadPage() {
     const user = _users.find(u => u.id !== 'local-user' && u.id !== 'local-admin')
                || _users.find(u => u.id === 'local-user')
                || _users[0];
+
+    // Auth Guard: Redirect to landing if no real user session
+    useEffect(() => {
+        if (user && user.id === 'local-user') {
+            router.push('/');
+        }
+    }, [user, router]);
 
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(0);

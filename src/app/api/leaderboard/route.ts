@@ -13,7 +13,7 @@ export async function GET() {
 
     const [usersRes, booksRes, reviewsRes, sessionsRes] = await Promise.all([
         db.from('users').select('id, name, "totalPoints", streak, last_points_date').order('"totalPoints"', { ascending: false }),
-        db.from('books').select('id, title, "coverUrl", avg_rating, review_count'),
+        db.from('books').select('id, title, "fileId", "coverUrl", avg_rating, review_count'),
         db.from('book_reviews').select('book_id, user_id, rating, created_at'),
         db.from('reading_sessions').select('user_id, book_id').eq('completed', true),
     ]);
