@@ -625,7 +625,6 @@ export default function ReadPage() {
         }
     };
 
-    const router = useRouter();
     const handleBack = async () => { await saveProgressRef.current(true); router.push('/dashboard'); };
 
     const atLastPage = totalPages > 0 && currentPage >= totalPages;

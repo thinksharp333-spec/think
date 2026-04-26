@@ -175,8 +175,8 @@ export default function Dashboard() {
                             )}
                         </Link>
                         {user ? (
-                            <button onClick={async () => { 
-                                await supabase.auth.signOut(); 
+                            <button onClick={async () => {
+                                await supabase?.auth.signOut();
                                 router.push('/');
                             }}
                             className="chip chip-dark text-xs hidden md:flex">
@@ -420,23 +420,10 @@ export default function Dashboard() {
                         <Trophy className="w-6 h-6" />
                         <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Rank</span>
                     </Link>
-<<<<<<< HEAD
-                    <button onClick={async () => { 
-                        await supabase.auth.signOut(); 
-                        router.push('/');
-                    }}
-                        className="flex flex-col items-center text-[#777] hover:text-[#e63329] transition-colors">
-                        <LogOut className="w-6 h-6" />
-                        <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Logout</span>
-                    </button>
-=======
                     {user ? (
-                        <button onClick={async () => { 
-                            const client = supabase;
-                            if (client) { 
-                                await client.auth.signOut(); 
-                                window.location.reload(); 
-                            } 
+                        <button onClick={async () => {
+                            await supabase?.auth.signOut();
+                            router.push('/');
                         }}
                             className="flex flex-col items-center text-[#777] hover:text-[#e63329] transition-colors">
                             <LogOut className="w-6 h-6" />
@@ -448,7 +435,6 @@ export default function Dashboard() {
                             <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Login</span>
                         </Link>
                     )}
->>>>>>> de9dffc290b9d17768bbe8ff5576418609ddcb6a
 
                 </div>
             </nav>
