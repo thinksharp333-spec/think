@@ -160,7 +160,7 @@ export default function SignUpPage() {
                     <section className="px-2 lg:px-6">
                         <div className="mx-auto max-w-md">
                             <h2 className="text-4xl font-extrabold leading-tight text-[#111111] md:text-5xl">
-                                Pick Your Hero Profile!
+                                Pick Your Avatar
                             </h2>
                             <div className="mt-6 space-y-5">
                                 {/* ── Quest Map step tracker ── */}
@@ -171,12 +171,12 @@ export default function SignUpPage() {
                                             <div className="mx-auto h-12 w-12 rounded-full border-[3px] border-[#111111] bg-[#ff4d3d]" />
                                             <p className="mt-2 text-xl font-bold">Sign Up</p>
                                         </div>
-                                        <div className="h-[3px] flex-1 bg-[#111111]" />
+                                        <ArrowRight className="h-8 w-8 text-[#111111] opacity-70" strokeWidth={3} />
                                         <div className="text-center">
                                             <div className="mx-auto h-12 w-12 rounded-full border-[3px] border-[#111111] bg-[#ffdf6b]" />
                                             <p className="mt-2 text-xl font-bold">Choose Avatar</p>
                                         </div>
-                                        <div className="h-[3px] flex-1 bg-[#111111]" />
+                                        <ArrowRight className="h-8 w-8 text-[#111111] opacity-70" strokeWidth={3} />
                                         <div className="text-center">
                                             <div className="mx-auto h-12 w-12 rounded-full border-[3px] border-[#111111] bg-white" />
                                             <p className="mt-2 text-xl font-bold">Start Reading!</p>
