@@ -242,9 +242,9 @@ export default function LeaderboardPage() {
                         if (!booksByUser.has(s.user_id)) booksByUser.set(s.user_id, new Set());
                         booksByUser.get(s.user_id)!.add(String(s.book_id));
                     }
-                    const nameMap = new Map((usersData || []).map((u: any) => [u.id, u.name || 'Anonymous']));
+                    const nameMap = new Map((usersData || []).map((u: any) => [u.id, String(u.name || 'Anonymous')]));
                     const entries: BooksReadEntry[] = Array.from(booksByUser.entries())
-                        .map(([userId, books]) => ({ userId, name: nameMap.get(userId) || 'Anonymous', booksRead: books.size }))
+                        .map(([userId, books]) => ({ userId, name: String(nameMap.get(userId) || 'Anonymous'), booksRead: books.size }))
                         .sort((a, b) => b.booksRead - a.booksRead)
                         .map((e, i) => ({ ...e, rank: i + 1 }));
                     setBooksRead(entries);
