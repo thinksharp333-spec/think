@@ -21,9 +21,11 @@ export function useUser() {
 
     // Sync user profile from Supabase
     const fetchUserProfile = async (userId: string) => {
-        if (!supabase) return;
         try {
-            const { data, error } = await supabase
+            const client = supabase;
+            if (!client) return;
+
+            const { data, error } = await client
                 .from('users')
                 .select('*')
                 .eq('id', userId)
@@ -92,6 +94,7 @@ export function useUser() {
                         id: session.user.id,
                         name: session.user.user_metadata.full_name || localUser.name,
                         mobile: session.user.phone || localUser.mobile || '',
+                        school: localUser.school || '',
                     });
                     await db.users.delete('local-user');
                 } else {

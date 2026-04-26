@@ -165,9 +165,15 @@ export default function Dashboard() {
                                 <User className="h-5 w-5" />
                             )}
                         </Link>
-                        <button onClick={async () => { if (supabase) { await supabase.auth.signOut(); window.location.reload(); } }}
-                            className="chip chip-dark text-xs hidden md:flex">
-                            <LogOut className="h-3.5 w-3.5" /> Logout
+                        <button onClick={async () => { 
+                            const client = supabase;
+                            if (client) { 
+                                await client.auth.signOut(); 
+                                window.location.reload(); 
+                            } 
+                        }}
+                        className="chip chip-dark text-xs hidden md:flex">
+                         <LogOut className="h-3.5 w-3.5" /> Logout
                         </button>
                     </div>
                 </div>
@@ -402,7 +408,13 @@ export default function Dashboard() {
                         <Trophy className="w-6 h-6" />
                         <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Rank</span>
                     </Link>
-                    <button onClick={async () => { if (supabase) { await supabase.auth.signOut(); window.location.reload(); } }}
+                    <button onClick={async () => { 
+                        const client = supabase;
+                        if (client) { 
+                            await client.auth.signOut(); 
+                            window.location.reload(); 
+                        } 
+                    }}
                         className="flex flex-col items-center text-[#777] hover:text-[#e63329] transition-colors">
                         <LogOut className="w-6 h-6" />
                         <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Logout</span>

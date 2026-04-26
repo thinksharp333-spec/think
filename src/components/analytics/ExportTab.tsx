@@ -14,16 +14,17 @@ export function ExportTab() {
         setLoading(true);
         setDataType(type);
         try {
-            if (!supabase) throw new Error("Supabase not configured");
+            const client = supabase;
+            if (!client) throw new Error("Supabase not configured");
             let fetchedData;
             if (type === 'users') {
-                const { data } = await supabase.from('users').select('*').limit(100); // Limit for MVP
+                const { data } = await client.from('users').select('*').limit(100); // Limit for MVP
                 fetchedData = data;
             } else if (type === 'schools') {
-                const { data } = await supabase.from('schools').select('*').limit(100);
+                const { data } = await client.from('schools').select('*').limit(100);
                 fetchedData = data;
             } else if (type === 'sessions') {
-                const { data } = await supabase.from('reading_sessions').select('*').order('start_time', { ascending: false }).limit(100);
+                const { data } = await client.from('reading_sessions').select('*').order('start_time', { ascending: false }).limit(100);
                 fetchedData = data;
             }
             setData(fetchedData || []);

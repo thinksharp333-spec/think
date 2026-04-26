@@ -26,15 +26,16 @@ const nextConfig = withPWA({
 })(config);
 
 // Add webpack config for react-pdf
-const originalWebpack = nextConfig.webpack;
 nextConfig.webpack = (config, options) => {
   config.resolve.alias.canvas = false;
-  // Force pdfjs-dist to resolve to the top-level node_modules
-  config.resolve.alias['pdfjs-dist'] = require('path').resolve(__dirname, 'node_modules/pdfjs-dist');
-
-  if (originalWebpack) {
-    return originalWebpack(config, options);
+  // Force pdfjs-dist to resolve correctly
+  // Note: __dirname is available in next.config.js/ts as Next.js transpile it, 
+  // but we'll make it safer.
+  
+  if (options.isServer) {
+    config.resolve.alias['pdfjs-dist'] = 'pdfjs-dist';
   }
+
   return config;
 };
 

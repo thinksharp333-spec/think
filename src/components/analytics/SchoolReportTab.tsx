@@ -19,8 +19,9 @@ export function SchoolReportTab() {
     // Search Schools
     useEffect(() => {
         async function searchSchools() {
-            if (!searchTerm || searchTerm.length < 3 || !supabase) return;
-            const { data } = await supabase
+            const client = supabase;
+            if (!searchTerm || searchTerm.length < 3 || !client) return;
+            const { data } = await client
                 .from('schools')
                 .select('*')
                 .ilike('school_name', `%${searchTerm}%`)
@@ -35,16 +36,17 @@ export function SchoolReportTab() {
 
     useEffect(() => {
         async function fetchSchoolDetails() {
-            if (!selectedSchool || !supabase) return;
+            const client = supabase;
+            if (!selectedSchool || !client) return;
             setLoading(true);
             try {
                 // 1. Basic Stats (Total Students, Active)
-                const { count: totalStudents } = await supabase
+                const { count: totalStudents } = await client
                     .from('users')
                     .select('*', { count: 'exact', head: true })
                     .eq('school_id', selectedSchool.id);
 
-                const { count: activeStudents } = await supabase
+                const { count: activeStudents } = await client
                     .from('analytics_school_active_students')
                     .select('active_students_last_30d', { count: 'exact', head: true }) // View structure might need adjustment depending on how we select
                     .eq('school_id', selectedSchool.id);
@@ -54,13 +56,13 @@ export function SchoolReportTab() {
                 // We will try to fetch raw sessions and aggregate client side for MVP or use a custom query
                 // Using `analytics_top_books` isn't filtered by school.
                 // Let's do a direct query for now (might be slow for huge data)
-                const { data: sessions } = await supabase
+                const { data: sessions } = await client
                     .from('reading_sessions')
                     .select('book_title, books(grade_level, language)') // Join books table
                     .eq('users.school_id', selectedSchool.id); // This requires join on users too which is tricky in one go if RLS/relationships set
 
                 // Alternative: simpler approach -> fetch local stats view
-                const { data: stats } = await supabase
+                const { data: stats } = await client
                     .from('analytics_school_stats')
                     .select('*')
                     .eq('school_id', selectedSchool.id)

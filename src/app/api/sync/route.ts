@@ -24,7 +24,7 @@ export async function POST(request: Request) {
         }
 
         // Common Helper: Ensure User Exists
-        const { data: userData } = await supabase
+        const { data: userData } = await supabase!
             .from('users')
             .select('totalPoints, name')
             .eq('id', targetUserId)
@@ -34,10 +34,12 @@ export async function POST(request: Request) {
 
         // If user doesn't exist remotely yet
         if (!userData) {
-            const { error: createError } = await supabase.from('users').insert({
+            const { error: createError } = await supabase!.from('users').insert({
                 id: targetUserId,
                 name: 'Student', // Default
-                totalPoints: 0
+                totalPoints: 0,
+                mobile: '',
+                school: ''
             });
             if (createError) console.error("Error creating user stub:", createError);
         }
@@ -46,7 +48,7 @@ export async function POST(request: Request) {
             // Update Points
             const newTotal = currentPoints + (payload.pointsEarned || 0);
 
-            const { error: userError } = await supabase
+            const { error: userError } = await supabase!
                 .from('users')
                 .update({
                     totalPoints: newTotal,
@@ -61,7 +63,7 @@ export async function POST(request: Request) {
             }
 
             // Insert Reading Session
-            const { error: sessionError } = await (supabase as any)
+            const { error: sessionError } = await (supabase! as any)
                 .from('reading_sessions')
                 .insert({
                     user_id: targetUserId,
@@ -90,7 +92,7 @@ export async function POST(request: Request) {
                 updatePayload.books_read = payload.booksRead;
             }
 
-            const { error: updateError } = await supabase
+            const { error: updateError } = await supabase!
                 .from('users')
                 .update(updatePayload)
                 .eq('id', targetUserId);

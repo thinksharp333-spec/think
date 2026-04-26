@@ -8,12 +8,13 @@ export function useBooks() {
     const syncingRef = useRef(false);
 
     const syncLibrary = useCallback(async () => {
-        if (!supabase || syncingRef.current) return;
+        const client = supabase;
+        if (!client || syncingRef.current) return;
 
         try {
             syncingRef.current = true;
 
-            const { data, error } = await supabase
+            const { data, error } = await client
                 .from('books')
                 .select('id, title, "fileId", grade, pages, "pdfUrl", level, subject, language, "coverUrl", questions, avg_rating, review_count');
 

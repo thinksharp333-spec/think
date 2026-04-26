@@ -43,7 +43,8 @@ export function useSync() {
                 }
 
                 try {
-                    if (!supabase) throw new Error("Supabase client not initialized");
+                    const client = supabase;
+                    if (!client) throw new Error("Supabase client not initialized");
 
                     if (!task.payload) {
                         console.warn(`[Sync] Task ${task.id} has no payload, deleting.`);
@@ -58,7 +59,7 @@ export function useSync() {
                             continue;
                         }
 
-                        const { error } = await supabase
+                        const { error } = await client
                             .from('reading_sessions')
                             .insert([{
                                 user_id: task.payload?.userId,
@@ -88,7 +89,7 @@ export function useSync() {
 
                             // Fetch current value from Supabase, then increment by delta.
                             // This is safe for sequential sync and avoids last-write-wins.
-                            const { data: userData, error: fetchError } = await supabase
+                            const { data: userData, error: fetchError } = await client
                                 .from('users')
                                 .select('"totalPoints"')
                                 .eq('id', userId)
@@ -104,7 +105,7 @@ export function useSync() {
                                 updateObj.last_points_date = task.payload.lastPointsDate;
                             }
                             
-                            const { error } = await supabase
+                            const { error } = await client
                                 .from('users')
                                 .update(updateObj)
                                 .eq('id', userId);
@@ -113,7 +114,7 @@ export function useSync() {
                         } else {
                             // Legacy absolute totalPoints path (backwards compat)
                             const totalPoints = task.payload?.totalPoints ?? 0;
-                            const { error } = await supabase
+                            const { error } = await client
                                 .from('users')
                                 .update({ "totalPoints": totalPoints })
                                 .eq('id', userId);
@@ -130,7 +131,7 @@ export function useSync() {
                             continue;
                         }
 
-                        const { error } = await supabase
+                        const { error } = await client
                             .from('quiz_attempts')
                             .insert([{
                                 book_id: String(bookId),
@@ -161,7 +162,7 @@ export function useSync() {
                             continue;
                         }
 
-                        const { error } = await supabase
+                        const { error } = await client
 
                             .from('book_reviews')
                             .upsert([{
@@ -176,7 +177,7 @@ export function useSync() {
                             throw error;
                         }
 
-                        const { data: syncedReviews, error: reviewsError } = await supabase
+                        const { data: syncedReviews, error: reviewsError } = await client
                             .from('book_reviews')
                             .select('user_id, rating, created_at')
                             .eq('book_id', bIdNum);
@@ -191,7 +192,7 @@ export function useSync() {
                             }))
                         );
 
-                        const { error: bookUpdateError } = await supabase
+                        const { error: bookUpdateError } = await client
                             .from('books')
                             .update({
                                 avg_rating: stats.averageRating,
@@ -212,7 +213,7 @@ export function useSync() {
                     }
                     else if (task.type === 'BOOK_QUIZ') {
                         const { bookId, questions } = task.payload;
-                        const { error } = await supabase
+                        const { error } = await client
                             .from('books')
                             .update({ questions })
                             .eq('id', bookId);

@@ -3,12 +3,12 @@ import Dexie, { type EntityTable } from 'dexie';
 interface User {
     id: string; // Remote ID
     name: string;
-    mobile: string;
+    mobile?: string;
     verifiedMobile?: string; // Confirmed mobile after OTP
     isVerified?: boolean;
     age?: number;
     city?: string;
-    school: string;
+    school?: string;
     schoolId?: string; // ID from schools table
     grade?: string; // Added for analytics
     role?: string; // student or admin
@@ -97,7 +97,7 @@ const db = new Dexie('AdaptivePlatformDB') as Dexie & {
 db.version(9).stores({
     users: 'id, name, mobile, isVerified, schoolId, totalPoints, grade, role',
 
-    readings: '++id, bookId, synced, startTime',
+    readings: '++id, bookId, userId, synced, startTime',
     syncQueue: '++id, type, createdAt',
     books: '++id, title, grade, level, subject, language',
     bookReviews: '++id, bookId, userId, synced, createdAt'
@@ -106,7 +106,7 @@ db.version(9).stores({
 // GAP-04: v10 migration — seeds retryCount:0 on any existing orphaned sync tasks
 db.version(10).stores({
     users: 'id, name, mobile, isVerified, schoolId, totalPoints, grade, role',
-    readings: '++id, bookId, synced, startTime',
+    readings: '++id, bookId, userId, synced, startTime',
     syncQueue: '++id, type, createdAt',
     books: '++id, title, grade, level, subject, language',
     bookReviews: '++id, bookId, userId, synced, createdAt'
@@ -119,7 +119,7 @@ db.version(10).stores({
 // v11 migration — adds avatar fields to users (non-indexed, no structural change needed)
 db.version(11).stores({
     users: 'id, name, mobile, isVerified, schoolId, totalPoints, grade, role',
-    readings: '++id, bookId, synced, startTime',
+    readings: '++id, bookId, userId, synced, startTime',
     syncQueue: '++id, type, createdAt',
     books: '++id, title, grade, level, subject, language',
     bookReviews: '++id, bookId, userId, synced, createdAt'
@@ -133,7 +133,7 @@ db.version(11).stores({
 // v12 migration — adds quizAttempts table for offline quiz score storage
 db.version(12).stores({
     users: 'id, name, mobile, isVerified, schoolId, totalPoints, grade, role',
-    readings: '++id, bookId, synced, startTime',
+    readings: '++id, bookId, userId, synced, startTime',
     syncQueue: '++id, type, createdAt',
     books: '++id, title, grade, level, subject, language',
     bookReviews: '++id, bookId, userId, synced, createdAt',
@@ -143,7 +143,7 @@ db.version(12).stores({
 // v13 migration — adds extractedText + extractedWordCount fields to books (non-indexed)
 db.version(13).stores({
     users: 'id, name, mobile, isVerified, schoolId, totalPoints, grade, role',
-    readings: '++id, bookId, synced, startTime',
+    readings: '++id, bookId, userId, synced, startTime',
     syncQueue: '++id, type, createdAt',
     books: '++id, title, grade, level, subject, language',
     bookReviews: '++id, bookId, userId, synced, createdAt',

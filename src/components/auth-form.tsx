@@ -49,12 +49,15 @@ export function AuthForm({ mode }: AuthFormProps) {
         }
 
         try {
+            const client = supabase;
+            if (!client) throw new Error("Supabase is not configured.");
+
             const authEmail = userType === "student"
                 ? `${phone}@student.example.com`
                 : email;
 
             if (mode === "signup") {
-                const { data, error: signUpError } = await supabase.auth.signUp({
+                const { data, error: signUpError } = await client.auth.signUp({
                     email: authEmail,
                     password,
                     options: {
@@ -68,7 +71,7 @@ export function AuthForm({ mode }: AuthFormProps) {
                 if (signUpError) throw signUpError;
 
                 if (data.user) {
-                    await supabase.from("users").upsert({
+                    await client.from("users").upsert({
                         id: data.user.id,
                         name: name,
                         role: userType,
@@ -77,7 +80,7 @@ export function AuthForm({ mode }: AuthFormProps) {
                     await mergeLocalData(data.user.id);
                 }
             } else {
-                const { data, error: signInError } = await supabase.auth.signInWithPassword({
+                const { data, error: signInError } = await client.auth.signInWithPassword({
                     email: authEmail,
                     password
                 });

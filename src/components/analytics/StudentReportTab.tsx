@@ -14,10 +14,11 @@ export function StudentReportTab() {
 
     async function handleSearch(e: React.FormEvent) {
         e.preventDefault();
-        if (!searchTerm || !supabase) return;
+        const client = supabase;
+        if (!searchTerm || !client) return;
         setLoading(true);
         try {
-            const { data } = await (supabase as any)
+            const { data } = await (client as any)
                 .from('users')
                 .select('*')
                 .or(`name.ilike.%${searchTerm}%,mobile.ilike.%${searchTerm}%`)
@@ -33,12 +34,13 @@ export function StudentReportTab() {
     }
 
     async function selectStudent(student: DBUser) {
-        if (!supabase) return;
+        const client = supabase;
+        if (!client) return;
         setSelectedStudent(student);
         setLoading(true);
         try {
             // Fetch stats from view
-            const { data: stats } = await (supabase as any)
+            const { data: stats } = await (client as any)
                 .from('analytics_student_books')
                 .select('*')
                 .eq('user_id', student.id)
@@ -47,7 +49,7 @@ export function StudentReportTab() {
             setStudentStats(stats);
 
             // Fetch recent sessions
-            const { data: history } = await (supabase as any)
+            const { data: history } = await (client as any)
                 .from('reading_sessions')
                 .select('*')
                 .eq('user_id', student.id)
