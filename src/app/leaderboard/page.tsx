@@ -296,7 +296,7 @@ export default function LeaderboardPage() {
 
         return () => {
             mounted = false;
-            supabase.removeChannel(channel);
+            supabase?.removeChannel(channel);
         };
     }, []);
 
