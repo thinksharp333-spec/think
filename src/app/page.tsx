@@ -128,9 +128,9 @@ export default function LandingPage() {
                 </button>
               </div>
             ) : (
-              <Link href="/signup" className="btn-red py-1.5 px-4 md:py-2.5 md:px-6 text-xs md:text-sm whitespace-nowrap shadow-[0_4px_0_#991b1b]">
-                <User className="h-4 w-4 md:mr-1 inline-block" />
-                <span className="hidden sm:inline">Register</span>
+              <Link href="/login" className="btn-red py-1.5 px-4 md:py-2.5 md:px-6 text-xs md:text-sm whitespace-nowrap shadow-[0_4px_0_#991b1b]">
+                <LogIn className="h-4 w-4 md:mr-1 inline-block" />
+                <span className="hidden sm:inline">Login</span>
               </Link>
             )}
           </div>
