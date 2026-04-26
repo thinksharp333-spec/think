@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { User, Lock, ArrowRight, ArrowLeft, Phone, Calendar, WifiOff, CheckCircle2 } from "lucide-react";
+import { User, Lock, ArrowRight, ArrowLeft, Phone, Calendar, WifiOff, CheckCircle2, Utensils } from "lucide-react";
 import { AVATARS, getAvatarUrl } from "@/lib/avatar";
 import { AvatarStageImage } from "@/components/avatar-stage-image";
 import { db } from "@/lib/db";
@@ -27,7 +27,8 @@ export default function SignUpPage() {
         grade: "",
         customSchool: "",
         password: "",
-        confirmPassword: ""
+        confirmPassword: "",
+        favouriteFood: ""
     });
     const [selectedAvatarId, setSelectedAvatarId] = useState<string>("");
     const [error, setError] = useState("");
@@ -94,7 +95,8 @@ export default function SignUpPage() {
                 role: 'student',
                 password: formData.password,
                 totalPoints: 0,
-                isVerified: false,
+                isVerified: true,
+                favouriteFood: formData.favouriteFood,
                 // Avatar system
                 avatarBaseId:       selectedAvatarId,
                 currentAvatarStage: 0,
@@ -123,19 +125,8 @@ export default function SignUpPage() {
             // Set session cookie for middleware
             document.cookie = `user_session=${id}; path=/; max-age=86400`;
 
-            // Trigger OTP generation and SMS
-            try {
-                await fetch('/api/send-otp', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ mobile: formData.mobile })
-                });
-            } catch (err) {
-                console.warn('Failed to send initial OTP SMS:', err);
-            }
-
-            // Redirect to OTP verification
-            router.push(`/verify-otp?mobile=${formData.mobile}&mode=signup`);
+            // Redirect to dashboard (OTP bypassed)
+            router.push(`/dashboard`);
 
         } catch (err: unknown) {
             console.error("Signup failed", err);
@@ -424,6 +415,27 @@ export default function SignUpPage() {
                                 onSelect={handleSchoolSelect}
                                 selectedSchoolId={formData.schoolId}
                             />
+                        </div>
+
+                        <div>
+                            <label className="mb-2 block text-xl font-extrabold text-[#111111]">Favourite Food</label>
+                            <div className="relative">
+                                <Utensils className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#111111]" />
+                                <input
+                                    type="text"
+                                    name="favouriteFood"
+                                    placeholder="e.g. Pav Bhaji, Puranpoli"
+                                    className="comic-input pl-12 text-lg font-bold"
+                                    style={{ paddingLeft: "3rem" }}
+                                    value={formData.favouriteFood}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </div>
+                            <p className="mt-2 text-xs font-bold text-[#db3125]">
+                                <CheckCircle2 className="inline-block h-3 w-3 mr-1" />
+                                Remember this! You will need it if you forget your password.
+                            </p>
                         </div>
 
                         <div className="grid gap-4 md:grid-cols-2">

@@ -2,7 +2,7 @@
 
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Lock, ArrowRight, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
+import { Lock, ArrowRight, CheckCircle2, Loader2, AlertCircle, Utensils } from "lucide-react";
 import { db } from "@/lib/db";
 
 function ResetPasswordContent() {
@@ -12,6 +12,7 @@ function ResetPasswordContent() {
 
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
+    const [favouriteFood, setFavouriteFood] = useState("");
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState("");
@@ -22,24 +23,39 @@ function ResetPasswordContent() {
             setError("Passwords do not match");
             return;
         }
+        if (!favouriteFood) {
+            setError("Please enter your favourite food.");
+            return;
+        }
 
         setLoading(true);
         setError("");
 
         try {
-            // Find user by mobile and update password
+            // First call the server to validate food and update cloud DB
+            const res = await fetch('/api/reset-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mobile, favouriteFood, newPassword: password }),
+            });
+            
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || "Failed to reset password.");
+            }
+
+            // Then update local offline copy
             const user = await db.users.where({ mobile: mobile || "" }).first();
             if (user) {
                 await db.users.update(user.id, { password });
-                setSuccess(true);
-                setTimeout(() => {
-                    router.push("/login");
-                }, 2000);
-            } else {
-                setError("User not found.");
             }
-        } catch (err) {
-            setError("Failed to reset password.");
+
+            setSuccess(true);
+            setTimeout(() => {
+                router.push("/login");
+            }, 2000);
+        } catch (err: any) {
+            setError(err.message || "Failed to reset password.");
         } finally {
             setLoading(false);
         }
@@ -66,6 +82,21 @@ function ResetPasswordContent() {
                 <p className="text-gray-500 mb-8 border-b pb-4">Set a strong password to protect your account.</p>
 
                 <form onSubmit={handleReset} className="space-y-6">
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Favourite Food</label>
+                        <div className="relative group">
+                            <Utensils className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 group-focus-within:text-blue-500 transition-colors" />
+                            <input
+                                type="text"
+                                placeholder="What is your favourite food?"
+                                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all bg-gray-50 focus:bg-white"
+                                value={favouriteFood}
+                                onChange={(e) => setFavouriteFood(e.target.value)}
+                                required
+                            />
+                        </div>
+                    </div>
+
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-1">New Password</label>
                         <div className="relative group">

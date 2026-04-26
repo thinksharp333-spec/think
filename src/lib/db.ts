@@ -13,6 +13,7 @@ interface User {
     grade?: string; // Added for analytics
     role?: string; // student or admin
     password?: string;
+    favouriteFood?: string; // Added for password reset security question
     totalPoints: number;
     streak?: number;
     lastPointsDate?: string;
