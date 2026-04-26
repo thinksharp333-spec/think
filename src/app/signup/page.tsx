@@ -334,12 +334,6 @@ export default function SignUpPage() {
                     <section className="px-2 lg:px-6">
                         <div className="mx-auto max-w-xl">
                     <form onSubmit={handleSignUp} className="space-y-4">
-                        {error && (
-                            <div className="comic-card bg-[#fff0ef] p-3 text-center text-sm font-black text-[#db3125]">
-                                {error}
-                            </div>
-                        )}
-
                         <div>
                             <label className="mb-2 block text-xl font-extrabold text-[#111111]">Your Name</label>
                             <div className="relative">
@@ -472,6 +466,13 @@ export default function SignUpPage() {
                                 </div>
                             </div>
                         </div>
+
+                        {error && (
+                            <div className="comic-card bg-[#fff0ef] p-3 text-center text-sm font-black text-[#db3125] mt-2 animate-pop-in">
+                                {error}
+                            </div>
+                        )}
+
                         <button
                             type="submit"
                             disabled={!isOnline || isLoading}
