@@ -475,7 +475,7 @@ export default function SignUpPage() {
                         <button
                             type="submit"
                             disabled={!isOnline || isLoading}
-                            className="comic-button-dark mt-6 flex w-full items-center justify-center gap-3 px-8 py-4 text-3xl font-black disabled:cursor-not-allowed disabled:opacity-60"
+                            className="btn-dark mt-6 flex w-full items-center justify-center gap-3 px-8 py-4 text-3xl font-black disabled:cursor-not-allowed disabled:opacity-60"
                         >
                             {isLoading ? "Creating Account..." : (!isOnline ? "Offline - Connect to Sign Up" : "Create Account")}
                             {!isLoading && isOnline && <ArrowRight className="h-6 w-6" />}
