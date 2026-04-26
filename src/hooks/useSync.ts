@@ -52,172 +52,30 @@ export function useSync() {
                         continue;
                     }
 
-                    if (task.type === 'READ_LOG') {
-                        const userId = task.payload?.userId;
-                        if (!userId || GUEST_IDS.includes(String(userId))) {
-                            if (task.id) await db.syncQueue.delete(task.id);
-                            continue;
-                        }
-
-                        const { error } = await client
-                            .from('reading_sessions')
-                            .insert([{
-                                user_id: task.payload?.userId,
-                                book_id: String(task.payload?.bookId),
-                                book_title: task.payload?.bookTitle || 'Unknown Book',
-                                start_time: new Date(task.payload?.startTime).toISOString(),
-                                end_time: new Date(task.payload?.endTime).toISOString(),
-                                duration_seconds: task.payload?.duration || 0,
-                                pages_read: task.payload?.pagesRead || 0,
-                                points_earned: task.payload?.pointsEarned || 0,
-                                completed: task.payload?.completed || false,
-                            }]);
-
-                        if (error) throw error;
+                    // All sync tasks route through the server-side API (uses service role key, bypasses RLS)
+                    const userId = task.payload?.userId;
+                    if (task.type !== 'BOOK_QUIZ' && (!userId || GUEST_IDS.includes(String(userId)))) {
+                        if (task.id) await db.syncQueue.delete(task.id);
+                        continue;
                     }
-                    else if (task.type === 'UPDATE_POINTS') {
-                        const userId = task.payload?.userId;
-                        if (!userId || GUEST_IDS.includes(String(userId))) {
-                            if (task.id) await db.syncQueue.delete(task.id);
-                            continue;
-                        }
 
-                        // BUG-06 FIX: Use pointsDelta (additive) instead of totalPoints (absolute).
-                        // Legacy tasks may still have totalPoints — handle both during transition.
-                        if (task.payload?.pointsDelta !== undefined) {
-                            const delta = task.payload.pointsDelta as number;
+                    const res = await fetch('/api/sync', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ type: task.type, payload: task.payload, userId }),
+                    });
 
-                            // Fetch current value from Supabase, then increment by delta.
-                            // This is safe for sequential sync and avoids last-write-wins.
-                            const { data: userData, error: fetchError } = await client
-                                .from('users')
-                                .select('"totalPoints"')
-                                .eq('id', userId)
-                                .single();
-
-                            if (fetchError) throw fetchError;
-
-                            const currentPoints = (userData as any)?.totalPoints ?? 0;
-                            
-                            const updateObj: any = { "totalPoints": currentPoints + delta };
-                            if (task.payload?.streak !== undefined) {
-                                updateObj.streak = task.payload.streak;
-                                updateObj.last_points_date = task.payload.lastPointsDate;
-                            }
-                            
-                            const { error } = await client
-                                .from('users')
-                                .update(updateObj)
-                                .eq('id', userId);
-
-                            if (error) throw error;
-                        } else {
-                            // Legacy absolute totalPoints path (backwards compat)
-                            const totalPoints = task.payload?.totalPoints ?? 0;
-                            const { error } = await client
-                                .from('users')
-                                .update({ "totalPoints": totalPoints })
-                                .eq('id', userId);
-
-                            if (error) throw error;
-                        }
+                    if (!res.ok) {
+                        const body = await res.json().catch(() => ({}));
+                        throw new Error(body.error || `Sync API error ${res.status}`);
                     }
-                    else if (task.type === 'SUBMIT_QUIZ') {
-                        const { bookId, userId, score, totalQuestions, answers, completedAt, localAttemptId } = task.payload;
 
-                        const sanitizedUserId = String(userId || 'guest-user');
-                        if (GUEST_IDS.includes(sanitizedUserId)) {
-                            if (task.id) await db.syncQueue.delete(task.id);
-                            continue;
-                        }
-
-                        const { error } = await client
-                            .from('quiz_attempts')
-                            .insert([{
-                                book_id: String(bookId),
-                                user_id: sanitizedUserId,
-                                score,
-                                total_questions: totalQuestions,
-                                answers: answers || [],
-                                completed_at: new Date(completedAt).toISOString(),
-                            }]);
-
-
-                        if (error) throw error;
-
-                        // Mark local attempt as synced
-                        if (localAttemptId) {
-                            await db.quizAttempts.update(localAttemptId, { synced: 1 });
-                        }
+                    // Mark local attempt as synced for quiz/review tasks
+                    if (task.type === 'SUBMIT_QUIZ' && task.payload?.localAttemptId) {
+                        await db.quizAttempts.update(task.payload.localAttemptId, { synced: 1 });
                     }
-                    else if (task.type === 'SUBMIT_REVIEW') {
-                        const { bookId, userId, rating, reviewText, originalReviewId } = task.payload;
-
-                        const sanitizedUserId = String(userId || 'guest-user');
-
-                        const bIdNum = Number(bookId);
-                        if (isNaN(bIdNum)) {
-                            console.error(`[Sync] CANNOT SYNC REVIEW: bookId is NaN`, { bookId, userId });
-                            if (task.id) await db.syncQueue.delete(task.id);
-                            continue;
-                        }
-
-                        const { error } = await client
-
-                            .from('book_reviews')
-                            .upsert([{
-                                book_id: bIdNum,
-                                user_id: sanitizedUserId,
-                                rating: rating,
-                                review_text: reviewText || null
-                            }], { onConflict: 'book_id,user_id' });
-
-                        if (error) {
-                            console.error(`[Sync] Review upsert failed:`, JSON.stringify(error, null, 2));
-                            throw error;
-                        }
-
-                        const { data: syncedReviews, error: reviewsError } = await client
-                            .from('book_reviews')
-                            .select('user_id, rating, created_at')
-                            .eq('book_id', bIdNum);
-
-                        if (reviewsError) throw reviewsError;
-
-                        const stats = getBookRatingStats(
-                            (syncedReviews || []).map((review) => ({
-                                userId: review.user_id,
-                                rating: review.rating,
-                                createdAt: new Date(review.created_at).getTime(),
-                            }))
-                        );
-
-                        const { error: bookUpdateError } = await client
-                            .from('books')
-                            .update({
-                                avg_rating: stats.averageRating,
-                                review_count: stats.reviewCount,
-                            })
-                            .eq('id', bIdNum);
-
-                        if (bookUpdateError) throw bookUpdateError;
-
-                        await db.books.update(bIdNum, {
-                            avgRating: stats.averageRating,
-                            reviewCount: stats.reviewCount,
-                        });
-
-                        if (originalReviewId) {
-                            await db.bookReviews.update(originalReviewId, { synced: 1 });
-                        }
-                    }
-                    else if (task.type === 'BOOK_QUIZ') {
-                        const { bookId, questions } = task.payload;
-                        const { error } = await client
-                            .from('books')
-                            .update({ questions })
-                            .eq('id', bookId);
-                        if (error) throw error;
+                    if (task.type === 'SUBMIT_REVIEW' && task.payload?.originalReviewId) {
+                        await db.bookReviews.update(task.payload.originalReviewId, { synced: 1 });
                     }
 
                     // Success — remove from queue

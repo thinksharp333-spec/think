@@ -22,33 +22,30 @@ export function SchoolSelector({ onSelect, selectedSchoolId }: SchoolSelectorPro
 
     useEffect(() => {
         async function fetchSchools() {
-            if (!supabase) return;
+            try {
+                const res = await fetch('/api/schools');
+                if (!res.ok) throw new Error('Failed to fetch schools');
+                const { schools: data } = await res.json();
 
-            const { data, error } = await supabase
-                .from('schools')
-                .select('*')
-                .order('district', { ascending: true });
+                if (data) {
+                    setSchools(data as School[]);
+                    const uniqueDistricts = Array.from(new Set((data as School[]).map(s => s.district))).sort();
+                    setDistricts(uniqueDistricts);
 
-            if (error) {
-                console.error("Error fetching schools:", error);
-                return;
-            }
-
-            if (data) {
-                setSchools(data as School[]);
-                const uniqueDistricts = Array.from(new Set(data.map(s => s.district))).sort();
-                setDistricts(uniqueDistricts);
-
-                if (selectedSchoolId) {
-                    const preselected = data.find((school) => school.id === selectedSchoolId);
-                    if (preselected) {
-                        setSelectedDistrict(preselected.district);
-                        setSelectedTaluka(preselected.taluka);
-                        setSelectedSchool(preselected.id);
+                    if (selectedSchoolId) {
+                        const preselected = (data as School[]).find((school) => school.id === selectedSchoolId);
+                        if (preselected) {
+                            setSelectedDistrict(preselected.district);
+                            setSelectedTaluka(preselected.taluka);
+                            setSelectedSchool(preselected.id);
+                        }
                     }
                 }
+            } catch (err) {
+                console.error("Error fetching schools:", err);
+            } finally {
+                setIsLoading(false);
             }
-            setIsLoading(false);
         }
 
         fetchSchools();
@@ -87,10 +84,6 @@ export function SchoolSelector({ onSelect, selectedSchoolId }: SchoolSelectorPro
 
     if (isLoading) {
         return <div className="comic-card animate-pulse p-4 text-sm font-black uppercase tracking-wide text-[#5f5852]">Loading schools...</div>;
-    }
-
-    if (!supabase) {
-        return <div className="comic-card bg-[#fff0ef] p-4 text-sm font-black text-[#db3125]">Database connection not available.</div>;
     }
 
     return (
