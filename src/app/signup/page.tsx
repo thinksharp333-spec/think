@@ -102,44 +102,15 @@ export default function SignUpPage() {
                 totalBooksRead:     0,
             };
 
-            // 1. Save to Cloud (Supabase)
-            if (supabase) {
-                try {
-                    const { error: supabaseError } = await supabase
-                        .from('users')
-                        .insert([
-                            {
-                                id:                   userData.id,
-                                name:                 userData.name,
-                                age:                  userData.age,
-                                mobile:               userData.mobile,
-                                city:                 userData.city,
-                                school:               userData.school,
-                                school_id:            userData.schoolId,
-                                grade:                userData.grade,
-                                role:                 userData.role,
-                                password:             userData.password,
-                                totalPoints:          0,
-                                avatar_base_id:       userData.avatarBaseId,
-                                current_avatar_stage: 0,
-                                current_avatar_url:   userData.currentAvatarUrl,
-                                total_books_read:     0,
-                            }
-                        ]);
-
-                    if (supabaseError) {
-                        console.warn("Cloud sync failed:", supabaseError.message);
-                        throw new Error("Cloud Registration Failed: " + supabaseError.message);
-                    } else {
-                        console.log("Supabase insert successful!");
-                    }
-                } catch (cloudErr: unknown) {
-                    console.error("Cloud connection error:", cloudErr);
-                    throw new Error(getErrorMessage(cloudErr) || "Cloud connection failed");
-                }
-            } else {
-                console.warn("Supabase not configured.");
-                throw new Error("System configuration error: Cloud database unavailable.");
+            // 1. Save to Cloud via server-side API (bypasses RLS)
+            const signupRes = await fetch('/api/signup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(userData),
+            });
+            if (!signupRes.ok) {
+                const { error: signupErr } = await signupRes.json();
+                throw new Error(signupErr || 'Cloud Registration Failed');
             }
 
             // 2. Save Local (Dexie) - Keeping for offline cache/session

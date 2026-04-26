@@ -1,5 +1,14 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
+
+const getAdminClient = () => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    return createClient(url, key);
+};
+
+// keep legacy reference name so the rest of the file compiles unchanged
+const supabase = getAdminClient();
 
 // Type definition for the Sync Task payload
 type SyncPayload = {
@@ -19,7 +28,7 @@ export async function POST(request: Request) {
 
         console.log(`[API] Received sync task: ${type} for user: ${targetUserId}`, payload);
 
-        if (!supabase) {
+        if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
             return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 });
         }
 

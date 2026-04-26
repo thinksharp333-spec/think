@@ -8,17 +8,16 @@ export function useBooks() {
     const syncingRef = useRef(false);
 
     const syncLibrary = useCallback(async () => {
-        const client = supabase;
-        if (!client || syncingRef.current) return;
+        if (syncingRef.current) return;
 
         try {
             syncingRef.current = true;
 
-            const { data, error } = await client
-                .from('books')
-                .select('id, title, "fileId", grade, pages, "pdfUrl", level, subject, language, "coverUrl", questions, avg_rating, review_count');
+            const res = await fetch('/api/books');
+            if (!res.ok) throw new Error(`Books API error: ${res.status}`);
+            const { books: data, error } = await res.json();
 
-            if (error) throw error;
+            if (error) throw new Error(error);
             if (data) {
                 let localBooks = await db.books.toArray();
 
