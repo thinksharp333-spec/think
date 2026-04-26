@@ -105,19 +105,10 @@ export default function LoginPage() {
         e.preventDefault();
         if (mobile) {
             setLoading(true);
-            try {
-                await fetch('/api/send-otp', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ mobile })
-                });
-            } catch (err) {
-                console.warn('Failed to send forgot password OTP:', err);
-            }
             setTimeout(() => {
                 setLoading(false);
-                router.push(`/verify-otp?mobile=${mobile}&mode=reset`);
-            }, 800);
+                router.push(`/reset-password?mobile=${mobile}`);
+            }, 400);
         } else {
             alert("Please enter your mobile number first.");
         }
@@ -254,7 +245,7 @@ export default function LoginPage() {
                                 </div>
                                 <div className="pt-4 space-y-3">
                                     <button type="submit" disabled={loading} className="btn-red w-full py-4 text-lg font-black uppercase">
-                                        {loading ? <Loader2 className="h-6 w-6 animate-spin mx-auto" /> : "Send Reset OTP"}
+                                        {loading ? <Loader2 className="h-6 w-6 animate-spin mx-auto" /> : "Reset Password"}
                                     </button>
                                     <button type="button" onClick={() => setShowForgotPassword(false)} className="btn-outline w-full py-4 text-sm font-black uppercase">
                                         Cancel

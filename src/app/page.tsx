@@ -70,8 +70,8 @@ export default function LandingPage() {
       const { count: userCount } = await supabase.from('users').select('*', { count: 'exact', head: true });
       const { count: bookCount } = await supabase.from('books').select('*', { count: 'exact', head: true });
       setCounts({ 
-        readers: userCount ? `${userCount}+` : "10K+", 
-        books: bookCount ? `${bookCount}+` : "700+" 
+        readers: userCount !== null ? `${userCount}` : "10K+", 
+        books: bookCount !== null ? `${bookCount}` : "700+" 
       });
 
       // Daily featured book logic
@@ -129,9 +129,9 @@ export default function LandingPage() {
                 </button>
               </div>
             ) : (
-              <Link href="/signup" className="btn-red py-1.5 px-4 md:py-2.5 md:px-6 text-xs md:text-sm whitespace-nowrap shadow-[0_4px_0_#991b1b]">
-                <User className="h-4 w-4 md:mr-1 inline-block" />
-                <span className="hidden sm:inline">Register</span>
+              <Link href="/login" className="btn-red py-1.5 px-4 md:py-2.5 md:px-6 text-xs md:text-sm whitespace-nowrap shadow-[0_4px_0_#991b1b]">
+                <LogIn className="h-4 w-4 md:mr-1 inline-block" />
+                <span className="hidden sm:inline">Login</span>
               </Link>
             )}
           </div>

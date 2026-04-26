@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
         current_avatar_stage: 0,
         current_avatar_url:   body.currentAvatarUrl,
         total_books_read:     0,
+        favourite_food:       body.favouriteFood,
     }]);
 
     if (error) {
