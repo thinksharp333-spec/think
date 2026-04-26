@@ -31,12 +31,16 @@ export default function LoginPage() {
             setLoading(true);
             try {
                 let user;
-                if (isOnline && supabase) {
-                    const { data, error } = await supabase.from('users').select('*').eq('mobile', mobile).eq('password', password).single();
-                    if (!error && data) {
+                if (isOnline) {
+                    const res = await fetch('/api/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ mobile, password }),
+                    });
+                    if (res.ok) {
+                        const { user: data } = await res.json();
                         user = data;
                         // SYNC DOWN: Update local DB with latest cloud data
-                        // Map Supabase snake_case columns to local camelCase
                         await db.users.put({
                             id: data.id,
                             name: data.name || 'Student',
