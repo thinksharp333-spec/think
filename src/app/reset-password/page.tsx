@@ -63,89 +63,101 @@ function ResetPasswordContent() {
 
     if (success) {
         return (
-            <div className="min-h-screen bg-green-50 flex items-center justify-center p-4 text-black">
-                <div className="text-center animate-in zoom-in duration-500">
-                    <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 text-green-600">
-                        <CheckCircle2 className="w-12 h-12" />
+            <div className="min-h-screen bg-[#fff9ee] flex items-center justify-center p-6 text-black z-10 relative">
+                <div className="absolute top-0 left-0 w-[500px] h-[500px] rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(230,51,41,0.06) 0%, transparent 70%)", transform: "translate(-30%, -30%)" }} />
+                <div className="card w-full max-w-sm flex flex-col p-8 sm:p-10 text-center relative bg-white border-4 border-[#111] shadow-[0_12px_0_#111] animate-pop-in">
+                    <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border-4 border-[#111] bg-[#e63329] shadow-[0_6px_0_#111] mb-6">
+                        <CheckCircle2 className="h-10 w-10 text-white" />
                     </div>
-                    <h2 className="text-2xl font-bold text-gray-800 mb-2">Password Reset!</h2>
-                    <p className="text-gray-500">Your password has been updated. Redirecting to login...</p>
+                    <h2 className="comic-title text-3xl md:text-4xl text-[#111] uppercase tracking-wide mb-2">Password Reset!</h2>
+                    <p className="font-bold text-[#555] mb-6">Your password has been updated. Get ready to explore!</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 text-black">
-            <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
-                <h2 className="text-2xl font-bold text-gray-800 mb-2">Create New Password</h2>
-                <p className="text-gray-500 mb-8 border-b pb-4">Set a strong password to protect your account.</p>
+        <div className="min-h-screen bg-[#fff9ee] flex items-center justify-center p-6 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(245,158,11,0.06) 0%, transparent 70%)", transform: "translate(30%, -30%)" }} />
+            
+            <div className="card w-full max-w-md flex flex-col p-8 sm:p-10 relative bg-white border-4 border-[#111] shadow-[0_12px_0_#111] z-10">
+                <div className="text-center mb-8">
+                    <h2 className="comic-title text-4xl text-[#e63329] mb-2 tracking-wide uppercase">New Password</h2>
+                    <p className="text-[#555] font-bold">Secure your account</p>
+                </div>
 
-                <form onSubmit={handleReset} className="space-y-6">
-                    <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">Favourite Food</label>
-                        <div className="relative group">
-                            <Utensils className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 group-focus-within:text-blue-500 transition-colors" />
-                            <input
-                                type="text"
-                                placeholder="What is your favourite food?"
-                                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all bg-gray-50 focus:bg-white"
-                                value={favouriteFood}
-                                onChange={(e) => setFavouriteFood(e.target.value)}
-                                required
-                            />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">New Password</label>
-                        <div className="relative group">
-                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 group-focus-within:text-blue-500 transition-colors" />
-                            <input
-                                type="password"
-                                placeholder="••••••••"
-                                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all bg-gray-50 focus:bg-white"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                required
-                                minLength={6}
-                            />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">Confirm New Password</label>
-                        <div className="relative group">
-                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 group-focus-within:text-blue-500 transition-colors" />
-                            <input
-                                type="password"
-                                placeholder="••••••••"
-                                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all bg-gray-50 focus:bg-white"
-                                value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                required
-                            />
-                        </div>
-                    </div>
-
+                <form onSubmit={handleReset} className="w-full space-y-5">
                     {error && (
-                        <div className="flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded-lg text-sm font-medium animate-in slide-in-from-top-2">
-                            <AlertCircle className="w-4 h-4" />
+                        <div className="comic-card bg-[#fff0ef] p-3 text-center text-sm font-black text-[#db3125]">
                             {error}
                         </div>
                     )}
 
+                    <div className="space-y-4">
+                        <div>
+                            <label className="mb-2 block text-xl font-extrabold text-[#111]">Favourite Food</label>
+                            <div className="relative">
+                                <Utensils className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-[#888]" />
+                                <input
+                                    type="text"
+                                    placeholder="Your favourite food"
+                                    className="comic-input pl-14 text-lg font-bold"
+                                    style={{ paddingLeft: "3.5rem" }}
+                                    value={favouriteFood}
+                                    onChange={(e) => setFavouriteFood(e.target.value)}
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="mb-2 block text-xl font-extrabold text-[#111]">New Password</label>
+                            <div className="relative">
+                                <Lock className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-[#888]" />
+                                <input
+                                    type="password"
+                                    placeholder="••••••••"
+                                    className="comic-input pl-14 text-lg font-bold"
+                                    style={{ paddingLeft: "3.5rem" }}
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                    minLength={6}
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="mb-2 block text-xl font-extrabold text-[#111]">Confirm Password</label>
+                            <div className="relative">
+                                <Lock className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-[#888]" />
+                                <input
+                                    type="password"
+                                    placeholder="••••••••"
+                                    className="comic-input pl-14 text-lg font-bold"
+                                    style={{ paddingLeft: "3.5rem" }}
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    required
+                                />
+                            </div>
+                        </div>
+                    </div>
+
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-200 hover:shadow-blue-300 transform active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                        className="btn-red w-full py-5 mt-4 text-2xl font-black tracking-widest relative overflow-hidden group"
                     >
-                        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
-                            <>
-                                Update Password <ArrowRight className="w-5 h-5" />
-                            </>
-                        )}
+                        <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform" />
+                        {loading ? <Loader2 className="h-7 w-7 animate-spin mx-auto" /> : "Update Password"}
                     </button>
+                    
+                    <div className="pt-5 mt-2 text-center border-t-2 border-dashed border-[#111]/10">
+                        <button type="button" onClick={() => router.push("/login")} className="text-xs font-black uppercase text-[#555] hover:text-[#e63329] transition-colors">
+                            Cancel & Go Back
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
