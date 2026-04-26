@@ -69,8 +69,8 @@ export default function LandingPage() {
       const { count: userCount } = await supabase.from('users').select('*', { count: 'exact', head: true });
       const { count: bookCount } = await supabase.from('books').select('*', { count: 'exact', head: true });
       setCounts({ 
-        readers: userCount ? `${userCount}+` : "10K+", 
-        books: bookCount ? `${bookCount}+` : "700+" 
+        readers: userCount !== null ? `${userCount}` : "10K+", 
+        books: bookCount !== null ? `${bookCount}` : "700+" 
       });
 
       // Daily featured book logic
