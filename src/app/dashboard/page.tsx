@@ -174,22 +174,10 @@ export default function Dashboard() {
                                 <User className="h-5 w-5" />
                             )}
                         </Link>
-<<<<<<< HEAD
-                        <button onClick={async () => { 
-                            await supabase.auth.signOut(); 
-                            router.push('/');
-                        }}
-                        className="chip chip-dark text-xs hidden md:flex">
-                         <LogOut className="h-3.5 w-3.5" /> Logout
-                        </button>
-=======
                         {user ? (
                             <button onClick={async () => { 
-                                const client = supabase;
-                                if (client) { 
-                                    await client.auth.signOut(); 
-                                    window.location.reload(); 
-                                } 
+                                await supabase.auth.signOut(); 
+                                router.push('/');
                             }}
                             className="chip chip-dark text-xs hidden md:flex">
                              <LogOut className="h-3.5 w-3.5" /> Logout
@@ -199,7 +187,6 @@ export default function Dashboard() {
                              <User className="h-3.5 w-3.5" /> Login
                             </Link>
                         )}
->>>>>>> de9dffc290b9d17768bbe8ff5576418609ddcb6a
                     </div>
                 </div>
 
