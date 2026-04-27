@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Trophy, Loader2, Star, BookOpen, Crown, Medal, Swords, Shield, Gem, Flame } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '@/lib/db';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
 import { getThumbnailUrl, extractFileId } from '@/lib/google-drive';
@@ -197,6 +200,7 @@ function PodiumAvatar({ rank, name }: { rank: number; name: string }) {
 }
 
 export default function LeaderboardPage() {
+    const { user } = useUser();
     const _users = useLiveQuery(() => db.users.toArray()) || [];
     const currentUser = _users.find(u => u.id !== 'local-user' && u.id !== 'local-admin')
                || _users.find(u => u.id === 'local-user')
