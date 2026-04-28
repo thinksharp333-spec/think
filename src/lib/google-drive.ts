@@ -4,11 +4,11 @@ export interface DriveItem {
     mimeType: string;
 }
 
-const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY;
+const API_KEY = process.env.GOOGLE_DRIVE_API_KEY;
 
 export async function fetchDriveContents(folderId: string): Promise<DriveItem[]> {
     if (!API_KEY) {
-        throw new Error("NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY is not defined in .env.local");
+        throw new Error("GOOGLE_DRIVE_API_KEY is not defined in .env.local");
     }
 
     const url = new URL("https://www.googleapis.com/drive/v3/files");
@@ -46,7 +46,7 @@ export async function fetchDriveContents(folderId: string): Promise<DriveItem[]>
 }
 
 export async function fetchDriveItem(fileId: string): Promise<DriveItem> {
-    if (!API_KEY) throw new Error("API_KEY not defined");
+    if (!API_KEY) throw new Error("GOOGLE_DRIVE_API_KEY is not defined");
     const url = `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,name,mimeType&key=${API_KEY}&supportsAllDrives=true`;
     
     let response;
@@ -75,7 +75,7 @@ export async function fetchDriveItem(fileId: string): Promise<DriveItem> {
 
 export async function fetchSheetsData(spreadsheetId: string): Promise<Record<string, string>> {
     if (!API_KEY) {
-        throw new Error("NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY is not defined");
+        throw new Error("GOOGLE_DRIVE_API_KEY is not defined");
     }
 
     // Attempt to parse out ID from a full URL if provided

@@ -8,7 +8,25 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Trash2, Plus, BookOpen, GraduationCap, MapPin, Search, Cloud, Download, Loader2, LayoutDashboard, CheckCircle2, ChevronDown, ChevronRight } from "lucide-react";
 import { Dropdown } from "@/components/dropdown";
-import { fetchDriveContents, fetchDriveItem, getDirectDownloadUrl, DriveItem } from "@/lib/google-drive";
+import { getDirectDownloadUrl, DriveItem } from "@/lib/google-drive";
+
+async function fetchDriveContents(folderId: string): Promise<DriveItem[]> {
+    const res = await fetch(`/api/drive?type=contents&folderId=${encodeURIComponent(folderId)}`);
+    if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Drive API error ${res.status}`);
+    }
+    return res.json();
+}
+
+async function fetchDriveItem(fileId: string): Promise<DriveItem> {
+    const res = await fetch(`/api/drive?type=item&fileId=${encodeURIComponent(fileId)}`);
+    if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Drive API error ${res.status}`);
+    }
+    return res.json();
+}
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { normalizeSubject } from "@/lib/utils";
@@ -1083,12 +1101,6 @@ export default function AdminDashboard() {
                         Tip: If the folder name doesn&apos;t contain the level (e.g. just &quot;Science&quot;), select the starting Level manually above.
                     </p>
 
-                    {!process.env.NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY && (
-                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-600 flex items-center gap-2">
-                            <span className="font-bold">Missing API Key:</span>
-                            Add NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY to .env.local and restart.
-                        </div>
-                    )}
 
                     {scanning && (
                         <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-600 flex items-center gap-2 animate-pulse">
