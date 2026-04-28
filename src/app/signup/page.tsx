@@ -84,9 +84,8 @@ export default function SignUpPage() {
         setIsLoading(true);
 
         try {
-            // ID Generation (using a consistent format, or could rely on Supabase auth.users if using Auth)
-            // For now, continuing with the custom ID pattern as per request context
-            const id = `student-${Date.now()}`;
+            // Generate a robust standard UUID for the new user
+            const id = crypto.randomUUID();
 
             const finalSchoolName = formData.schoolId === "other" ? formData.customSchool : formData.school;
 
@@ -350,7 +349,7 @@ export default function SignUpPage() {
                                 <input
                                     type="text"
                                     name="name"
-                                    placeholder="Pick a Username"
+                                    placeholder="Enter Full Name"
                                     className="comic-input pl-12 text-xl font-bold"
                                     style={{ paddingLeft: "3rem" }}
                                     value={formData.name}
@@ -358,6 +357,25 @@ export default function SignUpPage() {
                                     required
                                 />
                             </div>
+                        </div>
+
+                        <div>
+                            <label className="mb-2 block text-xl font-extrabold text-[#111111]">Mobile Number</label>
+                            <div className="relative">
+                                <Phone className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#111111]" />
+                                <input
+                                    type="tel"
+                                    name="mobile"
+                                    placeholder="10-digit mobile number"
+                                    className="comic-input pl-12 text-xl font-bold"
+                                    style={{ paddingLeft: "3rem" }}
+                                    value={formData.mobile}
+                                    onChange={handleChange}
+                                    required
+                                    pattern="[0-9]{10}"
+                                />
+                            </div>
+                            <p className="mt-1 text-[11px] font-bold text-[#777]">This will be your login ID.</p>
                         </div>
 
                         <div className="grid gap-4 md:grid-cols-3">
@@ -394,23 +412,7 @@ export default function SignUpPage() {
                                     ))}
                                 </select>
                             </div>
-                            <div>
-                                <label className="mb-2 block text-xl font-extrabold text-[#111111]">Mobile</label>
-                                <div className="relative">
-                                    <Phone className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#111111]" />
-                                    <input
-                                        type="tel"
-                                        name="mobile"
-                                        placeholder="Mobile"
-                                        className="comic-input pl-12 text-lg font-bold"
-                                        style={{ paddingLeft: "3rem" }}
-                                        value={formData.mobile}
-                                        onChange={handleChange}
-                                        required
-                                        pattern="[0-9]{10}"
-                                    />
-                                </div>
-                            </div>
+                            <div className="md:col-span-1" />
                         </div>
 
                         <div>

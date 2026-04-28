@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
             }
         } else {
             // Treat as a Google Drive file ID
-            const apiKey = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY;
+            const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
             if (!apiKey) {
                 return NextResponse.json({ error: 'Google Drive API key not configured' }, { status: 500 });
             }

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Red T (offset/shadow layer) -->
+  <path d="M18 28 L82 28 L82 40 L57 40 L57 88 L43 88 L43 40 L18 40 Z" fill="#D32F2F" rx="4"/>
+  <!-- Black T (main layer, offset up-left) -->
+  <path d="M12 18 L76 18 L76 32 L51 32 L51 80 L37 80 L37 32 L12 32 Z" fill="#1a1a1a" rx="4"/>
+  <!-- Spine/zipper detail -->
+  <circle cx="44" cy="38" r="2.5" fill="white"/>
+  <circle cx="44" cy="48" r="2.5" fill="white"/>
+  <circle cx="44" cy="58" r="2.5" fill="white"/>
+  <circle cx="44" cy="68" r="2.5" fill="white"/>
+  <circle cx="44" cy="78" r="2.5" fill="white"/>
+</svg>

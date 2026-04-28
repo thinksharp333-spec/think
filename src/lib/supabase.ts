@@ -16,6 +16,7 @@ export interface School {
     school_name: string;
     district: string;
     taluka: string;
+    village?: string;
     state: string;
     cluster?: string;
     block?: string;

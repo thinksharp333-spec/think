@@ -14,13 +14,17 @@ const bungee = Bungee({
 });
 
 export const metadata: Metadata = {
-  title: "EcoLearn Adaptive",
+  title: "DigiLibrary",
   description: "Offline-capable educational platform for rural areas",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/thinksharp-t.png",
+    apple: "/thinksharp-t.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "EcoLearn",
+    title: "DigiLibrary",
   },
 };
 

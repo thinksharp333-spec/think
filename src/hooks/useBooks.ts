@@ -2,6 +2,7 @@ import { useCallback, useRef } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, Book, getSyncKey } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
+import { normalizeSubject } from "@/lib/utils";
 
 export function useBooks() {
     const books = useLiveQuery(() => db.books.toArray());
@@ -44,7 +45,7 @@ export function useBooks() {
                         pages: book.pages,
                         pdfUrl: book.pdfUrl,
                         level: book.level,
-                        subject: book.subject,
+                        subject: normalizeSubject(book.subject),
                         language: book.language,
                         coverUrl: book.coverUrl,
                         avgRating: book.avg_rating || 0,
@@ -90,11 +91,18 @@ export function useBooks() {
     }, []);
 
     const addBook = async (book: Book) => {
-        await db.books.add(book);
+        await db.books.add({
+            ...book,
+            subject: normalizeSubject(book.subject)
+        });
     };
 
     const addBooks = async (newBooks: Book[]) => {
-        await db.books.bulkAdd(newBooks);
+        const normalized = newBooks.map(b => ({
+            ...b,
+            subject: normalizeSubject(b.subject)
+        }));
+        await db.books.bulkAdd(normalized);
     };
 
     const removeBook = async (id: number) => {
