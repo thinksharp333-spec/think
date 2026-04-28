@@ -64,6 +64,10 @@ BEGIN
         ALTER TABLE users ADD COLUMN total_books_read INTEGER DEFAULT 0;
     EXCEPTION WHEN duplicate_column THEN NULL;
     END;
+    BEGIN
+        ALTER TABLE users ADD COLUMN favourite_food TEXT;
+    EXCEPTION WHEN duplicate_column THEN NULL;
+    END;
 END $$;
 
 -- Create Reading Sessions Table if not exists

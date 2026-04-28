@@ -27,6 +27,7 @@ interface LeaderboardUser {
 interface LeaderboardBook {
     id: number;
     title: string;
+    fileId?: string;
     coverUrl?: string;
     avg_rating: number;
     review_count: number;
@@ -196,7 +197,19 @@ function PodiumAvatar({ rank, name }: { rank: number; name: string }) {
 }
 
 export default function LeaderboardPage() {
-    const { user: currentUser } = useUser();
+    const _users = useLiveQuery(() => db.users.toArray()) || [];
+    const currentUser = _users.find(u => u.id !== 'local-user' && u.id !== 'local-admin')
+               || _users.find(u => u.id === 'local-user')
+               || _users[0];
+    const router = useRouter();
+
+    // Auth Guard: Redirect to landing if no real user session
+    useEffect(() => {
+        if (currentUser && currentUser.id === 'local-user') {
+            router.push('/');
+        }
+    }, [currentUser, router]);
+
     const [activeTab, setActiveTab] = useState<'students' | 'books' | 'booksRead'>('students');
     const [selectedLeague, setSelectedLeague] = useState<string>('bronze');
     const [leaderboard, setLeaderboard] = useState<LeaderboardUser[]>([]);
@@ -227,8 +240,8 @@ export default function LeaderboardPage() {
                     });
                     setLeaderboard(usersList);
 
-                    if (currentUser) {
-                        const me = usersList.find((u: any) => u.id === currentUser.id);
+                    if (user) {
+                        const me = usersList.find((u: any) => u.id === user.id);
                         if (me) {
                             const myLg = LEAGUES.find(l => me.totalPoints >= l.min && me.totalPoints <= l.max);
                             if (myLg) setSelectedLeague(myLg.id);
@@ -259,7 +272,14 @@ export default function LeaderboardPage() {
                     }
                     const statsByBook = booksData.map((book: any) => {
                         const rs = getBookRatingStats(reviewMap.get(book.id) || []);
-                        return { id: book.id, title: book.title, coverUrl: book.coverUrl, avg_rating: rs.reviewCount > 0 ? rs.averageRating : (book.avg_rating || 0), review_count: rs.reviewCount > 0 ? rs.reviewCount : (book.review_count || 0) };
+                        return { 
+                            id: book.id, 
+                            title: book.title, 
+                            fileId: book.fileId,
+                            coverUrl: book.coverUrl, 
+                            avg_rating: rs.reviewCount > 0 ? rs.averageRating : (book.avg_rating || 0), 
+                            review_count: rs.reviewCount > 0 ? rs.reviewCount : (book.review_count || 0) 
+                        };
                     }).filter((b: any) => b.review_count > 0);
                     const globalAvg = statsByBook.length > 0 ? statsByBook.reduce((s: number, b: any) => s + b.avg_rating, 0) / statsByBook.length : 0;
                     const minVotes = Math.max(3, Math.ceil(statsByBook.reduce((s: number, b: any) => s + b.review_count, 0) / Math.max(1, statsByBook.length)));
@@ -641,8 +661,8 @@ export default function LeaderboardPage() {
 
                                     {/* Cover */}
                                     <div className="w-16 h-24 flex-shrink-0 overflow-hidden rounded-xl border-2 border-[#111] shadow-[0_4px_0_rgba(0,0,0,0.4)] my-3">
-                                        {book.coverUrl ? (
-                                            <img src={book.coverUrl.includes('drive.google.com') ? getThumbnailUrl(extractFileId(book.coverUrl)) : book.coverUrl}
+                                        {book.coverUrl || book.fileId ? (
+                                            <img src={book.coverUrl ? (book.coverUrl.includes('drive.google.com') ? getThumbnailUrl(extractFileId(book.coverUrl)) : book.coverUrl) : getThumbnailUrl(book.fileId!)}
                                                 alt={book.title} className="w-full h-full object-cover group-hover/bk:scale-105 transition-transform duration-500" />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(180deg,#e63329,#b91c1c)" }}>

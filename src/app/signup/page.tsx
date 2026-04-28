@@ -1,20 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { User, Lock, ArrowRight, ArrowLeft, Phone, Calendar, WifiOff, CheckCircle2 } from "lucide-react";
+import { User, Lock, ArrowRight, ArrowLeft, Phone, Calendar, WifiOff, CheckCircle2, Utensils } from "lucide-react";
 import { AVATARS, getAvatarUrl } from "@/lib/avatar";
 import { AvatarStageImage } from "@/components/avatar-stage-image";
 import { db } from "@/lib/db";
 
 import { useSync } from "@/hooks/useSync";
 import { supabase } from "@/lib/supabase";
+import { useUser } from "@/hooks/useUser";
 import { SchoolSelector } from "@/components/school-selector";
 
 export default function SignUpPage() {
     const router = useRouter();
     const { isOnline } = useSync();
+    const { user } = useUser();
+
+    // Already Logged In Guard
+    useEffect(() => {
+        if (user && user.id !== 'local-user' && user.id !== 'local-admin') {
+            router.push('/dashboard');
+        }
+    }, [user, router]);
 
     // Form State
     const [formData, setFormData] = useState({
@@ -27,7 +36,8 @@ export default function SignUpPage() {
         grade: "",
         customSchool: "",
         password: "",
-        confirmPassword: ""
+        confirmPassword: "",
+        favouriteFood: ""
     });
     const [selectedAvatarId, setSelectedAvatarId] = useState<string>("");
     const [error, setError] = useState("");
@@ -94,7 +104,8 @@ export default function SignUpPage() {
                 role: 'student',
                 password: formData.password,
                 totalPoints: 0,
-                isVerified: false,
+                isVerified: true,
+                favouriteFood: formData.favouriteFood,
                 // Avatar system
                 avatarBaseId:       selectedAvatarId,
                 currentAvatarStage: 0,
@@ -123,19 +134,8 @@ export default function SignUpPage() {
             // Set session cookie for middleware
             document.cookie = `user_session=${id}; path=/; max-age=86400`;
 
-            // Trigger OTP generation and SMS
-            try {
-                await fetch('/api/send-otp', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ mobile: formData.mobile })
-                });
-            } catch (err) {
-                console.warn('Failed to send initial OTP SMS:', err);
-            }
-
-            // Redirect to OTP verification
-            router.push(`/verify-otp?mobile=${formData.mobile}&mode=signup`);
+            // Redirect to dashboard (OTP bypassed)
+            router.push(`/dashboard`);
 
         } catch (err: unknown) {
             console.error("Signup failed", err);
@@ -169,7 +169,7 @@ export default function SignUpPage() {
                     <section className="px-2 lg:px-6">
                         <div className="mx-auto max-w-md">
                             <h2 className="text-4xl font-extrabold leading-tight text-[#111111] md:text-5xl">
-                                Pick Your Hero Profile!
+                                Pick Your Avatar
                             </h2>
                             <div className="mt-6 space-y-5">
                                 {/* ── Quest Map step tracker ── */}
@@ -180,12 +180,12 @@ export default function SignUpPage() {
                                             <div className="mx-auto h-12 w-12 rounded-full border-[3px] border-[#111111] bg-[#ff4d3d]" />
                                             <p className="mt-2 text-xl font-bold">Sign Up</p>
                                         </div>
-                                        <div className="h-[3px] flex-1 bg-[#111111]" />
+                                        <ArrowRight className="h-8 w-8 text-[#111111] opacity-70" strokeWidth={3} />
                                         <div className="text-center">
                                             <div className="mx-auto h-12 w-12 rounded-full border-[3px] border-[#111111] bg-[#ffdf6b]" />
                                             <p className="mt-2 text-xl font-bold">Choose Avatar</p>
                                         </div>
-                                        <div className="h-[3px] flex-1 bg-[#111111]" />
+                                        <ArrowRight className="h-8 w-8 text-[#111111] opacity-70" strokeWidth={3} />
                                         <div className="text-center">
                                             <div className="mx-auto h-12 w-12 rounded-full border-[3px] border-[#111111] bg-white" />
                                             <p className="mt-2 text-xl font-bold">Start Reading!</p>
@@ -343,12 +343,6 @@ export default function SignUpPage() {
                     <section className="px-2 lg:px-6">
                         <div className="mx-auto max-w-xl">
                     <form onSubmit={handleSignUp} className="space-y-4">
-                        {error && (
-                            <div className="comic-card bg-[#fff0ef] p-3 text-center text-sm font-black text-[#db3125]">
-                                {error}
-                            </div>
-                        )}
-
                         <div>
                             <label className="mb-2 block text-xl font-extrabold text-[#111111]">Your Name</label>
                             <div className="relative">
@@ -426,6 +420,27 @@ export default function SignUpPage() {
                             />
                         </div>
 
+                        <div>
+                            <label className="mb-2 block text-xl font-extrabold text-[#111111]">Favourite Food</label>
+                            <div className="relative">
+                                <Utensils className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#111111]" />
+                                <input
+                                    type="text"
+                                    name="favouriteFood"
+                                    placeholder="e.g. Pav Bhaji, Puranpoli"
+                                    className="comic-input pl-12 text-lg font-bold"
+                                    style={{ paddingLeft: "3rem" }}
+                                    value={formData.favouriteFood}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </div>
+                            <p className="mt-2 text-xs font-bold text-[#db3125]">
+                                <CheckCircle2 className="inline-block h-3 w-3 mr-1" />
+                                Remember this! You will need it if you forget your password.
+                            </p>
+                        </div>
+
                         <div className="grid gap-4 md:grid-cols-2">
                             <div>
                                 <label className="mb-2 block text-xl font-extrabold text-[#111111]">Password</label>
@@ -460,10 +475,17 @@ export default function SignUpPage() {
                                 </div>
                             </div>
                         </div>
+
+                        {error && (
+                            <div className="comic-card bg-[#fff0ef] p-3 text-center text-sm font-black text-[#db3125] mt-2 animate-pop-in">
+                                {error}
+                            </div>
+                        )}
+
                         <button
                             type="submit"
                             disabled={!isOnline || isLoading}
-                            className="comic-button-dark mt-6 flex w-full items-center justify-center gap-3 px-8 py-4 text-3xl font-black disabled:cursor-not-allowed disabled:opacity-60"
+                            className="btn-dark mt-6 flex w-full items-center justify-center gap-3 px-8 py-4 text-3xl font-black disabled:cursor-not-allowed disabled:opacity-60"
                         >
                             {isLoading ? "Creating Account..." : (!isOnline ? "Offline - Connect to Sign Up" : "Create Account")}
                             {!isLoading && isOnline && <ArrowRight className="h-6 w-6" />}

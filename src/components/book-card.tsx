@@ -55,7 +55,7 @@ export function BookCard({ id, fileId, title, grade, pages, pdfUrl, coverUrl, ha
 
     const coverSrc = coverUrl
         ? (coverUrl.includes('drive.google.com') ? getThumbnailUrl(extractFileId(coverUrl)) : coverUrl)
-        : null;
+        : (fileId ? getThumbnailUrl(fileId) : null);
 
     return (
         <Link href={`/read/${id}`} className="block group/card relative">

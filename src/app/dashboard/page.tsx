@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { Dropdown } from "@/components/dropdown";
-import { BookOpen, Trophy, Flame, Wifi, WifiOff, LogOut, Search, Clock, Sparkles, Star, ArrowRight, User, Menu, X, Download, Loader2 } from "lucide-react";
+import { BookOpen, Trophy, Flame, Wifi, WifiOff, LogOut, Search, Clock, Sparkles, Star, ArrowRight, User, Menu, X, Download, Loader2, Linkedin, Instagram, Twitter, Youtube, Facebook } from "lucide-react";
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useUser } from "@/hooks/useUser";
 import { supabase } from "@/lib/supabase";
 import { BookCard } from "@/components/book-card";
@@ -16,12 +17,20 @@ import { AvatarStageImage } from "@/components/avatar-stage-image";
 
 export default function Dashboard() {
     const { user } = useUser();
+    const router = useRouter();
     const { isOnline } = useSync();
     const { books, syncLibrary } = useBooks();
     const { recentBooks } = useReadingHistory();
     useEffect(() => {
         if (isOnline) syncLibrary();
     }, [isOnline, syncLibrary]);
+
+    // Auth Guard: Redirect to landing if no real user session
+    useEffect(() => {
+        if (user && user.id === 'local-user') {
+            router.push('/');
+        }
+    }, [user, router]);
 
     const [selectedLevel, setSelectedLevel] = useState("");
     const [selectedSubject, setSelectedSubject] = useState("");
@@ -134,8 +143,7 @@ export default function Dashboard() {
                             <Menu className="h-5 w-5" />
                         </button>
                         <Link href="/" className="flex items-center gap-2">
-                            <BookOpen className="h-6 w-6 text-white" />
-                            <span className="comic-title text-xl text-white hidden sm:block">Digi Library</span>
+                            <img src="/digi-library-logo.png" alt="Digi Library Logo" className="h-8 md:h-10 w-auto object-contain" />
                         </Link>
                     </div>
 
@@ -165,16 +173,19 @@ export default function Dashboard() {
                                 <User className="h-5 w-5" />
                             )}
                         </Link>
-                        <button onClick={async () => { 
-                            const client = supabase;
-                            if (client) { 
-                                await client.auth.signOut(); 
-                                window.location.reload(); 
-                            } 
-                        }}
-                        className="chip chip-dark text-xs hidden md:flex">
-                         <LogOut className="h-3.5 w-3.5" /> Logout
-                        </button>
+                        {user ? (
+                            <button onClick={async () => {
+                                await supabase?.auth.signOut();
+                                router.push('/');
+                            }}
+                            className="chip chip-dark text-xs hidden md:flex">
+                             <LogOut className="h-3.5 w-3.5" /> Logout
+                            </button>
+                        ) : (
+                            <Link href="/login" className="chip chip-dark text-xs hidden md:flex">
+                             <User className="h-3.5 w-3.5" /> Login
+                            </Link>
+                        )}
                     </div>
                 </div>
 
@@ -207,9 +218,9 @@ export default function Dashboard() {
                                     <Link key={book.id} href={`/read/${book.id}`} onClick={() => setShowSidebar(false)}
                                         className="flex items-center gap-3 p-2 rounded-2xl hover:bg-[#fff3ef] transition-colors group">
                                         <div className="h-14 w-11 flex-shrink-0 rounded-xl border-2 border-[#111] overflow-hidden shadow-[0_4px_0_#111] bg-[#fff4ef]">
-                                            {book.coverUrl ? (
-                                                <img src={book.coverUrl.includes('drive.google.com') ? getThumbnailUrl(extractFileId(book.coverUrl)) : book.coverUrl}
-                                                    alt={book.title} className="w-full h-full object-cover" loading="lazy" />
+                                            {book.coverUrl || book.fileId ? (
+                                                <img src={book.coverUrl ? (book.coverUrl.includes('drive.google.com') ? getThumbnailUrl(extractFileId(book.coverUrl)) : book.coverUrl) : getThumbnailUrl(book.fileId!)}
+                                                    alt={book.title} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
                                             ) : <div className="w-full h-full flex items-center justify-center text-[#e63329]"><BookOpen className="w-5 h-5" /></div>}
                                         </div>
                                         <div className="flex-1 min-w-0">
@@ -269,8 +280,8 @@ export default function Dashboard() {
                                 </div>
                                 <div className="flex gap-4 flex-wrap">
                                     <div className="bg-white/15 rounded-2xl px-5 py-4 text-center border border-white/20 backdrop-blur">
-                                        <p className="comic-title text-3xl text-white">{books?.length || 0}</p>
-                                        <p className="text-white/70 text-xs font-black uppercase tracking-wider">Books</p>
+                                        <p className="comic-title text-3xl text-white">{user?.totalBooksRead || user?.booksRead || 0}</p>
+                                        <p className="text-white/70 text-xs font-black uppercase tracking-wider">Books Read</p>
                                     </div>
                                     <div className="bg-white/15 rounded-2xl px-5 py-4 text-center border border-white/20 backdrop-blur">
                                         <p className="comic-title text-3xl text-yellow-300">{points}</p>
@@ -356,6 +367,51 @@ export default function Dashboard() {
                             </div>
                         )}
                     </div>
+
+                    {/* ── Footer ───────────────────────────────────────────────── */}
+                    <footer className="py-5 px-6 md:px-14 lg:px-20 mt-10 md:mt-20" style={{ background: "var(--red)", borderTop: "2px solid var(--red-dark)" }}>
+                        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start gap-8">
+                            {/* LEFT: Contact Us */}
+                            <div className="text-white text-left space-y-2 flex-1">
+                                <h4 className="comic-title text-base uppercase tracking-wider">Contact Us</h4>
+                                <div className="text-white/80 font-bold text-[11px] space-y-1.5">
+                                    <p><span className="text-white text-[9px] uppercase tracking-widest">Mumbai</span> — Flat no 1401, Bld NO 4B, Dreams Complex, LBS Road, Bhandup West, Mumbai 400 078.</p>
+                                    <p><span className="text-white text-[9px] uppercase tracking-widest">Pune</span> — CIII Center, S.M Joshi College Campus, Hadapsar, Pune 411 028.</p>
+                                    <p>+91 9892742011 &nbsp;|&nbsp; info@thinksharpfoundation.org &nbsp;|&nbsp; <a href="https://www.thinksharpfoundation.org" target="_blank" className="underline decoration-white/30 hover:text-white">www.thinksharpfoundation.org</a></p>
+                                </div>
+                            </div>
+
+                            {/* MIDDLE: Developers */}
+                            <div className="text-left space-y-2 flex-1 md:ml-12">
+                                <h4 className="comic-title text-base text-white uppercase tracking-wider">Developers</h4>
+                                <div className="flex flex-col gap-y-1.5 text-white">
+                                    <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider opacity-90">Puneet Rathi <a href="https://www.linkedin.com/in/puneet-rathi-513465286/" target="_blank" className="opacity-60 hover:opacity-100 transition-opacity"><Linkedin size={14} /></a><a href="https://www.instagram.com/rathipuneet/" target="_blank" className="opacity-60 hover:opacity-100 transition-opacity"><Instagram size={14} /></a></span>
+                                    <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider opacity-90">Shreehari Soni <a href="https://www.linkedin.com/in/shreeharisoni/" target="_blank" className="opacity-60 hover:opacity-100 transition-opacity"><Linkedin size={14} /></a></span>
+                                    <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider opacity-90">Utsavi Bagri <a href="https://www.linkedin.com/in/utsavi-bagri-6a3530284/" target="_blank" className="opacity-60 hover:opacity-100 transition-opacity"><Linkedin size={14} /></a><a href="https://www.instagram.com/utsavi_bagri?igsh=MzRhaWszNXhzcXVv" target="_blank" className="opacity-60 hover:opacity-100 transition-opacity"><Instagram size={14} /></a></span>
+                                </div>
+                            </div>
+
+                            {/* RIGHT: Connect */}
+                            <div className="text-left space-y-2">
+                                <h4 className="comic-title text-base text-white uppercase tracking-wider">Connect</h4>
+                                <div className="flex gap-2">
+                                    <a href="https://www.facebook.com" target="_blank" className="w-7 h-7 bg-white/10 rounded flex items-center justify-center hover:bg-white/25 transition-all"><Facebook className="h-3.5 w-3.5 text-white" /></a>
+                                    <a href="https://x.com/thinksharpfound" target="_blank" className="w-7 h-7 bg-white/10 rounded flex items-center justify-center hover:bg-white/25 transition-all"><Twitter className="h-3.5 w-3.5 text-white" /></a>
+                                    <a href="https://www.instagram.com/thinksharp_foundation/" target="_blank" className="w-7 h-7 bg-white/10 rounded flex items-center justify-center hover:bg-white/25 transition-all"><Instagram className="h-3.5 w-3.5 text-white" /></a>
+                                    <a href="https://www.linkedin.com/company/thinksharp-foundation/" target="_blank" className="w-7 h-7 bg-white/10 rounded flex items-center justify-center hover:bg-white/25 transition-all"><Linkedin className="h-3.5 w-3.5 text-white" /></a>
+                                    <a href="https://www.youtube.com/channel/UC-4cDXLuwAThHXhNOazv5KA" target="_blank" className="w-7 h-7 bg-white/10 rounded flex items-center justify-center hover:bg-white/25 transition-all"><Youtube className="h-3.5 w-3.5 text-white" /></a>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* BOTTOM */}
+                        <div className="max-w-6xl mx-auto mt-4 pt-2 border-t border-white/10 flex justify-between items-center">
+                            <p className="text-white/50 font-black text-[9px] uppercase tracking-[0.2em]">A ThinkSharp Foundation Initiative</p>
+                            <Link href="/admin" className="text-white/40 hover:text-white text-[9px] font-black uppercase tracking-widest border border-white/20 px-2 py-1 rounded transition-all">
+                                Admin Access
+                            </Link>
+                        </div>
+                    </footer>
                 </main>
             </div>
 
@@ -408,17 +464,21 @@ export default function Dashboard() {
                         <Trophy className="w-6 h-6" />
                         <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Rank</span>
                     </Link>
-                    <button onClick={async () => { 
-                        const client = supabase;
-                        if (client) { 
-                            await client.auth.signOut(); 
-                            window.location.reload(); 
-                        } 
-                    }}
-                        className="flex flex-col items-center text-[#777] hover:text-[#e63329] transition-colors">
-                        <LogOut className="w-6 h-6" />
-                        <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Logout</span>
-                    </button>
+                    {user ? (
+                        <button onClick={async () => {
+                            await supabase?.auth.signOut();
+                            router.push('/');
+                        }}
+                            className="flex flex-col items-center text-[#777] hover:text-[#e63329] transition-colors">
+                            <LogOut className="w-6 h-6" />
+                            <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Logout</span>
+                        </button>
+                    ) : (
+                        <Link href="/login" className="flex flex-col items-center text-[#777] hover:text-[#e63329] transition-colors">
+                            <User className="w-6 h-6" />
+                            <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Login</span>
+                        </Link>
+                    )}
 
                 </div>
             </nav>

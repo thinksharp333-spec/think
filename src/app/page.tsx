@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { BookOpen, LogIn, LogOut, Search, Star, ArrowRight, LayoutDashboard, Sparkles, Trophy, Zap, User, Book, Rocket, Linkedin, Instagram, Twitter, Youtube, Facebook } from "lucide-react";
 import { useUser } from "@/hooks/useUser";
 import { supabase } from "@/lib/supabase";
+import { getThumbnailUrl } from "@/lib/google-drive";
 
 export default function LandingPage() {
   const { user } = useUser();
@@ -74,7 +75,7 @@ export default function LandingPage() {
       });
 
       // Daily featured book logic
-      const { data: allBooks } = await supabase.from('books').select('title, subject, "coverUrl", level');
+      const { data: allBooks } = await supabase.from('books').select('title, "fileId", subject, "coverUrl", level');
       if (allBooks && allBooks.length > 0) {
         const dayOfYear = Math.floor((new Date().getTime()) / (1000 * 60 * 60 * 24));
         const index = dayOfYear % allBooks.length;
@@ -83,7 +84,7 @@ export default function LandingPage() {
            title: selected.title,
            author: selected.subject || "ThinkSharp",
            info: `Level: ${selected.level || "Standard"} — A wonderful story for young readers.`,
-           cover: selected.coverUrl || ""
+           cover: selected.coverUrl || (selected.fileId ? getThumbnailUrl(selected.fileId) : "")
         });
       }
     }
@@ -122,15 +123,15 @@ export default function LandingPage() {
                   <LayoutDashboard className="h-4 w-4 md:mr-1 inline-block" />
                   <span className="hidden sm:inline">Dashboard</span>
                 </Link>
-                <button onClick={async () => { if (supabase) { await supabase.auth.signOut(); window.location.reload(); } }}
+                <button onClick={async () => { if (supabase) { await supabase.auth.signOut(); window.location.href = '/'; } }}
                   className="text-white/60 hover:text-white px-2 py-1.5 md:px-3 md:py-2 rounded-full hover:bg-white/10 text-xs md:text-sm font-bold transition-all flex items-center gap-1">
                   <LogOut className="h-4 w-4" /> <span className="hidden sm:inline">Out</span>
                 </button>
               </div>
             ) : (
-              <Link href="/signup" className="btn-red py-1.5 px-4 md:py-2.5 md:px-6 text-xs md:text-sm whitespace-nowrap shadow-[0_4px_0_#991b1b]">
-                <User className="h-4 w-4 md:mr-1 inline-block" />
-                <span className="hidden sm:inline">Register</span>
+              <Link href="/login" className="btn-red py-1.5 px-4 md:py-2.5 md:px-6 text-xs md:text-sm whitespace-nowrap shadow-[0_4px_0_#991b1b]">
+                <LogIn className="h-4 w-4 md:mr-1 inline-block" />
+                <span className="hidden sm:inline">Login</span>
               </Link>
             )}
           </div>
