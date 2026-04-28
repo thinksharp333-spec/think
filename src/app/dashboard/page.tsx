@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Dropdown } from "@/components/dropdown";
-import { BookOpen, Trophy, Flame, Wifi, WifiOff, LogOut, Search, Clock, Sparkles, Star, ArrowRight, User, Menu, X, Download, Loader2 } from "lucide-react";
+import { BookOpen, Trophy, Flame, Wifi, WifiOff, LogOut, Search, Clock, Sparkles, Star, ArrowRight, User, Menu, X, Download, Loader2, Linkedin, Instagram, Twitter, Youtube, Facebook } from "lucide-react";
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useUser } from "@/hooks/useUser";
@@ -143,8 +143,7 @@ export default function Dashboard() {
                             <Menu className="h-5 w-5" />
                         </button>
                         <Link href="/" className="flex items-center gap-2">
-                            <BookOpen className="h-6 w-6 text-white" />
-                            <span className="comic-title text-xl text-white hidden sm:block">Digi Library</span>
+                            <img src="/digi-library-logo.png" alt="Digi Library Logo" className="h-8 md:h-10 w-auto object-contain" />
                         </Link>
                     </div>
 
@@ -368,6 +367,51 @@ export default function Dashboard() {
                             </div>
                         )}
                     </div>
+
+                    {/* ── Footer ───────────────────────────────────────────────── */}
+                    <footer className="py-5 px-6 md:px-14 lg:px-20 mt-10 md:mt-20" style={{ background: "var(--red)", borderTop: "2px solid var(--red-dark)" }}>
+                        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start gap-8">
+                            {/* LEFT: Contact Us */}
+                            <div className="text-white text-left space-y-2 flex-1">
+                                <h4 className="comic-title text-base uppercase tracking-wider">Contact Us</h4>
+                                <div className="text-white/80 font-bold text-[11px] space-y-1.5">
+                                    <p><span className="text-white text-[9px] uppercase tracking-widest">Mumbai</span> — Flat no 1401, Bld NO 4B, Dreams Complex, LBS Road, Bhandup West, Mumbai 400 078.</p>
+                                    <p><span className="text-white text-[9px] uppercase tracking-widest">Pune</span> — CIII Center, S.M Joshi College Campus, Hadapsar, Pune 411 028.</p>
+                                    <p>+91 9892742011 &nbsp;|&nbsp; info@thinksharpfoundation.org &nbsp;|&nbsp; <a href="https://www.thinksharpfoundation.org" target="_blank" className="underline decoration-white/30 hover:text-white">www.thinksharpfoundation.org</a></p>
+                                </div>
+                            </div>
+
+                            {/* MIDDLE: Developers */}
+                            <div className="text-left space-y-2 flex-1 md:ml-12">
+                                <h4 className="comic-title text-base text-white uppercase tracking-wider">Developers</h4>
+                                <div className="flex flex-col gap-y-1.5 text-white">
+                                    <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider opacity-90">Puneet Rathi <a href="https://www.linkedin.com/in/puneet-rathi-513465286/" target="_blank" className="opacity-60 hover:opacity-100 transition-opacity"><Linkedin size={14} /></a><a href="https://www.instagram.com/rathipuneet/" target="_blank" className="opacity-60 hover:opacity-100 transition-opacity"><Instagram size={14} /></a></span>
+                                    <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider opacity-90">Shreehari Soni <a href="https://www.linkedin.com/in/shreeharisoni/" target="_blank" className="opacity-60 hover:opacity-100 transition-opacity"><Linkedin size={14} /></a></span>
+                                    <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider opacity-90">Utsavi Bagri <a href="https://www.linkedin.com/in/utsavi-bagri-6a3530284/" target="_blank" className="opacity-60 hover:opacity-100 transition-opacity"><Linkedin size={14} /></a><a href="https://www.instagram.com/utsavi_bagri?igsh=MzRhaWszNXhzcXVv" target="_blank" className="opacity-60 hover:opacity-100 transition-opacity"><Instagram size={14} /></a></span>
+                                </div>
+                            </div>
+
+                            {/* RIGHT: Connect */}
+                            <div className="text-left space-y-2">
+                                <h4 className="comic-title text-base text-white uppercase tracking-wider">Connect</h4>
+                                <div className="flex gap-2">
+                                    <a href="https://www.facebook.com" target="_blank" className="w-7 h-7 bg-white/10 rounded flex items-center justify-center hover:bg-white/25 transition-all"><Facebook className="h-3.5 w-3.5 text-white" /></a>
+                                    <a href="https://x.com/thinksharpfound" target="_blank" className="w-7 h-7 bg-white/10 rounded flex items-center justify-center hover:bg-white/25 transition-all"><Twitter className="h-3.5 w-3.5 text-white" /></a>
+                                    <a href="https://www.instagram.com/thinksharp_foundation/" target="_blank" className="w-7 h-7 bg-white/10 rounded flex items-center justify-center hover:bg-white/25 transition-all"><Instagram className="h-3.5 w-3.5 text-white" /></a>
+                                    <a href="https://www.linkedin.com/company/thinksharp-foundation/" target="_blank" className="w-7 h-7 bg-white/10 rounded flex items-center justify-center hover:bg-white/25 transition-all"><Linkedin className="h-3.5 w-3.5 text-white" /></a>
+                                    <a href="https://www.youtube.com/channel/UC-4cDXLuwAThHXhNOazv5KA" target="_blank" className="w-7 h-7 bg-white/10 rounded flex items-center justify-center hover:bg-white/25 transition-all"><Youtube className="h-3.5 w-3.5 text-white" /></a>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* BOTTOM */}
+                        <div className="max-w-6xl mx-auto mt-4 pt-2 border-t border-white/10 flex justify-between items-center">
+                            <p className="text-white/50 font-black text-[9px] uppercase tracking-[0.2em]">A ThinkSharp Foundation Initiative</p>
+                            <Link href="/admin" className="text-white/40 hover:text-white text-[9px] font-black uppercase tracking-widest border border-white/20 px-2 py-1 rounded transition-all">
+                                Admin Access
+                            </Link>
+                        </div>
+                    </footer>
                 </main>
             </div>
 
