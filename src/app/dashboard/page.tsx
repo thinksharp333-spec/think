@@ -148,7 +148,7 @@ export default function Dashboard() {
                     </div>
 
                     {/* Center: title */}
-                    <h1 className="comic-title text-lg md:text-2xl text-white uppercase tracking-wide hidden sm:block">
+                    <h1 className="comic-title text-lg md:text-2xl text-white uppercase tracking-wide hidden md:block">
                         Explore Your Library
                     </h1>
 
@@ -156,9 +156,6 @@ export default function Dashboard() {
                     <div className="flex items-center gap-2">
                         <span className="chip chip-gold text-xs hidden md:flex text-[#111111]">
                             <Flame className="h-3.5 w-3.5 text-orange-500 fill-orange-500" /> Streak {displayStreak}
-                        </span>
-                        <span className="chip chip-gold text-xs hidden md:flex text-[#111111]">
-                            <Trophy className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500" /> {points} pts
                         </span>
 
                         <Link href="/profile" className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 transition-all overflow-hidden border border-white/20">
@@ -279,6 +276,10 @@ export default function Dashboard() {
                                     </div>
                                 </div>
                                 <div className="flex gap-4 flex-wrap">
+                                    <div className="bg-white/15 rounded-2xl px-5 py-4 text-center border border-white/20 backdrop-blur md:hidden">
+                                        <p className="comic-title text-3xl text-orange-400">{displayStreak}</p>
+                                        <p className="text-white/70 text-xs font-black uppercase tracking-wider">Streak</p>
+                                    </div>
                                     <div className="bg-white/15 rounded-2xl px-5 py-4 text-center border border-white/20 backdrop-blur">
                                         <p className="comic-title text-3xl text-white">{user?.totalBooksRead || user?.booksRead || 0}</p>
                                         <p className="text-white/70 text-xs font-black uppercase tracking-wider">Books Read</p>

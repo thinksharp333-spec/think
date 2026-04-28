@@ -101,14 +101,14 @@ export default function LandingPage() {
           <div className="flex-1 flex justify-start">
             <Link href="/" className="flex items-center group relative">
               <div className="relative h-12 md:h-14 w-auto flex items-center">
-                <img src="/logo.png" alt="ThinkSharp Logo" className="h-full w-auto object-contain" />
+                <img src="/digi-library-logo.png" alt="Digi Library Logo" className="h-full w-auto object-contain" />
               </div>
             </Link>
           </div>
 
           {/* Title - Center */}
           <div className="flex-1 flex justify-center">
-            <p className="comic-title text-xl md:text-3xl text-[#e63329] whitespace-nowrap uppercase tracking-tighter">Digi Library</p>
+            {/* Kept empty to balance the flex container layout since the logo now contains the text */}
           </div>
 
           {/* Nav Links & Actions - Right */}
@@ -125,7 +125,7 @@ export default function LandingPage() {
                 </Link>
                 <button onClick={async () => { if (supabase) { await supabase.auth.signOut(); window.location.href = '/'; } }}
                   className="text-white/60 hover:text-white px-2 py-1.5 md:px-3 md:py-2 rounded-full hover:bg-white/10 text-xs md:text-sm font-bold transition-all flex items-center gap-1">
-                  <LogOut className="h-4 w-4" /> <span className="hidden sm:inline">Out</span>
+                  <LogOut className="h-4 w-4" /> <span className="hidden sm:inline">Logout</span>
                 </button>
               </div>
             ) : (
@@ -148,7 +148,11 @@ export default function LandingPage() {
 
           {/* LEFT: Hero copy */}
           <div className="flex-1 flex flex-col justify-center px-6 py-16 md:px-14 lg:px-20 xl:px-28">
-            <div className="animate-pop-in" style={{ animationDelay: "0ms" }}>
+            <div className="animate-pop-in flex flex-col items-start" style={{ animationDelay: "0ms" }}>
+              <div className="relative mb-6 md:mb-8 -mt-6 md:-mt-12">
+                <img src="/logo.png" alt="ThinkSharp Foundation" className="h-16 md:h-20 lg:h-24 w-auto relative z-10" />
+                <div className="absolute -bottom-1 left-1 w-[calc(75%+85px)] h-[2px] bg-[#111] rounded-full opacity-70"></div>
+              </div>
               <span className="chip chip-red mb-6">
                 <Sparkles className="h-3.5 w-3.5" /> Story Powered Learning
               </span>
