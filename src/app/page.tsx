@@ -96,23 +96,23 @@ export default function LandingPage() {
 
       {/* ── Sticky Navbar ─────────────────────────────────────────── */}
       <nav className="site-nav">
-        <div className="flex items-center justify-between px-5 py-3 md:px-10 min-h-[70px]">
+        <div className="flex items-center justify-between px-3 py-2 md:px-10 md:py-3 min-h-[60px] md:min-h-[70px]">
           {/* Logo - Left */}
-          <div className="flex-1 flex justify-start">
+          <div className="flex justify-start flex-shrink-0">
             <Link href="/" className="flex items-center group relative">
-              <div className="relative h-12 md:h-14 w-auto flex items-center">
-                <img src="/logo.png" alt="ThinkSharp Logo" className="h-full w-auto object-contain" />
+              <div className="relative h-7 md:h-14 w-auto max-w-[90px] md:max-w-none flex items-center">
+                <img src="/logo.png" alt="ThinkSharp Logo" className="h-full w-auto object-contain object-left" />
               </div>
             </Link>
           </div>
 
           {/* Title - Center */}
-          <div className="flex-1 flex justify-center">
-            <p className="comic-title text-xl md:text-3xl text-[#e63329] whitespace-nowrap uppercase tracking-tighter">Digi Library</p>
+          <div className="flex-1 flex justify-center px-2">
+            <p className="comic-title text-sm md:text-3xl text-[#e63329] whitespace-nowrap uppercase tracking-tighter">Digi Library</p>
           </div>
 
           {/* Nav Links & Actions - Right */}
-          <div className="flex-1 flex items-center justify-end gap-2 md:gap-6">
+          <div className="flex items-center justify-end gap-2 md:gap-6 flex-shrink-0">
             <div className="hidden lg:flex items-center gap-4">
               <a href="https://www.thinksharpfoundation.org/about-us.php" target="_blank" className="text-white/70 hover:text-white text-sm font-black uppercase tracking-wide transition-all">About Us</a>
             </div>
@@ -129,8 +129,8 @@ export default function LandingPage() {
                 </button>
               </div>
             ) : (
-              <Link href="/login" className="btn-red py-1.5 px-4 md:py-2.5 md:px-6 text-xs md:text-sm whitespace-nowrap shadow-[0_4px_0_#991b1b]">
-                <LogIn className="h-4 w-4 md:mr-1 inline-block" />
+              <Link href="/login" className="btn-red py-1.5 px-3 md:py-2.5 md:px-6 text-xs md:text-sm whitespace-nowrap shadow-[0_4px_0_#991b1b] flex items-center gap-1">
+                <LogIn className="h-4 w-4" />
                 <span className="hidden sm:inline">Login</span>
               </Link>
             )}
