@@ -197,11 +197,14 @@ export default function LoginPage() {
                         {!showForgotPassword ? (
                             <form onSubmit={handleLogin} className="w-full space-y-5">
                                 <div className="space-y-4">
-                                    <div className="relative">
-                                        <Phone className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-[#888]" />
-                                        <input type="tel" placeholder="Mobile Number" className="comic-input pl-14 text-lg font-bold"
-                                            style={{ paddingLeft: "3.5rem" }}
-                                            value={mobile} onChange={(e) => setMobile(e.target.value)} required pattern="[0-9]{10}" />
+                                    <div>
+                                        <label className="mb-2 block text-sm font-black uppercase tracking-wider text-[#111]">Mobile Number</label>
+                                        <div className="relative">
+                                            <Phone className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-[#888]" />
+                                            <input type="tel" placeholder="10-digit mobile number" className="comic-input pl-14 text-lg font-bold"
+                                                style={{ paddingLeft: "3.5rem" }}
+                                                value={mobile} onChange={(e) => setMobile(e.target.value)} required pattern="[0-9]{10}" />
+                                        </div>
                                     </div>
 
                                     <div>

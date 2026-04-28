@@ -11,6 +11,7 @@ import { Dropdown } from "@/components/dropdown";
 import { fetchDriveContents, fetchDriveItem, getDirectDownloadUrl, DriveItem } from "@/lib/google-drive";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { normalizeSubject } from "@/lib/utils";
 
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -354,7 +355,7 @@ export default function AdminDashboard() {
                     title: newBook.title,
                     grade: newBook.grade || "Grade 10",
                     level: newBook.level || "1",
-                    subject: newBook.subject || "Science"
+                    subject: normalizeSubject(newBook.subject) || "Other"
                 })
             });
             if (res.ok) {
@@ -664,7 +665,7 @@ export default function AdminDashboard() {
                                 pages: book.pages,
                                 pdfUrl: finalPdfUrl,
                                 level: book.level,
-                                subject: book.subject,
+                                subject: normalizeSubject(book.subject),
                                 language: book.language,
                                 coverUrl: finalCoverUrl,
                                 questions: questions,

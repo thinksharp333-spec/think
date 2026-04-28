@@ -63,7 +63,7 @@ export function BookCard({ id, fileId, title, grade, pages, pdfUrl, coverUrl, ha
             <div className="book-card h-full overflow-hidden relative active:scale-95 transition-all duration-200 flex flex-col">
 
                 {/* ── Cover image area ──────────────────────────── */}
-                <div className="relative aspect-[3/4] w-full shrink-0">
+                <div className="relative aspect-[3/4] w-full flex-none overflow-hidden border-b-[3px] border-[#111]">
                     {coverSrc && !imgError ? (
                         <img
                             src={coverSrc}
@@ -92,8 +92,8 @@ export function BookCard({ id, fileId, title, grade, pages, pdfUrl, coverUrl, ha
 
                 </div>
 
-                {/* ── Action Buttons (Below Cover) ──────────────── */}
-                <div className="flex-1 bg-[#fffbf3] border-t-[3px] border-[#111] p-2.5 flex gap-1.5 md:gap-2 justify-end items-center">
+                {/* ── Action Buttons (Footer) ───────────────────── */}
+                <div className="flex-1 bg-[#fffbf3] p-2 flex gap-1.5 md:gap-2 justify-end items-center">
                     <button
                         onClick={(e) => { e.preventDefault(); window.location.href = `/read/${id}#quiz`; }}
                         className={`group/btn flex items-center gap-1.5 text-[10px] md:text-xs font-black px-3 py-2 rounded-xl transition-all ${

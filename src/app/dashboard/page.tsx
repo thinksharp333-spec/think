@@ -14,6 +14,7 @@ import { useReadingHistory } from "@/hooks/useReadingHistory";
 import { getThumbnailUrl, extractFileId } from "@/lib/google-drive";
 import { db } from "@/lib/db";
 import { AvatarStageImage } from "@/components/avatar-stage-image";
+import { normalizeSubject } from "@/lib/utils";
 
 export default function Dashboard() {
     const { user } = useUser();
@@ -74,19 +75,19 @@ export default function Dashboard() {
         { value: "4", label: "Level 4" },
     ];
 
-    const subjects = Array.from(new Set(books?.map(b => b.subject) || []))
+    const subjects = Array.from(new Set(books?.map(b => normalizeSubject(b.subject)) || []))
         .filter(Boolean).sort().map(s => ({ value: s, label: s }));
 
     const filteredBooks = books?.filter((book) => {
         const languageMatch = selectedLanguage ? book.language === selectedLanguage : true;
         const levelMatch = selectedLevel ? book.level === selectedLevel.toString() : true;
-        const subjectMatch = selectedSubject ? book.subject === selectedSubject : true;
+        const subjectMatch = selectedSubject ? normalizeSubject(book.subject) === selectedSubject : true;
         const searchMatch = searchQuery ? book.title.toLowerCase().includes(searchQuery.toLowerCase()) : true;
         return languageMatch && levelMatch && subjectMatch && searchMatch;
     });
 
     const isFilterActive = selectedLevel || selectedSubject || selectedLanguage || searchQuery;
-    const bookSections = Array.from(new Set(filteredBooks?.map(b => b.subject) || [])).sort();
+    const bookSections = Array.from(new Set(filteredBooks?.map(b => normalizeSubject(b.subject)) || [])).sort();
     const firstName = user?.name?.split(" ")[0] || "Reader";
 
     // Handle Bulk Download
@@ -338,11 +339,11 @@ export default function Dashboard() {
                                         {subject || "General"}
                                     </h3>
                                     <span className="chip text-[10px]">
-                                        {filteredBooks?.filter(b => b.subject === subject).length} Books
+                                        {filteredBooks?.filter(b => normalizeSubject(b.subject) === subject).length} Books
                                     </span>
                                 </div>
                                 <div className="book-grid">
-                                    {filteredBooks?.filter(b => b.subject === subject).map((book) => (
+                                    {filteredBooks?.filter(b => normalizeSubject(b.subject) === subject).map((book) => (
                                         <BookCard key={book.id} id={book.id!} fileId={book.fileId} title={book.title}
                                             grade={book.grade} level={book.level} pages={book.pages} pdfUrl={book.pdfUrl}
                                             coverUrl={book.coverUrl} avgRating={book.avgRating} reviewCount={book.reviewCount}
