@@ -159,7 +159,7 @@ export default function Dashboard() {
                             <Flame className="h-3.5 w-3.5 text-orange-500 fill-orange-500" /> Streak {displayStreak}
                         </span>
 
-                        <Link href="/profile" className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 transition-all overflow-hidden border border-white/20">
+                        <Link href="/dashboard" className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 transition-all overflow-hidden border border-white/20">
                             {user?.avatarBaseId ? (
                                 <AvatarStageImage 
                                     avatarBaseId={user.avatarBaseId} 
@@ -218,7 +218,8 @@ export default function Dashboard() {
                                         <div className="h-14 w-11 flex-shrink-0 rounded-xl border-2 border-[#111] overflow-hidden shadow-[0_4px_0_#111] bg-[#fff4ef]">
                                             {book.coverUrl || book.fileId ? (
                                                 <img src={book.coverUrl ? (book.coverUrl.includes('drive.google.com') ? getThumbnailUrl(extractFileId(book.coverUrl)) : book.coverUrl) : getThumbnailUrl(book.fileId!)}
-                                                    alt={book.title} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                                                    alt={book.title} className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                                                    onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                                             ) : <div className="w-full h-full flex items-center justify-center text-[#e63329]"><BookOpen className="w-5 h-5" /></div>}
                                         </div>
                                         <div className="flex-1 min-w-0">

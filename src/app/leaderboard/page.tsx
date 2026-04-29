@@ -667,7 +667,8 @@ export default function LeaderboardPage() {
                                     <div className="w-16 h-24 flex-shrink-0 overflow-hidden rounded-xl border-2 border-[#111] shadow-[0_4px_0_rgba(0,0,0,0.4)] my-3">
                                         {book.coverUrl || book.fileId ? (
                                             <img src={book.coverUrl ? (book.coverUrl.includes('drive.google.com') ? getThumbnailUrl(extractFileId(book.coverUrl)) : book.coverUrl) : getThumbnailUrl(book.fileId!)}
-                                                alt={book.title} className="w-full h-full object-cover group-hover/bk:scale-105 transition-transform duration-500" />
+                                                alt={book.title} className="w-full h-full object-cover group-hover/bk:scale-105 transition-transform duration-500"
+                                                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(180deg,#e63329,#b91c1c)" }}>
                                                 <BookOpen className="w-7 h-7 text-white/80" />

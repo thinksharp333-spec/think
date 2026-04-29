@@ -15,12 +15,9 @@ export async function POST(request: Request) {
         const { type, payload, userId: targetUserId } = await request.json();
 
         if (type === 'READ_LOG') {
-            const { data: userData } = await db.from('users').select('"totalPoints", name').eq('id', targetUserId).single();
-            const currentPoints = (userData as any)?.totalPoints ?? 0;
-            const newTotal = currentPoints + (payload.pointsEarned || 0);
-
-            await db.from('users').update({ '"totalPoints"': newTotal }).eq('id', targetUserId);
-
+            // UPDATE_POINTS tasks are queued separately for incremental point deltas.
+            // READ_LOG only logs the session record; it must NOT also update totalPoints
+            // or the final batch gets counted twice (once by UPDATE_POINTS, once here).
             const { error: sessionError } = await db.from('reading_sessions').insert({
                 user_id: targetUserId,
                 book_id: String(payload.bookId),
@@ -46,7 +43,7 @@ export async function POST(request: Request) {
             } else {
                 newTotal = payload.totalPoints ?? currentPoints;
             }
-            updateObj['"totalPoints"'] = newTotal;
+            updateObj['totalPoints'] = newTotal;
             if (payload.streak !== undefined) {
                 updateObj.streak = payload.streak;
                 updateObj.last_points_date = payload.lastPointsDate;
