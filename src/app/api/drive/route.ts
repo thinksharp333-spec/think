@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const API_KEY = process.env.GOOGLE_DRIVE_API_KEY;
+const API_KEY = process.env.GOOGLE_DRIVE_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY;
 
 export async function GET(request: NextRequest) {
     if (!API_KEY) {

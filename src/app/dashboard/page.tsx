@@ -155,11 +155,9 @@ export default function Dashboard() {
 
                     {/* Right: status + actions */}
                     <div className="flex items-center gap-2">
-                        <span className="chip chip-gold text-xs hidden md:flex text-[#111111]">
-                            <Flame className="h-3.5 w-3.5 text-orange-500 fill-orange-500" /> Streak {displayStreak}
-                        </span>
 
-                        <Link href="/profile" className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 transition-all overflow-hidden border border-white/20">
+
+                        <Link href="/profile" className="hidden md:flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 transition-all overflow-hidden border border-white/20">
                             {user?.avatarBaseId ? (
                                 <AvatarStageImage 
                                     avatarBaseId={user.avatarBaseId} 
@@ -272,12 +270,12 @@ export default function Dashboard() {
                                             {firstName}&apos;s Quest!
                                         </h2>
                                         <p className="text-white/80 font-bold mt-2 max-w-sm hidden sm:block">
-                                            Browse story worlds, keep your streak alive, and jump back into books you started.
+                                            dive into a world full of stories, keep your streak alive, and jump back into books you started.
                                         </p>
                                     </div>
                                 </div>
                                 <div className="flex gap-4 flex-wrap">
-                                    <div className="bg-white/15 rounded-2xl px-5 py-4 text-center border border-white/20 backdrop-blur md:hidden">
+                                    <div className="bg-white/15 rounded-2xl px-5 py-4 text-center border border-white/20 backdrop-blur">
                                         <p className="comic-title text-3xl text-orange-400">{displayStreak}</p>
                                         <p className="text-white/70 text-xs font-black uppercase tracking-wider">Streak</p>
                                     </div>

@@ -32,35 +32,50 @@ export function PitchReportTab() {
         async function fetchData() {
             setLoading(true);
             try {
-                // Mocking filtered fetching for now as we reuse existing views
-                // Real implementation would filter 'analytics_school_stats' by district/taluka and sum up
-
                 // 1. KPI Totals
-                // fetch...
+                const { data: schoolStats } = await supabase.from('analytics_school_stats').select('*');
+                
+                if (schoolStats && schoolStats.length > 0) {
+                    const totalStudents = schoolStats.reduce((acc, s) => acc + (s.participating_students || 0), 0);
+                    const totalSessions = schoolStats.reduce((acc, s) => acc + (s.total_sessions || 0), 0);
+                    const schoolsCount = schoolStats.length;
+                    
+                    setStats({
+                        totalStudents: totalStudents || 0,
+                        booksRead: totalSessions || 0,
+                        schoolsReached: schoolsCount || 0,
+                        activeRate: totalStudents > 0 ? Math.round((totalStudents / (schoolsCount * 100)) * 100) : 0 // Assuming 100 students per school avg
+                    });
+                }
 
-                // 2. Growth
-                // fetch...
+                // 2. Growth Trajectory
+                const { data: growth } = await supabase
+                    .from('analytics_monthly_growth')
+                    .select('*')
+                    .order('month', { ascending: true })
+                    .limit(6);
+                
+                if (growth && growth.length > 0) {
+                    setGrowthData(growth.map(g => ({
+                        month: new Date(g.month).toLocaleDateString(undefined, { month: 'short' }),
+                        value: g.total_sessions
+                    })));
+                }
 
-                // 3. Subjects
-                // fetch...
+                // 3. Student Interests (Top Subjects)
+                const { data: subjects } = await supabase
+                    .from('analytics_top_books')
+                    .select('grade_level, session_count')
+                    .order('session_count', { ascending: false })
+                    .limit(5);
 
-                // Simulating data update
-                setStats({
-                    totalStudents: 1250,
-                    booksRead: 5400,
-                    schoolsReached: 12,
-                    activeRate: 78
-                });
-                setGrowthData([
-                    { month: 'Jan', value: 100 },
-                    { month: 'Feb', value: 300 },
-                    { month: 'Mar', value: 450 },
-                ]);
-                setTopSubjects([
-                    { name: 'Science', value: 40 },
-                    { name: 'History', value: 30 },
-                    { name: 'Stories', value: 20 }
-                ]);
+                if (subjects && subjects.length > 0) {
+                    const total = subjects.reduce((acc, s) => acc + (s.session_count || 0), 0);
+                    setTopSubjects(subjects.map(s => ({
+                        name: s.grade_level || 'General',
+                        value: total > 0 ? Math.round((s.session_count / total) * 100) : 0
+                    })));
+                }
 
             } finally {
                 setLoading(false);

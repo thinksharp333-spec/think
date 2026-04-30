@@ -30,9 +30,30 @@ async function fetchDriveItem(fileId: string): Promise<DriveItem> {
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { normalizeSubject } from "@/lib/utils";
-
+import { SCHOOLS_DATA } from "@/lib/schools-data";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Dynamically builds the location hierarchy from SCHOOLS_DATA */
+const generateLocationData = () => {
+    const data: any = {};
+    SCHOOLS_DATA.forEach(school => {
+        const state = school.state || 'Maharashtra';
+        const district = school.district || 'Unknown';
+        const taluka = school.taluka || 'Unknown';
+        
+        if (!data[state]) data[state] = {};
+        if (!data[state][district]) data[state][district] = {};
+        if (!data[state][district][taluka]) data[state][district][taluka] = [];
+        
+        if (data[state][district][taluka].indexOf(school.school_name) === -1) {
+             data[state][district][taluka].push(school.school_name);
+        }
+    });
+    return data;
+};
+
+const LOCATION_DATA = generateLocationData();
 
 /** Returns true if a quiz is missing or contains dummy placeholder questions */
 function isDummyQuiz(questions: any[] | undefined): boolean {
@@ -266,27 +287,6 @@ export default function AdminDashboard() {
     const [selectedCity, setSelectedCity] = useState("");
     const [selectedSector, setSelectedSector] = useState("");
     const [selectedSchool, setSelectedSchool] = useState("");
-
-    // Mock Location Data
-    const LOCATION_DATA: any = {
-        "Maharashtra": {
-            "Pune": {
-                "Sector 1": ["School A", "School B"],
-                "Sector 2": ["School C"]
-            },
-            "Mumbai": {
-                "Sector A": ["School D", "School E"]
-            }
-        },
-        "Gujarat": {
-            "Ahmedabad": {
-                "Sector X": ["School F", "School G"]
-            },
-            "Surat": {
-                "Sector Y": ["School H"]
-            }
-        }
-    };
 
     // Derived Options
     const stateOptions = Object.keys(LOCATION_DATA).map(s => ({ value: s, label: s }));
@@ -775,28 +775,75 @@ export default function AdminDashboard() {
 
 
 
-    // Mock Data for Charts
-    const schoolData = [
-        { name: 'School A', booksRead: 450 },
-        { name: 'School B', booksRead: 320 },
-        { name: 'School C', booksRead: 510 },
-        { name: 'School D', booksRead: 290 },
-    ];
+    // ─── Analytics & Real-time Data ───────────────────────────────────────────
+    const [schoolData, setSchoolData] = useState<any[]>([]);
+    const [districtData, setDistrictData] = useState<any[]>([]);
+    const [allStudents, setAllStudents] = useState<User[]>([]);
+    const [loadingAnalytics, setLoadingAnalytics] = useState(true);
 
-    const districtData = [
-        { name: 'District 1', activeStudent: 1200 },
-        { name: 'District 2', activeStudent: 980 },
-        { name: 'District 3', activeStudent: 1450 },
-    ]
+    useEffect(() => {
+        async function fetchAnalytics() {
+            if (!supabase) return;
+            setLoadingAnalytics(true);
+            try {
+                // 1. Top schools by reading sessions
+                const { data: topSchools } = await supabase
+                    .from('analytics_school_stats')
+                    .select('school_name, total_sessions')
+                    .order('total_sessions', { ascending: false })
+                    .limit(5);
+                
+                if (topSchools) {
+                    setSchoolData(topSchools.map(s => ({ name: s.school_name, booksRead: s.total_sessions })));
+                }
 
-    // Real Student Data from Dexie
-    const users = useLiveQuery(() => db.users.toArray()) || [];
+                // 2. District distribution of students
+                const { data: distData } = await supabase
+                    .from('analytics_school_stats')
+                    .select('district, participating_students');
+
+                if (distData) {
+                    const agg: Record<string, number> = {};
+                    distData.forEach(d => {
+                        if (!d.district) return;
+                        agg[d.district] = (agg[d.district] || 0) + d.participating_students;
+                    });
+                    setDistrictData(
+                        Object.entries(agg)
+                            .map(([name, val]) => ({ name, activeStudent: val }))
+                            .sort((a, b) => b.activeStudent - a.activeStudent)
+                            .slice(0, 5)
+                    );
+                }
+
+                // 3. Global Students List (Real-time from Supabase)
+                const { data: globalUsers } = await supabase
+                    .from('users')
+                    .select('*')
+                    .order('totalPoints', { ascending: false });
+                
+                if (globalUsers) {
+                    setAllStudents(globalUsers as User[]);
+                }
+            } catch (err) {
+                console.error("Failed to fetch analytics:", err);
+            } finally {
+                setLoadingAnalytics(false);
+            }
+        }
+        fetchAnalytics();
+    }, []);
+
+    // Local students from Dexie (as fallback or for local sync status)
+    const localUsers = useLiveQuery(() => db.users.toArray()) || [];
+    
+    // Primary list for the table: prefer global students if available, else local
+    const studentsSource = allStudents.length > 0 ? allStudents : localUsers;
 
     // Filter logic
-    const filteredStudents = users.filter((user: User) => {
+    const filteredStudents = studentsSource.filter((user: User) => {
         const matchesSchool = selectedSchool ? user.school === selectedSchool : true;
         const matchesCity = selectedCity ? user.city === selectedCity : true;
-        // Add other filters as needed
         return matchesSchool && matchesCity;
     });
 
@@ -861,39 +908,47 @@ export default function AdminDashboard() {
             {/* ── Stats Grid (Moved Up) ── */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard icon={<BookOpen className="text-blue-500" />} label="Total Books" value={books?.length || 0} />
-                <StatCard icon={<GraduationCap className="text-green-500" />} label="Active Students" value={users.length} />
-                <StatCard icon={<MapPin className="text-orange-500" />} label="Schools Reached" value={selectedSchool ? 1 : "All"} />
-                <StatCard icon={<MapPin className="text-purple-500" />} label="Cities" value={selectedCity ? 1 : "All"} />
+                <StatCard icon={<GraduationCap className="text-green-500" />} label="Active Students" value={studentsSource.length} />
+                <StatCard icon={<MapPin className="text-orange-500" />} label="Schools Reached" value={new Set(studentsSource.map(u => u.school).filter(Boolean)).size || 0} />
+                <StatCard icon={<MapPin className="text-purple-500" />} label="Cities" value={new Set(studentsSource.map(u => u.city).filter(Boolean)).size || 0} />
             </div>
 
             {/* ── Charts (Moved Up) ── */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <h3 className="font-semibold mb-6">Books Read by School</h3>
+                    <h3 className="font-semibold mb-6">Top 5 Books Read by School</h3>
                     <div className="h-[256px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={schoolData}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                <XAxis dataKey="name" fontSize={12} />
-                                <YAxis fontSize={12} />
-                                <Tooltip />
-                                <Bar dataKey="booksRead" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
+                        {loadingAnalytics ? (
+                            <div className="h-full flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-blue-500" /></div>
+                        ) : (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={schoolData}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                    <XAxis dataKey="name" fontSize={10} interval={0} angle={-45} textAnchor="end" height={60} />
+                                    <YAxis fontSize={12} />
+                                    <Tooltip />
+                                    <Bar dataKey="booksRead" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        )}
                     </div>
                 </div>
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <h3 className="font-semibold mb-6">Active Students by District</h3>
+                    <h3 className="font-semibold mb-6">Top 5 Active Students by District</h3>
                     <div className="h-[256px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={districtData}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                <XAxis dataKey="name" fontSize={12} />
-                                <YAxis fontSize={12} />
-                                <Tooltip />
-                                <Bar dataKey="activeStudent" fill="#10b981" radius={[4, 4, 0, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
+                        {loadingAnalytics ? (
+                            <div className="h-full flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-green-500" /></div>
+                        ) : (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={districtData}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                    <XAxis dataKey="name" fontSize={12} />
+                                    <YAxis fontSize={12} />
+                                    <Tooltip />
+                                    <Bar dataKey="activeStudent" fill="#10b981" radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        )}
                     </div>
                 </div>
             </div>
@@ -908,10 +963,10 @@ export default function AdminDashboard() {
                 </div>
                 <div className="p-6 space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <Dropdown label="Select State" options={stateOptions} value={selectedState} onChange={handleStateChange} className="w-full" />
-                        <Dropdown label="Select City" options={cityOptions} value={selectedCity} onChange={handleCityChange} className="w-full" />
-                        <Dropdown label="Select Sector" options={sectorOptions} value={selectedSector} onChange={handleSectorChange} className="w-full" />
-                        <Dropdown label="Select School" options={schoolOptions} value={selectedSchool} onChange={setSelectedSchool} className="w-full" />
+                        <Dropdown label="Select State" options={stateOptions} value={selectedState} onChange={handleStateChange} className="w-full" variant="light" />
+                        <Dropdown label="Select City" options={cityOptions} value={selectedCity} onChange={handleCityChange} className="w-full" variant="light" />
+                        <Dropdown label="Select Sector" options={sectorOptions} value={selectedSector} onChange={handleSectorChange} className="w-full" variant="light" />
+                        <Dropdown label="Select School" options={schoolOptions} value={selectedSchool} onChange={setSelectedSchool} className="w-full" variant="light" />
                     </div>
                     <div className="rounded-lg border border-gray-200 overflow-hidden">
                         <table className="w-full text-sm text-left">

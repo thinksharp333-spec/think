@@ -30,7 +30,7 @@ export async function GET() {
 
         let fetchUrl = '';
         if (fileId && !fileId.startsWith('http')) {
-            fetchUrl = `https://docs.google.com/uc?export=download&id=${fileId}&key=${process.env.GOOGLE_DRIVE_API_KEY}`;
+            fetchUrl = `https://docs.google.com/uc?export=download&id=${fileId}&key=${process.env.GOOGLE_DRIVE_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY}`;
         } else if (fileId.startsWith('http')) {
             fetchUrl = fileId;
         } else if (pdfUrl) {

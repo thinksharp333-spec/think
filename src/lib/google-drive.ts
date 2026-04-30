@@ -4,7 +4,7 @@ export interface DriveItem {
     mimeType: string;
 }
 
-const API_KEY = process.env.GOOGLE_DRIVE_API_KEY;
+const API_KEY = process.env.GOOGLE_DRIVE_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY;
 
 export async function fetchDriveContents(folderId: string): Promise<DriveItem[]> {
     if (!API_KEY) {
