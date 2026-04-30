@@ -52,7 +52,7 @@ Questions MUST be based on the provided text.`;
     for (let attempt = 1; attempt <= retries; attempt++) {
         try {
             const combinedPrompt = `${systemPrompt}\n\n${userPrompt}`;
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${geminiKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
