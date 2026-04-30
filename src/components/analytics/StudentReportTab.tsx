@@ -58,7 +58,7 @@ export function StudentReportTab() {
 
             // Group history by book_id
             const aggregated: Record<string, any> = {};
-            (history || []).forEach(session => {
+            (history || []).forEach((session: any) => {
                 const bid = session.book_id;
                 if (!aggregated[bid]) {
                     aggregated[bid] = {

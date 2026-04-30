@@ -30,6 +30,7 @@ export function PitchReportTab() {
     useEffect(() => {
         // Fetch aggregated data based on filters
         async function fetchData() {
+            if (!supabase) return;
             setLoading(true);
             try {
                 // 1. KPI Totals

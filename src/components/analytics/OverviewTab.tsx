@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { MapChart } from './MapChart';
-import { Users, BookOpen, Trophy, TrendingUp, Loader2 } from 'lucide-react';
+import { Users, BookOpen, Trophy, TrendingUp, Loader2, RefreshCw } from 'lucide-react';
 
 export function OverviewTab() {
     const [loading, setLoading] = useState(true);

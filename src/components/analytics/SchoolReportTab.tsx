@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase, School } from '@/lib/supabase';
-import { Loader2, Search, MapPin } from 'lucide-react';
+import { Loader2, Search, MapPin, RefreshCw } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { Dropdown } from '@/components/dropdown';
 import { SCHOOLS_DATA } from '@/lib/schools-data';
