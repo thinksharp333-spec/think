@@ -33,8 +33,11 @@ export default function SignUpPage() {
         city: "",
         school: "",
         schoolId: "",
+        taluka: "",
+        village: "",
         grade: "",
         customSchool: "",
+        isCustomSchool: false,
         password: "",
         confirmPassword: "",
         favouriteFood: ""
@@ -47,9 +50,16 @@ export default function SignUpPage() {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    const handleSchoolSelect = (schoolId: string, schoolName: string, district: string, taluka: string) => {
-        void taluka;
-        setFormData(prev => ({ ...prev, schoolId, school: schoolName, city: district }));
+    const handleSchoolSelect = (schoolId: string, schoolName: string, district: string, taluka: string, village: string, isCustom: boolean) => {
+        setFormData(prev => ({
+            ...prev,
+            schoolId: isCustom ? "custom" : schoolId,
+            school: schoolName,
+            city: district,
+            taluka,
+            village,
+            isCustomSchool: isCustom,
+        }));
     };
 
     const getErrorMessage = (err: unknown) => {
@@ -76,6 +86,11 @@ export default function SignUpPage() {
             return;
         }
 
+        if (formData.isCustomSchool && (!formData.school.trim() || !formData.city.trim() || !formData.taluka.trim())) {
+            setError("Please fill in your district, taluka, and school name.");
+            return;
+        }
+
         if (formData.password !== formData.confirmPassword) {
             setError("Passwords do not match");
             return;
@@ -87,8 +102,6 @@ export default function SignUpPage() {
             // Generate a robust standard UUID for the new user
             const id = crypto.randomUUID();
 
-            const finalSchoolName = formData.schoolId === "other" ? formData.customSchool : formData.school;
-
             const initialAvatarUrl = getAvatarUrl(selectedAvatarId, 0);
 
             const userData = {
@@ -97,8 +110,11 @@ export default function SignUpPage() {
                 age: Number(formData.age),
                 mobile: formData.mobile,
                 city: formData.city,
-                school: finalSchoolName,
+                school: formData.school,
                 schoolId: formData.schoolId,
+                taluka: formData.taluka,
+                village: formData.village,
+                isCustomSchool: formData.isCustomSchool,
                 grade: formData.grade,
                 role: 'student',
                 password: formData.password,
