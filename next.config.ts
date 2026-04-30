@@ -22,11 +22,10 @@ const nextConfig = withPWA({
   },
   // BUG-01 FIX: Only disable SW in development — production gets full offline support
   disable: process.env.NODE_ENV === 'development',
+  // Keep default caches (pages, pages-rsc, static assets, etc.) and extend with ours.
+  extendDefaultRuntimeCaching: true,
   workboxOptions: {
     disableDevLogs: true,
-    // Keep all default caches (pages, pages-rsc, static assets, etc.)
-    // and extend with project-specific rules.
-    extendDefaultRuntimeCaching: true,
     runtimeCaching: [
       // Cache Supabase requests with network-first so data stays fresh but works offline
       {
