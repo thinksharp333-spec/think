@@ -2,128 +2,184 @@
 
 import { useState, useEffect } from 'react';
 import { supabase, School } from '@/lib/supabase';
-import { Loader2, Search } from 'lucide-react';
+import { Loader2, Search, MapPin } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { Dropdown } from '@/components/dropdown';
+import { SCHOOLS_DATA } from '@/lib/schools-data';
+
+// Location Data derived from SCHOOLS_DATA
+const LOCATION_DATA = (() => {
+    const data: any = {};
+    SCHOOLS_DATA.forEach(school => {
+        const state = school.state || 'Maharashtra';
+        const district = school.district || 'Unknown';
+        const taluka = school.taluka || 'Unknown';
+        
+        if (!data[state]) data[state] = {};
+        if (!data[state][district]) data[state][district] = {};
+        if (!data[state][district][taluka]) data[state][district][taluka] = [];
+        
+        if (data[state][district][taluka].indexOf(school.school_name) === -1) {
+             data[state][district][taluka].push(school.school_name);
+        }
+    });
+    return data;
+})();
 
 export function SchoolReportTab() {
     const [loading, setLoading] = useState(false);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [schools, setSchools] = useState<School[]>([]);
     const [selectedSchool, setSelectedSchool] = useState<School | null>(null);
     const [schoolStats, setSchoolStats] = useState<any>(null);
     const [bookStats, setBookStats] = useState<any[]>([]);
+    const [subjectStats, setSubjectStats] = useState<any[]>([]);
+
+    // Tiered Location State
+    const [selectedState, setSelectedState] = useState("");
+    const [selectedDistrict, setSelectedDistrict] = useState("");
+    const [selectedTaluka, setSelectedTaluka] = useState("");
+    const [selectedSchoolName, setSelectedSchoolName] = useState("");
+
+    const stateOptions = Object.keys(LOCATION_DATA).map(s => ({ value: s, label: s }));
+    const districtOptions = selectedState ? Object.keys(LOCATION_DATA[selectedState] || {}).map(d => ({ value: d, label: d })) : [];
+    const talukaOptions = selectedDistrict ? Object.keys(LOCATION_DATA[selectedState]?.[selectedDistrict] || {}).map(t => ({ value: t, label: t })) : [];
+    const schoolOptions = selectedTaluka ? (LOCATION_DATA[selectedState]?.[selectedDistrict]?.[selectedTaluka] || []).map((s: string) => ({ value: s, label: s })) : [];
 
     // Determine color based on index
     const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
-    // Search Schools
+    // When a school is selected from dropdown, fetch its full object
     useEffect(() => {
-        async function searchSchools() {
-            const client = supabase;
-            if (!searchTerm || searchTerm.length < 3 || !client) return;
-            const { data } = await client
+        async function getFullSchool() {
+            if (!selectedSchoolName || !supabase) return;
+            const { data } = await supabase
                 .from('schools')
                 .select('*')
-                .ilike('school_name', `%${searchTerm}%`)
-                .limit(10);
-
-            setSchools(data || []);
+                .eq('school_name', selectedSchoolName)
+                .eq('district', selectedDistrict)
+                .eq('taluka', selectedTaluka)
+                .maybeSingle();
+            
+            if (data) setSelectedSchool(data);
         }
+        getFullSchool();
+    }, [selectedSchoolName, selectedDistrict, selectedTaluka]);
 
-        const timeoutId = setTimeout(searchSchools, 500);
-        return () => clearTimeout(timeoutId);
-    }, [searchTerm]);
+    // Cleanup search effects as we use dropdowns now
 
-    useEffect(() => {
-        async function fetchSchoolDetails() {
-            const client = supabase;
-            if (!selectedSchool || !client) return;
-            setLoading(true);
-            try {
-                // 1. Basic Stats (Total Students, Active)
-                const { count: totalStudents } = await client
-                    .from('users')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('school_id', selectedSchool.id);
+    const fetchSchoolDetails = async () => {
+        const client = supabase;
+        if (!selectedSchool || !client) return;
+        setLoading(true);
+        try {
+            // 1. Basic Stats (Total Students, Active)
+            const { count: totalStudents } = await client
+                .from('users')
+                .select('*', { count: 'exact', head: true })
+                .eq('school_id', selectedSchool.id);
 
-                const { count: activeStudents } = await client
-                    .from('analytics_school_active_students')
-                    .select('active_students_last_30d', { count: 'exact', head: true }) // View structure might need adjustment depending on how we select
-                    .eq('school_id', selectedSchool.id);
+            // 2. Books by Level/Subject
+            const { data: sessionsData } = await client
+                .from('reading_sessions')
+                .select('book_id, book_title')
+                .in('user_id', (
+                    await client.from('users').select('id').eq('school_id', selectedSchool.id)
+                ).data?.map(u => u.id) || []);
 
-                // 2. Books by Level/Subject (from reading sessions join books)
-                // This is heavy without a specific pre-aggregated view by school+book_category
-                // We will try to fetch raw sessions and aggregate client side for MVP or use a custom query
-                // Using `analytics_top_books` isn't filtered by school.
-                // Let's do a direct query for now (might be slow for huge data)
-                const { data: sessions } = await client
-                    .from('reading_sessions')
-                    .select('book_title, books(grade_level, language)') // Join books table
-                    .eq('users.school_id', selectedSchool.id); // This requires join on users too which is tricky in one go if RLS/relationships set
+            if (sessionsData && sessionsData.length > 0) {
+                const { data: booksInfo } = await client
+                    .from('books')
+                    .select('id, level, subject')
+                    .in('id', Array.from(new Set(sessionsData.map(s => s.book_id))));
 
-                // Alternative: simpler approach -> fetch local stats view
-                const { data: stats } = await client
-                    .from('analytics_school_stats')
-                    .select('*')
-                    .eq('school_id', selectedSchool.id)
-                    .single();
+                const levelCounts: Record<string, number> = {};
+                const subjectCounts: Record<string, number> = {};
 
-                setSchoolStats({
-                    totalStudents: totalStudents || 0,
-                    // activeStudents: activeStudents || 0, // Using view count or from stats
-                    totalSessions: stats?.total_sessions || 0,
-                    uniqueBooks: stats?.unique_books_read || 0,
-                    participatingStudents: stats?.participating_students || 0
+                sessionsData.forEach(s => {
+                    const book = booksInfo?.find(b => String(b.id) === String(s.book_id));
+                    const level = book?.level ? `Level ${book.level}` : 'Unknown';
+                    levelCounts[level] = (levelCounts[level] || 0) + 1;
+                    const subject = book?.subject || 'Other';
+                    subjectCounts[subject] = (subjectCounts[subject] || 0) + 1;
                 });
 
-                // Mock distribution for demo if real join is complex without proper relationships setup
-                setBookStats([
-                    { name: 'Level 1', value: 40 },
-                    { name: 'Level 2', value: 30 },
-                    { name: 'Level 3', value: 20 },
-                    { name: 'Level 4', value: 10 },
-                ]);
-
-            } catch (err) {
-                console.error(err);
-            } finally {
-                setLoading(false);
+                setBookStats(Object.entries(levelCounts).map(([name, value]) => ({ name, value })));
+                setSubjectStats(Object.entries(subjectCounts).map(([name, value]) => ({ name, value })));
+            } else {
+                setBookStats([]);
+                setSubjectStats([]);
             }
-        }
 
+            // 3. Overall Stats from View
+            const { data: stats } = await client
+                .from('analytics_school_stats')
+                .select('*')
+                .eq('school_id', selectedSchool.id)
+                .maybeSingle();
+
+            setSchoolStats({
+                totalStudents: totalStudents || 0,
+                totalSessions: stats?.total_sessions || 0,
+                uniqueBooks: stats?.unique_books_read || 0,
+                participatingStudents: stats?.participating_students || 0
+            });
+
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         fetchSchoolDetails();
     }, [selectedSchool]);
 
     return (
         <div className="space-y-6">
-            {/* Search Bar */}
-            <div className="relative max-w-md">
-                <input
-                    type="text"
-                    placeholder="Search for a school..."
-                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                <Search className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
-
-                {schools.length > 0 && !selectedSchool && (
-                    <div className="absolute top-full left-0 right-0 bg-white border rounded-lg shadow-lg mt-1 z-10 max-h-60 overflow-y-auto">
-                        {schools.map(s => (
-                            <div
-                                key={s.id}
-                                className="p-3 hover:bg-gray-50 cursor-pointer border-b last:border-0"
-                                onClick={() => {
-                                    setSelectedSchool(s);
-                                    setSchools([]); // Close dropdown
-                                    setSearchTerm(s.school_name);
-                                }}
-                            >
-                                <div className="font-medium">{s.school_name}</div>
-                                <div className="text-xs text-gray-500">{s.taluka}, {s.district}</div>
-                            </div>
-                        ))}
-                    </div>
+            {/* Tiered Dropdowns */}
+            <div className="flex flex-col md:flex-row gap-4 items-end">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 flex-1">
+                    <Dropdown 
+                        label="Select State" 
+                        options={stateOptions} 
+                        value={selectedState} 
+                        onChange={(val) => { setSelectedState(val); setSelectedDistrict(""); setSelectedTaluka(""); setSelectedSchoolName(""); setSelectedSchool(null); }} 
+                        className="w-full" 
+                        variant="light"
+                    />
+                    <Dropdown 
+                        label="Select District" 
+                        options={districtOptions} 
+                        value={selectedDistrict} 
+                        onChange={(val) => { setSelectedDistrict(val); setSelectedTaluka(""); setSelectedSchoolName(""); setSelectedSchool(null); }} 
+                        className="w-full" 
+                        variant="light"
+                    />
+                    <Dropdown 
+                        label="Select Taluka" 
+                        options={talukaOptions} 
+                        value={selectedTaluka} 
+                        onChange={(val) => { setSelectedTaluka(val); setSelectedSchoolName(""); setSelectedSchool(null); }} 
+                        className="w-full" 
+                        variant="light"
+                    />
+                    <Dropdown 
+                        label="Select School" 
+                        options={schoolOptions} 
+                        value={selectedSchoolName} 
+                        onChange={(val) => setSelectedSchoolName(val)} 
+                        className="w-full" 
+                        variant="light"
+                    />
+                </div>
+                {selectedSchool && (
+                    <button 
+                        onClick={fetchSchoolDetails}
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors shadow-sm h-[38px]"
+                    >
+                        <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                        Refresh
+                    </button>
                 )}
             </div>
 
@@ -179,11 +235,19 @@ export function SchoolReportTab() {
                             </div>
                         </div>
 
-                        {/* Placeholder for Subject Distribution */}
+                        {/* Subject Distribution */}
                         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                             <h3 className="text-lg font-semibold mb-4">Subject Distribution</h3>
-                            <div className="flex items-center justify-center h-[300px] text-gray-400">
-                                No subject data available yet
+                            <div className="h-[300px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={subjectStats} layout="vertical">
+                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                                        <XAxis type="number" hide />
+                                        <YAxis dataKey="name" type="category" width={100} fontSize={10} />
+                                        <Tooltip />
+                                        <Bar dataKey="value" fill="#8884d8" radius={[0, 4, 4, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
                             </div>
                         </div>
                     </div>

@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
             }
         } else {
             // Treat as a Google Drive file ID — use Drive API v3 with key for server-side access
-            const apiKey = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY || process.env.GOOGLE_DRIVE_API_KEY;
+            const apiKey = process.env.GOOGLE_DRIVE_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY;
             if (apiKey) {
                 fetchUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${apiKey}`;
             } else {
@@ -37,7 +37,6 @@ export async function GET(request: NextRequest) {
 
         const response = await fetch(fetchUrl, {
             headers: fetchHeaders,
-            signal: AbortSignal.timeout(30000),
         });
 
         if (!response.ok) {

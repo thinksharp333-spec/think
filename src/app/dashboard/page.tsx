@@ -45,7 +45,7 @@ export default function Dashboard() {
     const [downloadError, setDownloadError] = useState<string | null>(null);
 
     const points = user?.totalPoints || 0;
-    
+
     let displayStreak = user?.streak || 0;
     if (displayStreak > 0 && user?.lastPointsDate) {
         const now = new Date();
@@ -93,7 +93,7 @@ export default function Dashboard() {
     // Handle Bulk Download
     const handleBulkDownload = async () => {
         if (!selectedLevel || !filteredBooks || filteredBooks.length === 0) return;
-        
+
         // Find books that aren't offline yet
         const booksToDownload = filteredBooks.filter(b => !b.pdfBlob);
         if (booksToDownload.length === 0) {
@@ -111,7 +111,7 @@ export default function Dashboard() {
                 // Determine source URL (proxy for Drive, direct otherwise)
                 const proxyUrl = book.fileId ? `/api/proxy-pdf?fileId=${book.fileId}` : book.pdfUrl;
                 const response = await fetch(proxyUrl);
-                
+
                 if (response.ok) {
                     const blob = await response.blob();
                     await db.books.update(book.id!, { pdfBlob: blob });
@@ -155,16 +155,14 @@ export default function Dashboard() {
 
                     {/* Right: status + actions */}
                     <div className="flex items-center gap-2">
-                        <span className="chip chip-gold text-xs hidden md:flex text-[#111111]">
-                            <Flame className="h-3.5 w-3.5 text-orange-500 fill-orange-500" /> Streak {displayStreak}
-                        </span>
 
-                        <Link href="/dashboard" className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 transition-all overflow-hidden border border-white/20">
+
+                        <Link href="/profile" className="hidden md:flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 transition-all overflow-hidden border border-white/20">
                             {user?.avatarBaseId ? (
-                                <AvatarStageImage 
-                                    avatarBaseId={user.avatarBaseId} 
-                                    stage={user.currentAvatarStage || 0} 
-                                    size={40} 
+                                <AvatarStageImage
+                                    avatarBaseId={user.avatarBaseId}
+                                    stage={user.currentAvatarStage || 0}
+                                    size={40}
                                     rounded={false}
                                 />
                             ) : (
@@ -176,12 +174,12 @@ export default function Dashboard() {
                                 await supabase?.auth.signOut();
                                 router.push('/');
                             }}
-                            className="chip chip-dark text-xs hidden md:flex">
-                             <LogOut className="h-3.5 w-3.5" /> Logout
+                                className="chip chip-dark text-xs hidden md:flex">
+                                <LogOut className="h-3.5 w-3.5" /> Logout
                             </button>
                         ) : (
                             <Link href="/login" className="chip chip-dark text-xs hidden md:flex">
-                             <User className="h-3.5 w-3.5" /> Login
+                                <User className="h-3.5 w-3.5" /> Login
                             </Link>
                         )}
                     </div>
@@ -257,9 +255,9 @@ export default function Dashboard() {
                                     {user?.avatarBaseId && (
                                         <div className="relative group">
                                             <div className="absolute -inset-1 rounded-full bg-white/20 blur opacity-0 group-hover:opacity-100 transition-opacity" />
-                                            <AvatarStageImage 
-                                                avatarBaseId={user.avatarBaseId} 
-                                                stage={user.currentAvatarStage || 0} 
+                                            <AvatarStageImage
+                                                avatarBaseId={user.avatarBaseId}
+                                                stage={user.currentAvatarStage || 0}
                                                 size={80}
                                                 className="relative border-4 border-white/30 shadow-xl"
                                             />
@@ -273,12 +271,12 @@ export default function Dashboard() {
                                             {firstName}&apos;s Quest!
                                         </h2>
                                         <p className="text-white/80 font-bold mt-2 max-w-sm hidden sm:block">
-                                            Browse story worlds, keep your streak alive, and jump back into books you started.
+                                            dive into a world full of stories, keep your streak alive, and jump back into books you started.
                                         </p>
                                     </div>
                                 </div>
                                 <div className="flex gap-4 flex-wrap">
-                                    <div className="bg-white/15 rounded-2xl px-5 py-4 text-center border border-white/20 backdrop-blur md:hidden">
+                                    <div className="bg-white/15 rounded-2xl px-5 py-4 text-center border border-white/20 backdrop-blur">
                                         <p className="comic-title text-3xl text-orange-400">{displayStreak}</p>
                                         <p className="text-white/70 text-xs font-black uppercase tracking-wider">Streak</p>
                                     </div>
@@ -311,7 +309,7 @@ export default function Dashboard() {
                                 </button>
                             )}
                             {selectedLevel && (
-                                <button 
+                                <button
                                     onClick={handleBulkDownload}
                                     disabled={isDownloadingAll}
                                     className={`flex-shrink-0 flex items-center gap-2 bg-yellow-400 hover:bg-yellow-300 text-yellow-950 text-xs font-black uppercase tracking-wide px-4 py-2 rounded-full transition-all shadow-[0_4px_0_#92400e] active:translate-y-[2px] active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed`}>
@@ -435,9 +433,9 @@ export default function Dashboard() {
                         </p>
                         <div className="space-y-2">
                             <div className="w-full h-4 bg-gray-100 rounded-full overflow-hidden border-2 border-[#111]">
-                                <div 
-                                    className="h-full bg-[#e63329] transition-all duration-300" 
-                                    style={{ width: `${(downloadProgress.current / downloadProgress.total) * 100}%` }} 
+                                <div
+                                    className="h-full bg-[#e63329] transition-all duration-300"
+                                    style={{ width: `${(downloadProgress.current / downloadProgress.total) * 100}%` }}
                                 />
                             </div>
                             <p className="font-black text-[#111] text-xs">
