@@ -43,7 +43,7 @@ export async function GET() {
 
         if (fetchUrl) {
             try {
-                const r = await fetch(fetchUrl, { signal: AbortSignal.timeout(10000) });
+                const r = await fetch(fetchUrl);
                 status = r.ok ? 'ok' : `http_${r.status}`;
                 contentType = r.headers.get('content-type') || '';
                 if (r.ok) {

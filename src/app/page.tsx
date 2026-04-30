@@ -48,9 +48,20 @@ export default function LandingPage() {
   ];
 
   const mediaReviews = [
-    { source: "Times of India", text: "Revolutionizing rural education with a digital library system.", bg: "bg-red-50", accent: "#e63329" },
-    { source: "Early Readers", text: "My child loves the rewards! It makes reading feel like an adventure.", bg: "bg-yellow-50", accent: "#f59e0b" },
-    { source: "Tech For Good", text: "A seamless bridge between technology and traditional storytelling.", bg: "bg-blue-50", accent: "#3b82f6" },
+    { 
+      source: "The Hindu", 
+      text: "App helps bridge urban-rural educational divide in Maharashtra", 
+      link: "https://share.google/tKiwqa4aASjvUZqPY",
+      bg: "bg-red-50", 
+      accent: "#e63329" 
+    },
+    { 
+      source: "Forbes India", 
+      text: "How this NGO brought the joy of learning to thousands of underprivileged children pan-India during the pandemic", 
+      link: "https://share.google/OAiVG0Uuh7ZAWf1lZ",
+      bg: "bg-blue-50", 
+      accent: "#3b82f6" 
+    },
   ];
 
   const [topReader, setTopReader] = useState({ name: "Reader", points: 0 });
@@ -166,7 +177,7 @@ export default function LandingPage() {
             </p>
             <div className="mt-10 flex flex-wrap gap-4 animate-pop-in" style={{ animationDelay: "240ms" }}>
               <Link href={isLoggedIn ? "/dashboard" : "/signup"} className="btn-red text-lg px-10 py-5">
-                {isLoggedIn ? "Continue Reading" : "Start Reading"} <Star className="h-5 w-5 fill-white" />
+                {isLoggedIn ? "Continue Reading" : "Login/Register"} <Star className="h-5 w-5 fill-white" />
               </Link>
               <Link href="#reviews" className="btn-outline text-base px-8 py-5">
                 Reviews <ArrowRight className="h-5 w-5" />
@@ -309,12 +320,15 @@ export default function LandingPage() {
             </span>
             <h2 className="comic-title text-3xl md:text-5xl text-[#111]">Voices of Users</h2>
           </div>
-          <div className="grid gap-8 md:grid-cols-3">
+          <div className="grid gap-8 md:grid-cols-2 max-w-4xl mx-auto">
             {mediaReviews.map((item, i) => (
-              <div key={i} className={`step-card ${item.bg} flex flex-col justify-center`} style={{ animationDelay: `${i * 100}ms` }}>
-                <p className="font-bold text-[#3a3a3a] leading-relaxed italic mb-4">&quot;{item.text}&quot;</p>
-                <p className="comic-title text-lg text-[#111] uppercase tracking-wide">— {item.source}</p>
-              </div>
+              <a href={item.link} target="_blank" rel="noopener noreferrer" key={i} className={`step-card ${item.bg} flex flex-col justify-center hover:scale-[1.02] active:scale-[0.98] transition-transform cursor-pointer border-2 border-transparent hover:border-[#111]`} style={{ animationDelay: `${i * 100}ms` }}>
+                <p className="font-bold text-[#3a3a3a] leading-relaxed italic mb-4 text-lg">&quot;{item.text}&quot;</p>
+                <div className="mt-auto pt-4 flex items-center justify-between">
+                  <p className="comic-title text-lg text-[#111] uppercase tracking-wide">— {item.source}</p>
+                  <ArrowRight className="h-5 w-5 text-[#111] opacity-50" />
+                </div>
+              </a>
             ))}
           </div>
         </div>

@@ -66,119 +66,121 @@ export function SchoolReportTab() {
 
     // Cleanup search effects as we use dropdowns now
 
-    useEffect(() => {
-        async function fetchSchoolDetails() {
-            const client = supabase;
-            if (!selectedSchool || !client) return;
-            setLoading(true);
-            try {
-                // 1. Basic Stats (Total Students, Active)
-                const { count: totalStudents } = await client
-                    .from('users')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('school_id', selectedSchool.id);
+    const fetchSchoolDetails = async () => {
+        const client = supabase;
+        if (!selectedSchool || !client) return;
+        setLoading(true);
+        try {
+            // 1. Basic Stats (Total Students, Active)
+            const { count: totalStudents } = await client
+                .from('users')
+                .select('*', { count: 'exact', head: true })
+                .eq('school_id', selectedSchool.id);
 
-                const { count: activeStudents } = await client
-                    .from('analytics_school_active_students')
-                    .select('active_students_last_30d', { count: 'exact', head: true }) // View structure might need adjustment depending on how we select
-                    .eq('school_id', selectedSchool.id);
+            // 2. Books by Level/Subject
+            const { data: sessionsData } = await client
+                .from('reading_sessions')
+                .select('book_id, book_title')
+                .in('user_id', (
+                    await client.from('users').select('id').eq('school_id', selectedSchool.id)
+                ).data?.map(u => u.id) || []);
 
-                // 2. Books by Level/Subject
-                // Fetch sessions for this school's students to get real distribution
-                const { data: sessionsData } = await client
-                    .from('reading_sessions')
-                    .select('book_id, book_title')
-                    .in('user_id', (
-                        await client.from('users').select('id').eq('school_id', selectedSchool.id)
-                    ).data?.map(u => u.id) || []);
+            if (sessionsData && sessionsData.length > 0) {
+                const { data: booksInfo } = await client
+                    .from('books')
+                    .select('id, level, subject')
+                    .in('id', Array.from(new Set(sessionsData.map(s => s.book_id))));
 
-                if (sessionsData && sessionsData.length > 0) {
-                    // Group by book_id to get levels and subjects
-                    const { data: booksInfo } = await client
-                        .from('books')
-                        .select('id, level, subject')
-                        .in('id', Array.from(new Set(sessionsData.map(s => s.book_id))));
+                const levelCounts: Record<string, number> = {};
+                const subjectCounts: Record<string, number> = {};
 
-                    const levelCounts: Record<string, number> = {};
-                    const subjectCounts: Record<string, number> = {};
-
-                    sessionsData.forEach(s => {
-                        const book = booksInfo?.find(b => String(b.id) === String(s.book_id));
-                        
-                        const level = book?.level ? `Level ${book.level}` : 'Unknown';
-                        levelCounts[level] = (levelCounts[level] || 0) + 1;
-
-                        const subject = book?.subject || 'Other';
-                        subjectCounts[subject] = (subjectCounts[subject] || 0) + 1;
-                    });
-
-                    setBookStats(Object.entries(levelCounts).map(([name, value]) => ({ name, value })));
-                    setSubjectStats(Object.entries(subjectCounts).map(([name, value]) => ({ name, value })));
-                } else {
-                    setBookStats([]);
-                    setSubjectStats([]);
-                }
-
-                // 3. Overall Stats from View
-                const { data: stats } = await client
-                    .from('analytics_school_stats')
-                    .select('*')
-                    .eq('school_id', selectedSchool.id)
-                    .maybeSingle();
-
-                setSchoolStats({
-                    totalStudents: totalStudents || 0,
-                    totalSessions: stats?.total_sessions || 0,
-                    uniqueBooks: stats?.unique_books_read || 0,
-                    participatingStudents: stats?.participating_students || 0
+                sessionsData.forEach(s => {
+                    const book = booksInfo?.find(b => String(b.id) === String(s.book_id));
+                    const level = book?.level ? `Level ${book.level}` : 'Unknown';
+                    levelCounts[level] = (levelCounts[level] || 0) + 1;
+                    const subject = book?.subject || 'Other';
+                    subjectCounts[subject] = (subjectCounts[subject] || 0) + 1;
                 });
 
-            } catch (err) {
-                console.error(err);
-            } finally {
-                setLoading(false);
+                setBookStats(Object.entries(levelCounts).map(([name, value]) => ({ name, value })));
+                setSubjectStats(Object.entries(subjectCounts).map(([name, value]) => ({ name, value })));
+            } else {
+                setBookStats([]);
+                setSubjectStats([]);
             }
-        }
 
+            // 3. Overall Stats from View
+            const { data: stats } = await client
+                .from('analytics_school_stats')
+                .select('*')
+                .eq('school_id', selectedSchool.id)
+                .maybeSingle();
+
+            setSchoolStats({
+                totalStudents: totalStudents || 0,
+                totalSessions: stats?.total_sessions || 0,
+                uniqueBooks: stats?.unique_books_read || 0,
+                participatingStudents: stats?.participating_students || 0
+            });
+
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         fetchSchoolDetails();
     }, [selectedSchool]);
 
     return (
         <div className="space-y-6">
             {/* Tiered Dropdowns */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Dropdown 
-                    label="Select State" 
-                    options={stateOptions} 
-                    value={selectedState} 
-                    onChange={(val) => { setSelectedState(val); setSelectedDistrict(""); setSelectedTaluka(""); setSelectedSchoolName(""); setSelectedSchool(null); }} 
-                    className="w-full" 
-                    variant="light"
-                />
-                <Dropdown 
-                    label="Select District" 
-                    options={districtOptions} 
-                    value={selectedDistrict} 
-                    onChange={(val) => { setSelectedDistrict(val); setSelectedTaluka(""); setSelectedSchoolName(""); setSelectedSchool(null); }} 
-                    className="w-full" 
-                    variant="light"
-                />
-                <Dropdown 
-                    label="Select Taluka" 
-                    options={talukaOptions} 
-                    value={selectedTaluka} 
-                    onChange={(val) => { setSelectedTaluka(val); setSelectedSchoolName(""); setSelectedSchool(null); }} 
-                    className="w-full" 
-                    variant="light"
-                />
-                <Dropdown 
-                    label="Select School" 
-                    options={schoolOptions} 
-                    value={selectedSchoolName} 
-                    onChange={(val) => setSelectedSchoolName(val)} 
-                    className="w-full" 
-                    variant="light"
-                />
+            <div className="flex flex-col md:flex-row gap-4 items-end">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 flex-1">
+                    <Dropdown 
+                        label="Select State" 
+                        options={stateOptions} 
+                        value={selectedState} 
+                        onChange={(val) => { setSelectedState(val); setSelectedDistrict(""); setSelectedTaluka(""); setSelectedSchoolName(""); setSelectedSchool(null); }} 
+                        className="w-full" 
+                        variant="light"
+                    />
+                    <Dropdown 
+                        label="Select District" 
+                        options={districtOptions} 
+                        value={selectedDistrict} 
+                        onChange={(val) => { setSelectedDistrict(val); setSelectedTaluka(""); setSelectedSchoolName(""); setSelectedSchool(null); }} 
+                        className="w-full" 
+                        variant="light"
+                    />
+                    <Dropdown 
+                        label="Select Taluka" 
+                        options={talukaOptions} 
+                        value={selectedTaluka} 
+                        onChange={(val) => { setSelectedTaluka(val); setSelectedSchoolName(""); setSelectedSchool(null); }} 
+                        className="w-full" 
+                        variant="light"
+                    />
+                    <Dropdown 
+                        label="Select School" 
+                        options={schoolOptions} 
+                        value={selectedSchoolName} 
+                        onChange={(val) => setSelectedSchoolName(val)} 
+                        className="w-full" 
+                        variant="light"
+                    />
+                </div>
+                {selectedSchool && (
+                    <button 
+                        onClick={fetchSchoolDetails}
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors shadow-sm h-[38px]"
+                    >
+                        <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                        Refresh
+                    </button>
+                )}
             </div>
 
             {selectedSchool && schoolStats && (

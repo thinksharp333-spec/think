@@ -145,7 +145,7 @@ export default function SignUpPage() {
     };
 
     return (
-        <main className="min-h-screen overflow-hidden bg-[#fffaf1] px-4 py-5 md:px-8 md:py-8">
+        <main className="min-h-screen overflow-x-hidden bg-[#fffaf1] px-4 py-5 md:px-8 md:py-8">
             <div className="mx-auto max-w-7xl">
                 <div className="mb-6 flex items-center justify-between">
                     <Link href="/" className="comic-chip inline-flex items-center gap-2 px-4 py-2 text-sm font-black uppercase tracking-wide text-[#111111]">
@@ -164,9 +164,9 @@ export default function SignUpPage() {
                     Join the Reading Club
                 </h1>
 
-                <div className="mt-8 grid items-start gap-8 lg:grid-cols-[1fr_170px_1fr]">
-                    <section className="px-2 lg:px-6">
-                        <div className="mx-auto max-w-md">
+                <div className="mt-8 flex flex-col items-start gap-8 lg:grid lg:grid-cols-[1fr_170px_1fr]">
+                    <section className="w-full px-2 lg:px-6">
+                        <div className="mx-auto w-full max-w-md">
                             <h2 className="text-4xl font-extrabold leading-tight text-[#111111] md:text-5xl">
                                 Pick Your Avatar
                             </h2>
@@ -339,8 +339,8 @@ export default function SignUpPage() {
                         </div>
                     </div>
 
-                    <section className="px-2 lg:px-6">
-                        <div className="mx-auto max-w-xl">
+                    <section className="w-full px-2 lg:px-6">
+                        <div className="mx-auto w-full max-w-xl">
                     <form onSubmit={handleSignUp} className="space-y-4">
                         <div>
                             <label className="mb-2 block text-xl font-extrabold text-[#111111]">Your Name</label>
@@ -378,7 +378,7 @@ export default function SignUpPage() {
                             <p className="mt-1 text-[11px] font-bold text-[#777]">This will be your login ID.</p>
                         </div>
 
-                        <div className="grid gap-4 md:grid-cols-3">
+                        <div className="grid gap-4 grid-cols-2">
                             <div>
                                 <label className="mb-2 block text-xl font-extrabold text-[#111111]">Age</label>
                                 <div className="relative">
@@ -412,7 +412,6 @@ export default function SignUpPage() {
                                     ))}
                                 </select>
                             </div>
-                            <div className="md:col-span-1" />
                         </div>
 
                         <div>

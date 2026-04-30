@@ -35,7 +35,6 @@ export async function GET(request: NextRequest) {
 
         const response = await fetch(fetchUrl, {
             headers: fetchHeaders,
-            signal: AbortSignal.timeout(30000),
         });
 
         if (!response.ok) {
