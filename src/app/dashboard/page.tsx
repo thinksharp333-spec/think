@@ -157,7 +157,7 @@ export default function Dashboard() {
                     <div className="flex items-center gap-2">
 
 
-                        <Link href="/profile" className="hidden md:flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 transition-all overflow-hidden border border-white/20">
+                        <div className="hidden md:flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white overflow-hidden border border-white/20">
                             {user?.avatarBaseId ? (
                                 <AvatarStageImage
                                     avatarBaseId={user.avatarBaseId}
@@ -168,7 +168,7 @@ export default function Dashboard() {
                             ) : (
                                 <User className="h-5 w-5" />
                             )}
-                        </Link>
+                        </div>
                         {user ? (
                             <button onClick={async () => {
                                 await supabase?.auth.signOut();
