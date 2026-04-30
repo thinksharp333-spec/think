@@ -24,8 +24,19 @@ const nextConfig = withPWA({
   disable: process.env.NODE_ENV === 'development',
   workboxOptions: {
     disableDevLogs: true,
-    // Cache Supabase requests with network-first so data stays fresh but works offline
     runtimeCaching: [
+      // Cache page HTML on every visit so pages load offline after first online use.
+      // Covers hard navigations (open PWA, refresh) not just soft Next.js navigations.
+      {
+        urlPattern: /\/(|dashboard|leaderboard|login|signup|read\/\d+|reset-password|_offline)(\?.*)?$/,
+        handler: 'NetworkFirst',
+        options: {
+          cacheName: 'pages-cache',
+          networkTimeoutSeconds: 5,
+          expiration: { maxEntries: 32, maxAgeSeconds: 7 * 24 * 60 * 60 },
+        },
+      },
+      // Cache Supabase requests with network-first so data stays fresh but works offline
       {
         urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
         handler: 'NetworkFirst',

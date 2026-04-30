@@ -100,30 +100,8 @@ export function PdfReader({
         setIsOfflineReady(false);
     }, [url, book?.pdfBlob]);
 
-    // BUG-05 FIX: Auto-download PDF in the background when online and no blob stored.
-    // Runs 4 seconds after the reader opens so it doesn't compete with initial render.
-    // Next time the student opens the book offline it will load from IndexedDB.
-    useEffect(() => {
-        if (book?.pdfBlob || bookIdNum === undefined) return;
-        if (!navigator.onLine) return;
-
-        const timer = setTimeout(async () => {
-            try {
-                const proxyUrl = book?.fileId ? `/api/proxy-pdf?fileId=${book.fileId}` : url;
-                const response = await fetch(proxyUrl);
-                if (response.ok) {
-                    const blob = await response.blob();
-                    await db.books.update(bookIdNum, { pdfBlob: blob });
-                    // isOfflineReady will update automatically via the pdfBlob effect above
-                }
-            } catch {
-                // Silent — background download failing must never interrupt reading
-            }
-        }, 4000);
-
-        return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [bookIdNum, url, book?.fileId]);
+    // PDF is only saved to IndexedDB when the user explicitly clicks the download button.
+    // No auto-download — download is a deliberate user action.
 
     const activeUrl = useMemo(() => {
         if (blobUrl) return blobUrl;
