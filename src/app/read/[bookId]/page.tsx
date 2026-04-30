@@ -578,7 +578,9 @@ export default function ReadPage() {
             setQuizCompleted(true);
             const bonusPoints = score * 10;
             if (bonusPoints > 0) {
-                accumulatedPointsRef.current += bonusPoints;
+                // Do not add quiz points to total points per user request
+                // accumulatedPointsRef.current += bonusPoints;
+                
                 // BUG-02 FIX: pass isFinal=true so READ_LOG is queued for this session
                 saveProgressRef.current(true);
             }
