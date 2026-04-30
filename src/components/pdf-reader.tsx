@@ -52,10 +52,10 @@ export function PdfReader({
     const computeWidth = () => {
         if (!containerRef.current) return;
         
-        // Use virtually all available space, but keep a 6% "safe zone"
-        // for varying screen aspect ratios to guarantee visibility.
-        const w = Math.floor(containerRef.current.clientWidth * 0.98);
-        const h = Math.floor(containerRef.current.clientHeight * 0.94);
+        // Use virtually all available space, but keep a 12% vertical "safe zone"
+        // for varying screen aspect ratios to guarantee visibility and prevent cropping at the bottom.
+        const w = Math.floor(containerRef.current.clientWidth * 0.96);
+        const h = Math.floor(containerRef.current.clientHeight * 0.88);
         
         if (w <= 0 || h <= 0) return;
 
@@ -116,16 +116,18 @@ export function PdfReader({
     }
 
     async function onPageLoadSuccess(page: any) {
-        // Capture aspect ratio on first page so width fits height correctly
-        if (pageAspectRef.current === null) {
-            try {
-                const vp = page.getViewport({ scale: 1 });
-                if (vp.width > 0 && vp.height > 0) {
-                    pageAspectRef.current = vp.width / vp.height;
+        // Capture aspect ratio dynamically to handle varying page sizes in a single book
+        try {
+            const vp = page.getViewport({ scale: 1 });
+            if (vp.width > 0 && vp.height > 0) {
+                const newAspect = vp.width / vp.height;
+                // Only recompute if the aspect ratio changed significantly (e.g., > 2%)
+                if (pageAspectRef.current === null || Math.abs(pageAspectRef.current - newAspect) > 0.02) {
+                    pageAspectRef.current = newAspect;
                     computeWidth(); // recompute now that we know the real aspect
                 }
-            } catch (_) { /* ignore */ }
-        }
+            }
+        } catch (_) { /* ignore */ }
         try {
             const textContent = await page.getTextContent();
             const text = textContent.items.map((item: any) => item.str).join(' ');
