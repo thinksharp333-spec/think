@@ -1,5 +1,5 @@
 import type { NextConfig } from "next";
-import withPWA from "@ducanh2912/next-pwa";
+import withPWA, { runtimeCaching as defaultCache } from "@ducanh2912/next-pwa";
 
 const config: NextConfig = {
   turbopack: {},
@@ -20,14 +20,14 @@ const nextConfig = withPWA({
   fallbacks: {
     document: '/_offline',
   },
-  // BUG-01 FIX: Only disable SW in development — production gets full offline support
   disable: process.env.NODE_ENV === 'development',
-  // Keep default caches (pages, pages-rsc, static assets, etc.) and extend with ours.
-  extendDefaultRuntimeCaching: true,
   workboxOptions: {
     disableDevLogs: true,
+    // Spread all default caches (pages, pages-rsc, static assets, etc.)
+    // then add the Supabase rule. This ensures navigation HTML is cached
+    // by the built-in 'pages' NetworkFirst handler so the app loads offline.
     runtimeCaching: [
-      // Cache Supabase requests with network-first so data stays fresh but works offline
+      ...defaultCache,
       {
         urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
         handler: 'NetworkFirst',
@@ -40,14 +40,9 @@ const nextConfig = withPWA({
 // Add webpack config for react-pdf
 nextConfig.webpack = (config, options) => {
   config.resolve.alias.canvas = false;
-  // Force pdfjs-dist to resolve correctly
-  // Note: __dirname is available in next.config.js/ts as Next.js transpile it, 
-  // but we'll make it safer.
-  
   if (options.isServer) {
     config.resolve.alias['pdfjs-dist'] = 'pdfjs-dist';
   }
-
   return config;
 };
 
