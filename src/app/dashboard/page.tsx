@@ -298,27 +298,33 @@ export default function Dashboard() {
                         </div>
 
                         {/* Filter bar / Dropdowns */}
-                        <div className="flex items-center gap-3 overflow-x-auto no-scrollbar pb-1">
-                            <Dropdown label="Language" options={combinedLanguages} value={selectedLanguage} onChange={setSelectedLanguage} className="filter-btn" />
-                            <Dropdown label="Level" options={levels} value={selectedLevel} onChange={setSelectedLevel} className="filter-btn" />
-                            <Dropdown label="Category" options={subjects} value={selectedSubject} onChange={setSelectedSubject} className="filter-btn" />
-                            {isFilterActive && (
-                                <button onClick={() => { setSelectedLevel(""); setSelectedSubject(""); setSelectedLanguage(""); setSearchQuery(""); }}
-                                    className="flex-shrink-0 text-[#111] hover:text-[#e63329] text-xs font-black uppercase tracking-wide bg-black/5 hover:bg-black/10 px-4 py-2 rounded-full transition-all">
-                                    ✕ Reset
-                                </button>
-                            )}
-                            {selectedLevel && (
-                                <button
-                                    onClick={handleBulkDownload}
-                                    disabled={isDownloadingAll}
-                                    className={`flex-shrink-0 flex items-center gap-2 bg-yellow-400 hover:bg-yellow-300 text-yellow-950 text-xs font-black uppercase tracking-wide px-4 py-2 rounded-full transition-all shadow-[0_4px_0_#92400e] active:translate-y-[2px] active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed`}>
-                                    {isDownloadingAll ? (
-                                        <><Loader2 className="h-4 w-4 animate-spin" /> Downloading...</>
-                                    ) : (
-                                        <><Download className="h-4 w-4" /> Download Level {selectedLevel}</>
+                        <div className="flex flex-col md:flex-row md:items-center gap-3 overflow-x-auto no-scrollbar pb-1">
+                            <div className="grid grid-cols-3 gap-2 w-full md:w-auto md:flex md:items-center md:gap-3 flex-shrink-0">
+                                <Dropdown label="Language" options={combinedLanguages} value={selectedLanguage} onChange={setSelectedLanguage} className="w-full md:w-[120px]" />
+                                <Dropdown label="Level" options={levels} value={selectedLevel} onChange={setSelectedLevel} className="w-full md:w-[120px]" />
+                                <Dropdown label="Category" options={subjects} value={selectedSubject} onChange={setSelectedSubject} className="w-full md:w-[130px]" />
+                            </div>
+                            {(isFilterActive || selectedLevel) && (
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                    {isFilterActive && (
+                                        <button onClick={() => { setSelectedLevel(""); setSelectedSubject(""); setSelectedLanguage(""); setSearchQuery(""); }}
+                                            className="flex-shrink-0 text-[#111] hover:text-[#e63329] text-xs font-black uppercase tracking-wide bg-black/5 hover:bg-black/10 px-4 py-2 rounded-full transition-all">
+                                            ✕ Reset
+                                        </button>
                                     )}
-                                </button>
+                                    {selectedLevel && (
+                                        <button
+                                            onClick={handleBulkDownload}
+                                            disabled={isDownloadingAll}
+                                            className={`flex-shrink-0 flex items-center gap-2 bg-yellow-400 hover:bg-yellow-300 text-yellow-950 text-xs font-black uppercase tracking-wide px-4 py-2 rounded-full transition-all shadow-[0_4px_0_#92400e] active:translate-y-[2px] active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed`}>
+                                            {isDownloadingAll ? (
+                                                <><Loader2 className="h-4 w-4 animate-spin" /> Downloading...</>
+                                            ) : (
+                                                <><Download className="h-4 w-4" /> Download Level {selectedLevel}</>
+                                            )}
+                                        </button>
+                                    )}
+                                </div>
                             )}
                         </div>
 

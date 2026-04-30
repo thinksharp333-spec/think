@@ -172,9 +172,7 @@ export default function LandingPage() {
               <span style={{ color: "var(--red)" }}>Your Reading</span><br />
               Adventure!
             </h1>
-            <p className="mt-6 text-xl leading-relaxed text-[#3a3a3a] max-w-lg font-bold animate-pop-in" style={{ animationDelay: "160ms" }}>
-              Discover worlds, earn rewards, leave book reviews, and unlock the magic of stories.
-            </p>
+
             <div className="mt-10 flex flex-wrap gap-4 animate-pop-in" style={{ animationDelay: "240ms" }}>
               <Link href={isLoggedIn ? "/dashboard" : "/signup"} className="btn-red text-lg px-10 py-5">
                 {isLoggedIn ? "Continue Reading" : "Login/Register"} <Star className="h-5 w-5 fill-white" />

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { User, Lock, ArrowRight, ArrowLeft, Phone, Calendar, WifiOff, CheckCircle2, Utensils } from "lucide-react";
+import { User, Lock, ArrowRight, ArrowLeft, Phone, Calendar, WifiOff, CheckCircle2, Utensils, GraduationCap, ChevronDown } from "lucide-react";
 import { AVATARS, getAvatarUrl } from "@/lib/avatar";
 import { AvatarStageImage } from "@/components/avatar-stage-image";
 import { db } from "@/lib/db";
@@ -415,18 +415,27 @@ export default function SignUpPage() {
                             </div>
                             <div>
                                 <label className="mb-2 block text-xl font-extrabold text-[#111111]">Grade</label>
-                                <select
-                                    name="grade"
-                                    className="comic-input comic-select px-4 text-xl font-bold"
-                                    value={formData.grade}
-                                    onChange={(e) => setFormData((prev) => ({ ...prev, grade: e.target.value }))}
-                                    required
-                                >
-                                    <option value="">Select</option>
-                                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(g => (
-                                        <option key={g} value={g}>Class {g}</option>
-                                    ))}
-                                </select>
+                                <div className="relative">
+                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10">
+                                        <GraduationCap className="h-5 w-5 text-[#111111]" />
+                                    </div>
+                                    <select
+                                        name="grade"
+                                        className="comic-input comic-select pl-12 pr-10 text-xl font-bold appearance-none bg-white"
+                                        style={{ paddingLeft: "3rem" }}
+                                        value={formData.grade}
+                                        onChange={(e) => setFormData((prev) => ({ ...prev, grade: e.target.value }))}
+                                        required
+                                    >
+                                        <option value="">Select</option>
+                                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(g => (
+                                            <option key={g} value={g}>Class {g}</option>
+                                        ))}
+                                    </select>
+                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[#111] pointer-events-none">
+                                        <ChevronDown className="h-5 w-5" />
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
