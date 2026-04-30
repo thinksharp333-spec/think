@@ -3,9 +3,9 @@ import { createClient } from '@supabase/supabase-js';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Configuration
-const supabaseUrl = 'https://mewjyfehpeuwfplxqhhl.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ld2p5ZmVocGV1d2ZwbHhxaGhsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MDYxOTc3MSwiZXhwIjoyMDg2MTk1NzcxfQ.u1Fmc2KOaAapGhqOyU_uOWXMuo_iQrEXC1WbtXQFy4w';
-const geminiKey = 'AIzaSyC4LVf-vJMoxYUvVNbpc4sInV1B3_oE0_o';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://mewjyfehpeuwfplxqhhl.supabase.co';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''; // NEVER commit this key
+const geminiKey = process.env.GEMINI_API_KEY || ''; // NEVER commit this key
 const BATCH_SIZE = 1; 
 const BATCH_DELAY = 5000; 
 const RETRY_DELAY_BASE = 15000; 
@@ -52,7 +52,7 @@ Questions MUST be based on the provided text.`;
     for (let attempt = 1; attempt <= retries; attempt++) {
         try {
             const combinedPrompt = `${systemPrompt}\n\n${userPrompt}`;
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
