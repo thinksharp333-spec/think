@@ -25,12 +25,14 @@ export async function GET(request: NextRequest) {
                 }
             }
         } else {
-            // Treat as a Google Drive file ID
-            const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
-            if (!apiKey) {
-                return NextResponse.json({ error: 'Google Drive API key not configured' }, { status: 500 });
+            // Treat as a Google Drive file ID — use Drive API v3 with key for server-side access
+            const apiKey = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY || process.env.GOOGLE_DRIVE_API_KEY;
+            if (apiKey) {
+                fetchUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${apiKey}`;
+            } else {
+                // Fall back to public share URL (works for "anyone with link" files)
+                fetchUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
             }
-            fetchUrl = `https://docs.google.com/uc?export=download&id=${fileId}&key=${apiKey}`;
         }
 
         const response = await fetch(fetchUrl, {
