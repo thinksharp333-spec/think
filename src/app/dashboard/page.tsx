@@ -200,46 +200,51 @@ export default function Dashboard() {
                 </div>
 
                 {/* Mobile sidebar overlay */}
-                {showSidebar && (
-                    <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setShowSidebar(false)}>
-                        <div className="absolute left-0 top-0 bottom-0 w-72 bg-white shadow-2xl overflow-y-auto" onClick={e => e.stopPropagation()}>
-                            <div className="p-5 border-b-2 border-gray-100 flex items-center justify-between">
-                                <p className="font-black text-[#111] uppercase tracking-widest text-xs">Recently Read</p>
-                                <button onClick={() => setShowSidebar(false)} className="p-2 rounded-full hover:bg-gray-100">
-                                    <X className="h-4 w-4 text-[#555]" />
-                                </button>
-                            </div>
-                            <div className="p-4 space-y-3">
-                                {recentBooks && recentBooks.length > 0 ? recentBooks.slice(0, 8).map((book) => (
-                                    <Link key={book.id} href={`/read/${book.id}`} onClick={() => setShowSidebar(false)}
-                                        className="flex items-center gap-3 p-2 rounded-2xl hover:bg-[#fff3ef] transition-colors group">
-                                        <div className="h-14 w-11 flex-shrink-0 rounded-xl border-2 border-[#111] overflow-hidden shadow-[0_4px_0_#111] bg-[#fff4ef]">
-                                            {book.coverUrl || book.fileId ? (
-                                                <img src={book.coverUrl ? (book.coverUrl.includes('drive.google.com') ? getThumbnailUrl(extractFileId(book.coverUrl)) : book.coverUrl) : getThumbnailUrl(book.fileId!)}
-                                                    alt={book.title} className="w-full h-full object-cover transition-transform group-hover:scale-110"
-                                                    onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                                            ) : <div className="w-full h-full flex items-center justify-center text-[#e63329]"><BookOpen className="w-5 h-5" /></div>}
+                {showSidebar && (() => {
+                    const downloadedBooks = books?.filter(b => !!b.pdfBlob) || [];
+                    return (
+                        <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setShowSidebar(false)}>
+                            <div className="absolute left-0 top-0 bottom-0 w-72 bg-white shadow-2xl overflow-y-auto" onClick={e => e.stopPropagation()}>
+                                <div className="p-5 border-b-2 border-gray-100 flex items-center justify-between">
+                                    <p className="font-black text-[#111] uppercase tracking-widest text-xs flex items-center gap-2">
+                                        <Download className="w-4 h-4" /> Downloads
+                                    </p>
+                                    <button onClick={() => setShowSidebar(false)} className="p-2 rounded-full hover:bg-gray-100">
+                                        <X className="h-4 w-4 text-[#555]" />
+                                    </button>
+                                </div>
+                                <div className="p-4 space-y-3">
+                                    {downloadedBooks.length > 0 ? downloadedBooks.map((book) => (
+                                        <Link key={book.id} href={`/read/${book.id}`} onClick={() => setShowSidebar(false)}
+                                            className="flex items-center gap-3 p-2 rounded-2xl hover:bg-[#fff3ef] transition-colors group">
+                                            <div className="h-14 w-11 flex-shrink-0 rounded-xl border-2 border-[#111] overflow-hidden shadow-[0_4px_0_#111] bg-[#fff4ef]">
+                                                {book.coverUrl || book.fileId ? (
+                                                    <img src={book.coverUrl ? (book.coverUrl.includes('drive.google.com') ? getThumbnailUrl(extractFileId(book.coverUrl)) : book.coverUrl) : getThumbnailUrl(book.fileId!)}
+                                                        alt={book.title} className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                                                        onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                                ) : <div className="w-full h-full flex items-center justify-center text-[#e63329]"><BookOpen className="w-5 h-5" /></div>}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-black text-[#111] line-clamp-2 group-hover:text-[#e63329] transition-colors">{book.title}</p>
+                                                {book.avgRating && book.avgRating > 0 && (
+                                                    <div className="flex items-center gap-1 mt-0.5">
+                                                        <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                                                        <span className="text-[10px] font-black text-[#777]">{book.avgRating.toFixed(1)}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </Link>
+                                    )) : (
+                                        <div className="text-center py-8">
+                                            <Download className="w-10 h-10 text-[#ddd] mx-auto mb-2" />
+                                            <p className="text-xs font-bold text-[#999] uppercase tracking-wide">No downloaded books</p>
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-black text-[#111] line-clamp-2 group-hover:text-[#e63329] transition-colors">{book.title}</p>
-                                            {book.avgRating && book.avgRating > 0 && (
-                                                <div className="flex items-center gap-1 mt-0.5">
-                                                    <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                                                    <span className="text-[10px] font-black text-[#777]">{book.avgRating.toFixed(1)}</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </Link>
-                                )) : (
-                                    <div className="text-center py-8">
-                                        <BookOpen className="w-10 h-10 text-[#ddd] mx-auto mb-2" />
-                                        <p className="text-xs font-bold text-[#999] uppercase tracking-wide">Start reading to see history</p>
-                                    </div>
-                                )}
+                                    )}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )}
+                    );
+                })()}
 
 
                 {/* ── Main content ───────────────────────────────────────── */}
@@ -335,6 +340,30 @@ export default function Dashboard() {
                                 className="comic-input text-sm font-bold" style={{ paddingLeft: '48px' }}
                                 value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                         </div>
+
+                        {/* Recently Read Section */}
+                        {recentBooks && recentBooks.length > 0 && !isFilterActive && (
+                            <section className="space-y-5">
+                                <div className="flex items-center justify-between border-b-[3px] border-[#111] pb-3">
+                                    <h3 className="flex items-center gap-3 text-xl font-black text-[#111] md:text-2xl">
+                                        <span className="w-2 h-7 rounded-full bg-[#f59e0b] inline-block" />
+                                        Recently Read
+                                    </h3>
+                                </div>
+                                <div className="book-grid">
+                                    {recentBooks.slice(0, 4).map((rBook) => {
+                                        const book = books?.find(b => String(b.id) === String(rBook.id));
+                                        if (!book) return null;
+                                        return (
+                                            <BookCard key={book.id} id={book.id!} fileId={book.fileId} title={book.title}
+                                                grade={book.grade} level={book.level} pages={book.pages} pdfUrl={book.pdfUrl}
+                                                coverUrl={book.coverUrl} avgRating={book.avgRating} reviewCount={book.reviewCount}
+                                                hasQuiz={!!(book.questions && book.questions.length > 0)} />
+                                        );
+                                    })}
+                                </div>
+                            </section>
+                        )}
 
                         {/* Book sections by subject */}
                         {bookSections.length > 0 ? bookSections.map(subject => (
