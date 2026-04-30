@@ -1,5 +1,5 @@
 import type { NextConfig } from "next";
-import withPWA, { runtimeCaching as defaultCache } from "@ducanh2912/next-pwa";
+import withPWA from "@ducanh2912/next-pwa";
 
 const config: NextConfig = {
   turbopack: {},
@@ -23,11 +23,58 @@ const nextConfig = withPWA({
   disable: process.env.NODE_ENV === 'development',
   workboxOptions: {
     disableDevLogs: true,
-    // Spread all default caches (pages, pages-rsc, static assets, etc.)
-    // then add the Supabase rule. This ensures navigation HTML is cached
-    // by the built-in 'pages' NetworkFirst handler so the app loads offline.
+    // NOTE: generateSW mode silently drops function-based urlPattern entries from defaultCache.
+    // Only RegExp and string patterns survive. We replicate the critical ones here.
     runtimeCaching: [
-      ...defaultCache,
+      // Page HTML — caches dashboard/leaderboard/login/signup/read/* on first online visit
+      // so they load from cache when offline (NetworkFirst: try network, fall back to cache).
+      {
+        urlPattern: /^https:\/\/digilibrary\.org\/(dashboard|leaderboard|login|signup|read\/\d+|reset-password|_offline)?(\?.*)?$/,
+        handler: 'NetworkFirst',
+        options: {
+          cacheName: 'pages',
+          networkTimeoutSeconds: 5,
+          expiration: { maxEntries: 32, maxAgeSeconds: 24 * 60 * 60 },
+        },
+      },
+      // Next.js RSC / data payloads (client-side navigation JSON)
+      {
+        urlPattern: /^\/_next\/data\/.+\.json(\?.*)?$/,
+        handler: 'NetworkFirst',
+        options: {
+          cacheName: 'next-data',
+          networkTimeoutSeconds: 5,
+          expiration: { maxEntries: 32, maxAgeSeconds: 24 * 60 * 60 },
+        },
+      },
+      // Static JS/CSS bundles (already in precache, but belt-and-suspenders)
+      {
+        urlPattern: /^\/_next\/static\/.+$/,
+        handler: 'CacheFirst',
+        options: {
+          cacheName: 'next-static-js-assets',
+          expiration: { maxEntries: 64, maxAgeSeconds: 365 * 24 * 60 * 60 },
+        },
+      },
+      // Next.js image optimisation
+      {
+        urlPattern: /^\/_next\/image\?url=.+$/,
+        handler: 'StaleWhileRevalidate',
+        options: {
+          cacheName: 'next-image',
+          expiration: { maxEntries: 64, maxAgeSeconds: 24 * 60 * 60 },
+        },
+      },
+      // Static public images (avatars, icons, logos)
+      {
+        urlPattern: /\.(png|jpg|jpeg|gif|svg|webp|ico)$/i,
+        handler: 'CacheFirst',
+        options: {
+          cacheName: 'static-image-assets',
+          expiration: { maxEntries: 64, maxAgeSeconds: 30 * 24 * 60 * 60 },
+        },
+      },
+      // Supabase API — NetworkFirst so reads are fresh, but offline gets last cached data
       {
         urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
         handler: 'NetworkFirst',
