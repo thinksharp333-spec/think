@@ -17,6 +17,9 @@ const nextConfig = withPWA({
   cacheOnFrontEndNav: true,
   aggressiveFrontEndNavCaching: true,
   reloadOnOnline: false,
+  fallbacks: {
+    document: '/_offline',
+  },
   // BUG-01 FIX: Only disable SW in development — production gets full offline support
   disable: process.env.NODE_ENV === 'development',
   workboxOptions: {
