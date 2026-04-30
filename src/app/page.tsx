@@ -101,11 +101,9 @@ export default function LandingPage() {
           {/* Logo + Title - Left */}
           <div className="flex justify-start flex-shrink-0">
             <Link href="/" className="flex items-center gap-2 group relative">
-              <div className="relative h-8 w-8 md:h-12 md:w-12 flex-shrink-0">
-                <img src="/thinksharp-t.svg" alt="ThinkSharp T" className="h-full w-full object-contain" />
-
+              <div className="relative h-10 md:h-14 flex-shrink-0">
+                <img src="/digi-library-logo.png" alt="DigiLibrary Logo" className="h-full w-auto object-contain" />
               </div>
-              <p className="comic-title text-sm md:text-2xl text-[#e63329] whitespace-nowrap uppercase tracking-tighter">DigiLibrary</p>
             </Link>
           </div>
 

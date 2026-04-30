@@ -13,6 +13,7 @@ export function OverviewTab() {
         topSubject: 'N/A',
         topSchool: 'N/A'
     });
+    const [districtData, setDistrictData] = useState<Record<string, number>>({});
 
     useEffect(() => {
         async function fetchOverviewStats() {
@@ -47,10 +48,25 @@ export function OverviewTab() {
                     .order('total_sessions', { ascending: false })
                     .limit(1);
 
+                // 5. District Data for Heatmap
+                const { data: districts } = await supabase
+                    .from('analytics_school_stats')
+                    .select('district, participating_students');
+                
+                if (districts) {
+                    const agg: Record<string, number> = {};
+                    districts.forEach(d => {
+                        if (d.district) {
+                            agg[d.district] = (agg[d.district] || 0) + d.participating_students;
+                        }
+                    });
+                    setDistrictData(agg);
+                }
+
                 setStats({
                     totalStudents: studentCount || 0,
                     totalBooksRead: booksCount || 0,
-                    topSubject: topBooks?.[0]?.grade_level || 'General', // Using Grade Level as proxy for "Subject" if subject missing
+                    topSubject: topBooks?.[0]?.grade_level || topBooks?.[0]?.level || 'N/A', 
                     topSchool: topSchool?.[0]?.school_name || 'N/A'
                 });
 
@@ -96,7 +112,7 @@ export function OverviewTab() {
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Regional Impact</h3>
                 <div className="h-[400px]">
-                    <MapChart data={{}} /> {/* Pass actual district data here later */}
+                    <MapChart data={districtData} />
                 </div>
             </div>
         </div>

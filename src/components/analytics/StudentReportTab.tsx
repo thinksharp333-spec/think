@@ -54,9 +54,30 @@ export function StudentReportTab() {
                 .select('*')
                 .eq('user_id', student.id)
                 .order('start_time', { ascending: false })
-                .limit(50);
+                .limit(100);
 
-            setReadingHistory(history || []);
+            // Group history by book_id
+            const aggregated: Record<string, any> = {};
+            (history || []).forEach(session => {
+                const bid = session.book_id;
+                if (!aggregated[bid]) {
+                    aggregated[bid] = {
+                        ...session,
+                        sessionsCount: 1
+                    };
+                } else {
+                    // Update existing entry
+                    aggregated[bid].duration_seconds += (session.duration_seconds || 0);
+                    aggregated[bid].pages_read = Math.max(aggregated[bid].pages_read || 0, session.pages_read || 0);
+                    aggregated[bid].completed = aggregated[bid].completed || session.completed;
+                    aggregated[bid].sessionsCount += 1;
+                    if (new Date(session.start_time) > new Date(aggregated[bid].start_time)) {
+                        aggregated[bid].start_time = session.start_time;
+                    }
+                }
+            });
+
+            setReadingHistory(Object.values(aggregated));
 
         } catch (err) {
             console.error(err);
