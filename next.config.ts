@@ -28,16 +28,16 @@ const nextConfig = withPWA({
   aggressiveFrontEndNavCaching: true,
   reloadOnOnline: false,
   fallbacks: {
-    document: '/_offline',
+    document: '/offline',
   },
   disable: process.env.NODE_ENV === 'development',
   workboxOptions: {
     disableDevLogs: true,
-    // Precache /_offline so self.fallback(request) can serve it when both
-    // network and runtime cache miss. Without this entry, caches.match("/_offline")
-    // returns undefined and the browser shows its native offline screen.
+    // Precache /offline so self.fallback(request) can serve it when both
+    // network and runtime cache miss. The _offline folder is excluded from
+    // Next.js App Router (underscore = private folder → 404). Using /offline instead.
     additionalManifestEntries: [
-      { url: '/_offline', revision: Date.now().toString() },
+      { url: '/offline', revision: Date.now().toString() },
     ],
     runtimeCaching: [
       // Cache same-origin page HTML for offline navigation
