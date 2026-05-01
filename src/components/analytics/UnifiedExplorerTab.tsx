@@ -415,13 +415,42 @@ export function UnifiedExplorerTab() {
             const fromISO = `${dateFrom}T00:00:00`;
             const toISO = `${dateTo}T23:59:59`;
 
-            const { data: sessions, error: sessErr } = await supabase
+            const { data: sessionsData, error: sessErr } = await supabase
                 .from("reading_sessions")
-                .select("user_id, book_id, completed, points_earned, users(name, school, school_id, grade, totalPoints)")
+                .select("user_id, book_id, completed, points_earned")
                 .gte("start_time", fromISO)
                 .lte("start_time", toISO);
 
             if (sessErr) throw sessErr;
+
+            const sessions = sessionsData || [];
+            
+            // Extract unique user IDs from sessions
+            const userIds = Array.from(new Set(sessions.map(s => s.user_id)));
+            
+            let usersMap = new Map();
+            if (userIds.length > 0) {
+                // Fetch users in batches if necessary, but Supabase can handle a large IN clause. 
+                // To be extremely safe, we'll fetch them in chunks of 500.
+                const chunkSize = 500;
+                for (let i = 0; i < userIds.length; i += chunkSize) {
+                    const chunk = userIds.slice(i, i + chunkSize);
+                    const { data: usersChunk, error: usersErr } = await supabase
+                        .from("users")
+                        .select("id, name, school, school_id, grade, totalPoints")
+                        .in('id', chunk);
+                    
+                    if (!usersErr && usersChunk) {
+                        usersChunk.forEach(u => usersMap.set(u.id, u));
+                    }
+                }
+            }
+
+            // Manually stitch users into sessions
+            const sessionsWithUsers = sessions.map(s => ({
+                ...s,
+                users: usersMap.get(s.user_id) || null
+            }));
 
             const { data: schoolsData, error: schErr } = await supabase
                 .from("schools")
@@ -436,7 +465,7 @@ export function UnifiedExplorerTab() {
                 .lte("created_at", toISO)
                 .order("created_at", { ascending: false });
 
-            setRawSessions(sessions || []);
+            setRawSessions(sessionsWithUsers);
             setRawSchools(schoolsData || []);
             setRawNewUsers(newUsersData || []);
             setDataFetched(true);
