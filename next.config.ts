@@ -40,6 +40,26 @@ const nextConfig = withPWA({
       { url: '/offline', revision: Date.now().toString() },
     ],
     runtimeCaching: [
+      // PDF.js web worker — CacheFirst so offline book reading works.
+      // The .mjs extension is ignored by the default SW asset regex.
+      {
+        urlPattern: /\/pdf\.worker\.min\.mjs/,
+        handler: 'CacheFirst',
+        options: {
+          cacheName: 'pdf-worker',
+          cacheableResponse: { statuses: [0, 200] },
+        },
+      },
+      // PDF.js character maps — needed for many PDFs, rarely changes
+      {
+        urlPattern: /\/cmaps\/.+\.bcmap/,
+        handler: 'CacheFirst',
+        options: {
+          cacheName: 'pdf-cmaps',
+          cacheableResponse: { statuses: [0, 200] },
+          expiration: { maxEntries: 300, maxAgeSeconds: 365 * 24 * 60 * 60 },
+        },
+      },
       // Cache same-origin page HTML for offline navigation
       {
         urlPattern: /^https?:\/\/[^/]+\/(?!(?:api|_next)\/).*/,
