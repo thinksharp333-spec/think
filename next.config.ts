@@ -38,6 +38,10 @@ const nextConfig = withPWA({
     // Next.js App Router (underscore = private folder → 404). Using /offline instead.
     additionalManifestEntries: [
       { url: '/offline', revision: Date.now().toString() },
+      // Public assets that must be available offline (not in /_next/static/)
+      { url: '/manifest.json', revision: '803d6e51e4aca7e085ac0a3bcfd5700a' },
+      { url: '/thinksharp-t.png', revision: '040bc8240a4d0686e430c719d1a25d1c' },
+      { url: '/thinksharp-t.svg', revision: 'cf4795000d140cd73c3069b0053676b9' },
     ],
     runtimeCaching: [
       // PDF.js web worker — CacheFirst so offline book reading works.

@@ -1,6 +1,5 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 
 interface CachedBook {
     id: number;
@@ -9,7 +8,6 @@ interface CachedBook {
 }
 
 export default function OfflinePage() {
-    const router = useRouter();
     const [cachedBooks, setCachedBooks] = useState<CachedBook[]>([]);
 
     useEffect(() => {
@@ -28,10 +26,10 @@ export default function OfflinePage() {
             };
         };
 
-        const handleOnline = () => router.refresh();
+        const handleOnline = () => window.location.reload();
         window.addEventListener('online', handleOnline);
         return () => window.removeEventListener('online', handleOnline);
-    }, [router]);
+    }, []);
 
     return (
         <div className="min-h-screen bg-white flex flex-col items-center justify-center px-4">
@@ -57,7 +55,7 @@ export default function OfflinePage() {
                             {cachedBooks.map(book => (
                                 <button
                                     key={book.id}
-                                    onClick={() => router.push(`/read/${book.id}`)}
+                                    onClick={() => { window.location.href = `/read/${book.id}`; }}
                                     className="w-full text-left bg-white rounded-xl px-3 py-2 hover:bg-green-100 transition-colors flex items-center justify-between"
                                 >
                                     <span className="text-sm font-medium text-gray-800 truncate">{book.title}</span>
