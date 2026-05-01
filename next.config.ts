@@ -42,6 +42,10 @@ const nextConfig = withPWA({
       { url: '/manifest.json', revision: '803d6e51e4aca7e085ac0a3bcfd5700a' },
       { url: '/thinksharp-t.png', revision: '040bc8240a4d0686e430c719d1a25d1c' },
       { url: '/thinksharp-t.svg', revision: 'cf4795000d140cd73c3069b0053676b9' },
+      { url: '/icon-192x192.png', revision: '7163a6411b51b07a70718abcc219e418' },
+      { url: '/icon-512x512.png', revision: '7163a6411b51b07a70718abcc219e418' },
+      { url: '/digi-library-logo.png', revision: 'f3be0ec53beab5af5f0923d6cb98b508' },
+      { url: '/logo.png', revision: 'd8739d0e6f9db73c9e33942397c484cf' },
     ],
     runtimeCaching: [
       // PDF.js web worker — CacheFirst so offline book reading works.

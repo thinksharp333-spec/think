@@ -145,6 +145,13 @@ export function PdfReader({
                 if (response.ok && bookIdNum !== undefined) {
                     await db.books.update(bookIdNum, { pdfBlob: await response.blob() });
                     setIsOfflineReady(true);
+                    // Cache the reader page so it's navigable offline
+                    if ('caches' in window) {
+                        try {
+                            const c = await caches.open('pages');
+                            await c.add(`/read/${bookIdNum}`);
+                        } catch { /* non-critical */ }
+                    }
                 }
             } else {
                 setIsOfflineReady(true);
