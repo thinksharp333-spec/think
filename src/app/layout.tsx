@@ -17,11 +17,6 @@ export const metadata: Metadata = {
   title: "DigiLibrary",
   description: "Offline-capable educational platform for rural areas",
   manifest: "/manifest.json",
-  icons: {
-    icon: "/thinksharp-t.png",
-    shortcut: "/thinksharp-t.png",
-    apple: "/thinksharp-t.png",
-  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
