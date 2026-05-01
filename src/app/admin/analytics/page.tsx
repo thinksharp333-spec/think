@@ -3,23 +3,17 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { OverviewTab } from '@/components/analytics/OverviewTab';
-import { GeoDrillDownTab } from '@/components/analytics/GeoDrillDownTab';
-import { SchoolReportTab } from '@/components/analytics/SchoolReportTab';
-import { StudentReportTab } from '@/components/analytics/StudentReportTab';
-import { ReportsTab } from '@/components/analytics/ReportsTab';
-import { ArrowLeft, LayoutDashboard, Map, School, GraduationCap, FileDown } from 'lucide-react';
+import { UnifiedExplorerTab } from '@/components/analytics/UnifiedExplorerTab';
+import { ArrowLeft, LayoutDashboard, Globe } from 'lucide-react';
 
-type TabId = 'overview' | 'geo' | 'school' | 'student' | 'reports';
+type TabId = 'overview' | 'explorer';
 
 export default function AnalyticsDashboard() {
     const [activeTab, setActiveTab] = useState<TabId>('overview');
 
     const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
         { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-        { id: 'geo', label: 'Geographic', icon: Map },
-        { id: 'school', label: 'School Report', icon: School },
-        { id: 'student', label: 'Student Report', icon: GraduationCap },
-        { id: 'reports', label: 'Reports & Export', icon: FileDown },
+        { id: 'explorer', label: 'Data Explorer', icon: Globe },
     ];
 
     return (
@@ -66,12 +60,9 @@ export default function AnalyticsDashboard() {
             </header>
 
             {/* Content */}
-            <div className="px-6 py-6 max-w-6xl">
+            <div className="px-6 py-6 max-w-6xl mx-auto">
                 {activeTab === 'overview' && <OverviewTab />}
-                {activeTab === 'geo' && <GeoDrillDownTab />}
-                {activeTab === 'school' && <SchoolReportTab />}
-                {activeTab === 'student' && <StudentReportTab />}
-                {activeTab === 'reports' && <ReportsTab />}
+                {activeTab === 'explorer' && <UnifiedExplorerTab />}
             </div>
         </div>
     );
