@@ -282,35 +282,6 @@ export default function AdminDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Student Reporting State
-    const [selectedState, setSelectedState] = useState("");
-    const [selectedCity, setSelectedCity] = useState("");
-    const [selectedSector, setSelectedSector] = useState("");
-    const [selectedSchool, setSelectedSchool] = useState("");
-
-    // Derived Options
-    const stateOptions = Object.keys(LOCATION_DATA).map(s => ({ value: s, label: s }));
-    const cityOptions = selectedState ? Object.keys(LOCATION_DATA[selectedState] || {}).map(c => ({ value: c, label: c })) : [];
-    const sectorOptions = selectedCity ? Object.keys(LOCATION_DATA[selectedState]?.[selectedCity] || {}).map(s => ({ value: s, label: s })) : [];
-    const schoolOptions = selectedSector ? (LOCATION_DATA[selectedState]?.[selectedCity]?.[selectedSector] || []).map((s: string) => ({ value: s, label: s })) : [];
-
-    // Reset logic
-    const handleStateChange = (val: string) => {
-        setSelectedState(val);
-        setSelectedCity("");
-        setSelectedSector("");
-        setSelectedSchool("");
-    };
-    const handleCityChange = (val: string) => {
-        setSelectedCity(val);
-        setSelectedSector("");
-        setSelectedSchool("");
-    };
-
-    const handleSectorChange = (val: string) => {
-        setSelectedSector(val);
-        setSelectedSchool("");
-    };
 
     const handleAddBook = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -834,18 +805,6 @@ export default function AdminDashboard() {
         fetchAnalytics();
     }, []);
 
-    // Local students from Dexie (as fallback or for local sync status)
-    const localUsers = useLiveQuery(() => db.users.toArray()) || [];
-    
-    // Primary list for the table: prefer global students if available, else local
-    const studentsSource = allStudents.length > 0 ? allStudents : localUsers;
-
-    // Filter logic
-    const filteredStudents = studentsSource.filter((user: User) => {
-        const matchesSchool = selectedSchool ? user.school === selectedSchool : true;
-        const matchesCity = selectedCity ? user.city === selectedCity : true;
-        return matchesSchool && matchesCity;
-    });
 
     // ... (keep handleAddBook and other functions)
 
@@ -908,9 +867,9 @@ export default function AdminDashboard() {
             {/* ── Stats Grid (Moved Up) ── */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard icon={<BookOpen className="text-blue-500" />} label="Total Books" value={books?.length || 0} />
-                <StatCard icon={<GraduationCap className="text-green-500" />} label="Active Students" value={studentsSource.length} />
-                <StatCard icon={<MapPin className="text-orange-500" />} label="Schools Reached" value={new Set(studentsSource.map(u => u.school).filter(Boolean)).size || 0} />
-                <StatCard icon={<MapPin className="text-purple-500" />} label="Cities" value={new Set(studentsSource.map(u => u.city).filter(Boolean)).size || 0} />
+                <StatCard icon={<GraduationCap className="text-green-500" />} label="Active Students" value={allStudents.length} />
+                <StatCard icon={<MapPin className="text-orange-500" />} label="Schools Reached" value={new Set(allStudents.map(u => u.school).filter(Boolean)).size || 0} />
+                <StatCard icon={<MapPin className="text-purple-500" />} label="Cities" value={new Set(allStudents.map(u => u.city).filter(Boolean)).size || 0} />
             </div>
 
             {/* ── Charts (Moved Up) ── */}
@@ -953,52 +912,7 @@ export default function AdminDashboard() {
                 </div>
             </div>
 
-            {/* ── Student Reports (Moved Up) ── */}
-            <section className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="p-6 border-b border-gray-100">
-                    <h3 className="text-lg font-bold flex items-center gap-2">
-                        <Search className="w-5 h-5 text-gray-500" />
-                        Student Reports
-                    </h3>
-                </div>
-                <div className="p-6 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <Dropdown label="Select State" options={stateOptions} value={selectedState} onChange={handleStateChange} className="w-full" variant="light" />
-                        <Dropdown label="Select City" options={cityOptions} value={selectedCity} onChange={handleCityChange} className="w-full" variant="light" />
-                        <Dropdown label="Select Sector" options={sectorOptions} value={selectedSector} onChange={handleSectorChange} className="w-full" variant="light" />
-                        <Dropdown label="Select School" options={schoolOptions} value={selectedSchool} onChange={setSelectedSchool} className="w-full" variant="light" />
-                    </div>
-                    <div className="rounded-lg border border-gray-200 overflow-hidden">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-200">
-                                <tr>
-                                    <th className="p-4">Student Name</th>
-                                    <th className="p-4">Age</th>
-                                    <th className="p-4">School</th>
-                                    <th className="p-4">City</th>
-                                    <th className="p-4 text-right">Points</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {filteredStudents.map((student: User) => (
-                                    <tr key={student.id} className="hover:bg-gray-50">
-                                        <td className="p-4 font-medium text-gray-900">{student.name}</td>
-                                        <td className="p-4 text-gray-500">{student.age}</td>
-                                        <td className="p-4 text-gray-500">{student.school}</td>
-                                        <td className="p-4 text-gray-500">{student.city}</td>
-                                        <td className="p-4 text-right font-bold text-green-600">{student.totalPoints}</td>
-                                    </tr>
-                                ))}
-                                {filteredStudents.length === 0 && (
-                                    <tr>
-                                        <td colSpan={5} className="p-8 text-center text-gray-500">No students found.</td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
+
 
             {/* ── Quick Actions ── */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
