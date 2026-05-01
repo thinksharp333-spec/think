@@ -69,7 +69,7 @@ export default function OfflinePage() {
                 ) : (
                     <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6 text-left">
                         <p className="text-amber-800 text-sm">
-                            <span className="font-semibold">Tip:</span> Open a book while online and it will be saved automatically for offline reading.
+                            <span className="font-semibold">Tip:</span> Open a book while online and tap the <span className="font-semibold">↓ download button</span> in the reader to save it for offline reading.
                         </p>
                     </div>
                 )}
