@@ -33,6 +33,12 @@ const nextConfig = withPWA({
   disable: process.env.NODE_ENV === 'development',
   workboxOptions: {
     disableDevLogs: true,
+    // Precache /_offline so self.fallback(request) can serve it when both
+    // network and runtime cache miss. Without this entry, caches.match("/_offline")
+    // returns undefined and the browser shows its native offline screen.
+    additionalManifestEntries: [
+      { url: '/_offline', revision: Date.now().toString() },
+    ],
     runtimeCaching: [
       // Cache same-origin page HTML for offline navigation
       {
