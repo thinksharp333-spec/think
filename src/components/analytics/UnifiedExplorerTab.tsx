@@ -15,7 +15,7 @@ import {
     ChevronUp,
     RefreshCw,
     FilterX,
-    Map
+    Map as MapIcon
 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -647,7 +647,7 @@ export function UnifiedExplorerTab() {
             <div className="bg-white rounded-lg border border-zinc-100 p-5 shadow-sm space-y-4">
                 
                 <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-bold text-zinc-800 flex items-center gap-2"><Map className="w-5 h-5 text-zinc-500" /> Geographic Explorer</h2>
+                    <h2 className="text-lg font-bold text-zinc-800 flex items-center gap-2"><MapIcon className="w-5 h-5 text-zinc-500" /> Geographic Explorer</h2>
                     
                     {/* Export buttons */}
                     {report && (
