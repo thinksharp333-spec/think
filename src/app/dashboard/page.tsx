@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Dropdown } from "@/components/dropdown";
-import { BookOpen, Trophy, Flame, Wifi, WifiOff, LogOut, Search, Clock, Sparkles, Star, ArrowRight, User, Menu, X, Download, Loader2, Linkedin, Instagram, Twitter, Youtube, Facebook } from "lucide-react";
+import { BookOpen, Trophy, Flame, Wifi, WifiOff, LogOut, Search, Clock, Sparkles, Star, ArrowRight, User, Menu, X, Download, Loader2, Linkedin, Instagram, Twitter, Youtube, Facebook, Trash2 } from "lucide-react";
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useUser } from "@/hooks/useUser";
@@ -131,6 +131,14 @@ export default function Dashboard() {
         }
     };
 
+    const handleDeleteOffline = async (e: React.MouseEvent, bookId: number) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (confirm("Remove this book from offline storage? You can download it again later.")) {
+            await db.books.update(bookId, { pdfBlob: undefined });
+        }
+    };
+
     return (
         <div className="library-shell">
 
@@ -233,6 +241,15 @@ export default function Dashboard() {
                                                     </div>
                                                 )}
                                             </div>
+                                            <div className="flex flex-col items-end gap-2">
+                                                <button
+                                                    onClick={(e) => handleDeleteOffline(e, book.id!)}
+                                                    className="p-2 rounded-full hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                                                    title="Delete from local storage"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
                                         </Link>
                                     )) : (
                                         <div className="text-center py-8">
@@ -246,6 +263,55 @@ export default function Dashboard() {
                     );
                 })()}
 
+
+                {/* ── Desktop Sidebar ────────────────────────────────────────── */}
+                <aside className="hidden md:flex flex-col w-72 bg-white/40 backdrop-blur-md border-r-3 border-[#111] z-20 overflow-hidden shadow-[8px_0_0_rgba(0,0,0,0.05)]">
+                    <div className="p-6 border-b-2 border-[#111] bg-white">
+                        <p className="font-black text-[#111] uppercase tracking-widest text-sm flex items-center gap-3">
+                            <Download className="w-5 h-5 text-[#e63329]" /> 
+                            <span>Downloads</span>
+                        </p>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                        {(() => {
+                            const downloadedBooks = books?.filter(b => !!b.pdfBlob) || [];
+                            return downloadedBooks.length > 0 ? downloadedBooks.map((book) => (
+                                <Link key={book.id} href={`/read?id=${book.id}`}
+                                    className="flex items-center gap-3 p-3 rounded-2xl bg-white border-2 border-[#111] hover:bg-[#fff3ef] transition-all group shadow-[0_4px_0_#111] active:translate-y-1 active:shadow-none mb-1">
+                                    <div className="h-14 w-11 flex-shrink-0 rounded-lg border-2 border-[#111] overflow-hidden bg-[#fff4ef]">
+                                        {book.coverUrl || book.fileId ? (
+                                            <img src={book.coverUrl ? (book.coverUrl.includes('drive.google.com') ? getThumbnailUrl(extractFileId(book.coverUrl)) : book.coverUrl) : getThumbnailUrl(book.fileId!)}
+                                                alt={book.title} className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                                                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                        ) : <div className="w-full h-full flex items-center justify-center text-[#e63329]"><BookOpen className="w-5 h-5" /></div>}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-xs font-black text-[#111] line-clamp-2 leading-tight mb-1">{book.title}</p>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[9px] font-bold text-[#999] uppercase">Ready Offline</span>
+                                            <button
+                                                onClick={(e) => handleDeleteOffline(e, book.id!)}
+                                                className="p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors"
+                                                title="Remove from device"
+                                            >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </Link>
+                            )) : (
+                                <div className="text-center py-12 px-4">
+                                    <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-dashed border-gray-200">
+                                        <Download className="w-8 h-8 text-gray-200" />
+                                    </div>
+                                    <p className="text-xs font-black text-gray-400 uppercase tracking-widest leading-relaxed">
+                                        Open a book and tap download to save it here!
+                                    </p>
+                                </div>
+                            );
+                        })()}
+                    </div>
+                </aside>
 
                 {/* ── Main content ───────────────────────────────────────── */}
                 <main className="flex-1 min-w-0 overflow-y-auto pb-20 md:pb-0">
