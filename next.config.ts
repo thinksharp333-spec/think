@@ -42,12 +42,16 @@ const nextConfig = withPWA({
   disable: process.env.NODE_ENV === 'development',
   workboxOptions: {
     disableDevLogs: true,
+    ignoreURLParametersMatching: [/^id$/, /^.*$/], // Ignore 'id' and all others for matching precached routes like /read
     // Precache /offline so self.fallback(request) can serve it when both
     // network and runtime cache miss. The _offline folder is excluded from
     // Next.js App Router (underscore = private folder → 404). Using /offline instead.
     additionalManifestEntries: [
       { url: '/offline', revision: Date.now().toString() },
       { url: '/read', revision: Date.now().toString() },
+      { url: '/', revision: Date.now().toString() },
+      { url: '/dashboard', revision: Date.now().toString() },
+      { url: '/leaderboard', revision: Date.now().toString() },
       // Public assets that must be available offline (not in /_next/static/)
       { url: '/manifest.json', revision: '803d6e51e4aca7e085ac0a3bcfd5700a' },
       { url: '/thinksharp-t.png', revision: '040bc8240a4d0686e430c719d1a25d1c' },
