@@ -42,17 +42,16 @@ const nextConfig = withPWA({
   disable: process.env.NODE_ENV === 'development',
   workboxOptions: {
     disableDevLogs: true,
-    ignoreURLParametersMatching: [/^id$/, /^.*$/], // Ignore 'id' and all others for matching precached routes like /read
-    // Precache /offline so self.fallback(request) can serve it when both
-    // network and runtime cache miss. The _offline folder is excluded from
-    // Next.js App Router (underscore = private folder → 404). Using /offline instead.
+    skipWaiting: true,
+    clientsClaim: true,
+    cleanupOutdatedCaches: true,
+    ignoreURLParametersMatching: [/^id$/, /^.*$/],
     additionalManifestEntries: [
       { url: '/offline', revision: Date.now().toString() },
       { url: '/read', revision: Date.now().toString() },
       { url: '/', revision: Date.now().toString() },
       { url: '/dashboard', revision: Date.now().toString() },
       { url: '/leaderboard', revision: Date.now().toString() },
-      // Public assets that must be available offline (not in /_next/static/)
       { url: '/manifest.json', revision: '803d6e51e4aca7e085ac0a3bcfd5700a' },
       { url: '/thinksharp-t.png', revision: '040bc8240a4d0686e430c719d1a25d1c' },
       { url: '/thinksharp-t.svg', revision: 'cf4795000d140cd73c3069b0053676b9' },
@@ -62,13 +61,10 @@ const nextConfig = withPWA({
       { url: '/logo.png', revision: 'd8739d0e6f9db73c9e33942397c484cf' },
       { url: '/icon.png', revision: Date.now().toString() },
       { url: '/favicon.ico', revision: Date.now().toString() },
-      // PDF.js worker — precached so offline book reading works on first use, not just after opening a book online
       { url: '/pdf.worker.min.mjs', revision: '1001f17653f487f58701874bef5a1964' },
       { url: '/reader-bg.png', revision: '1e6fa3ca4450ea1b41020589d3360fa1' },
     ],
     runtimeCaching: [
-      // PDF.js web worker — CacheFirst so offline book reading works.
-      // The .mjs extension is ignored by the default SW asset regex.
       {
         urlPattern: /\/pdf\.worker\.min\.mjs/,
         handler: 'CacheFirst',
@@ -77,7 +73,6 @@ const nextConfig = withPWA({
           cacheableResponse: { statuses: [0, 200] },
         },
       },
-      // PDF.js character maps — needed for many PDFs, rarely changes
       {
         urlPattern: /\/cmaps\/.+\.bcmap/,
         handler: 'CacheFirst',
@@ -87,18 +82,35 @@ const nextConfig = withPWA({
           expiration: { maxEntries: 300, maxAgeSeconds: 365 * 24 * 60 * 60 },
         },
       },
-      // Cache same-origin page HTML for offline navigation
+      // Core pages — StaleWhileRevalidate for instant loading
+      {
+        urlPattern: /\/(dashboard|leaderboard|read)?$/,
+        handler: 'StaleWhileRevalidate',
+        options: {
+          cacheName: 'core-pages',
+          cacheableResponse: { statuses: [0, 200] },
+        },
+      },
+      // Root — StaleWhileRevalidate
+      {
+        urlPattern: /^\/$/,
+        handler: 'StaleWhileRevalidate',
+        options: {
+          cacheName: 'root-cache',
+          cacheableResponse: { statuses: [0, 200] },
+        },
+      },
+      // Other pages
       {
         urlPattern: /^https?:\/\/[^/]+\/(?!(?:api|_next)\/).*/,
         handler: 'NetworkFirst',
         options: {
-          cacheName: 'pages',
+          cacheName: 'other-pages',
           networkTimeoutSeconds: 5,
           cacheableResponse: { statuses: [0, 200] },
           expiration: { maxEntries: 32, maxAgeSeconds: 24 * 60 * 60 },
         },
       },
-      // Supabase API — NetworkFirst so data stays fresh, falls back offline
       {
         urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
         handler: 'NetworkFirst',
