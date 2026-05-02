@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 
 interface CachedBook {
     id: number;
@@ -53,14 +54,14 @@ export default function OfflinePage() {
                         </p>
                         <div className="space-y-2 max-h-48 overflow-y-auto">
                             {cachedBooks.map(book => (
-                                <button
+                                <Link
                                     key={book.id}
-                                    onClick={() => { window.location.href = `/read/${book.id}`; }}
+                                    href={`/read/${book.id}`}
                                     className="w-full text-left bg-white rounded-xl px-3 py-2 hover:bg-green-100 transition-colors flex items-center justify-between"
                                 >
                                     <span className="text-sm font-medium text-gray-800 truncate">{book.title}</span>
                                     <span className="text-xs text-gray-400 ml-2 shrink-0">{book.sizeKB} KB</span>
-                                </button>
+                                </Link>
                             ))}
                         </div>
                     </div>
