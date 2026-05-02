@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { PdfReader, PdfScrollThumbnails } from '@/components/pdf-reader';
 import { ArrowLeft, BookOpen, Trophy, CheckCircle2, XCircle, Plus, ChevronLeft, ChevronRight, Wifi, WifiOff, RefreshCw, Star, History, Clock, Calendar, Bell, Sparkles, Loader2, MessageSquare } from 'lucide-react';
-import { useParams, useRouter } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
 import { useLiveQuery } from "dexie-react-hooks";
 import { useSync } from '@/hooks/useSync';
@@ -261,11 +261,10 @@ function FeedbackPanel({
 }
 
 
-export default function ReadPage() {
-
-    const params = useParams();
+function ReadContent() {
+    const searchParams = useSearchParams();
     const router = useRouter();
-    const bookIdString = typeof params.bookId === 'string' ? params.bookId : '1';
+    const bookIdString = searchParams.get('id') || '1';
     const bookIdNum = parseInt(bookIdString);
 
     const book = useLiveQuery(() => db.books.get(bookIdNum), [bookIdNum]);
@@ -968,5 +967,15 @@ export default function ReadPage() {
                 </div>
             )}
         </div>
+    );
+}
+
+import { Suspense } from 'react';
+
+export default function ReadPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-[#fff0ec] flex items-center justify-center"><Loader2 className="w-12 h-12 animate-spin text-[#d9342a]" /></div>}>
+            <ReadContent />
+        </Suspense>
     );
 }

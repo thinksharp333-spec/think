@@ -654,7 +654,7 @@ export default function LeaderboardPage() {
                     ) : (
                         <div className="max-w-3xl mx-auto space-y-4">
                             {topBooks.map((book, idx) => (
-                                <Link href={`/read/${book.id}`} key={book.id}
+                                <Link href={`/read?id=${book.id}`} key={book.id}
                                     className="flex gap-4 items-center bg-white/5 border-[3px] border-white/10 hover:border-white/30 rounded-[24px] p-0 overflow-hidden group/bk shadow-[0_6px_0_rgba(0,0,0,0.4)] transition-all hover:-translate-y-1">
                                     {/* Rank col */}
                                     <div className="w-14 flex-shrink-0 self-stretch flex flex-col items-center justify-center gap-1 py-3"

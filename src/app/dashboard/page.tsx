@@ -215,7 +215,7 @@ export default function Dashboard() {
                                 </div>
                                 <div className="p-4 space-y-3">
                                     {downloadedBooks.length > 0 ? downloadedBooks.map((book) => (
-                                        <Link key={book.id} href={`/read/${book.id}`} onClick={() => setShowSidebar(false)}
+                                        <Link key={book.id} href={`/read?id=${book.id}`} onClick={() => setShowSidebar(false)}
                                             className="flex items-center gap-3 p-2 rounded-2xl hover:bg-[#fff3ef] transition-colors group">
                                             <div className="h-14 w-11 flex-shrink-0 rounded-xl border-2 border-[#111] overflow-hidden shadow-[0_4px_0_#111] bg-[#fff4ef]">
                                                 {book.coverUrl || book.fileId ? (
