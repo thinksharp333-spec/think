@@ -64,34 +64,36 @@ const nextConfig = withPWA({
         urlPattern: /\/pdf\.worker\.min\.mjs/,
         handler: 'CacheFirst',
         options: {
-          cacheName: 'pdf-worker',
+          cacheName: 'pdf-worker-v2',
           cacheableResponse: { statuses: [0, 200] },
         },
       },
-      // App Shell - StaleWhileRevalidate for speed
+      // App Shell - NetworkFirst to ensure layout updates are seen immediately
       {
         urlPattern: /\/(dashboard|leaderboard|read)?$/,
-        handler: 'StaleWhileRevalidate',
+        handler: 'NetworkFirst',
         options: {
-          cacheName: 'app-shell',
+          cacheName: 'app-shell-v2',
+          networkTimeoutSeconds: 5,
           cacheableResponse: { statuses: [0, 200] },
         },
       },
       // Root
       {
         urlPattern: /^\/$/,
-        handler: 'StaleWhileRevalidate',
+        handler: 'NetworkFirst',
         options: {
-          cacheName: 'root-cache',
+          cacheName: 'root-cache-v2',
+          networkTimeoutSeconds: 5,
           cacheableResponse: { statuses: [0, 200] },
         },
       },
       // Other requests
       {
         urlPattern: /^https?:\/\/.*\/api\/proxy-pdf.*/,
-        handler: 'CacheFirst', // Cache PDFs once downloaded
+        handler: 'CacheFirst',
         options: {
-          cacheName: 'pdf-cache',
+          cacheName: 'pdf-cache-v2',
           expiration: { maxEntries: 50, maxAgeSeconds: 30 * 24 * 60 * 60 },
           cacheableResponse: { statuses: [0, 200] },
         },
@@ -100,7 +102,7 @@ const nextConfig = withPWA({
         urlPattern: /^https?:\/\/[^/]+\/.*/,
         handler: 'NetworkFirst',
         options: {
-          cacheName: 'general-cache',
+          cacheName: 'general-cache-v2',
           networkTimeoutSeconds: 5,
           cacheableResponse: { statuses: [0, 200] },
         },
@@ -109,7 +111,7 @@ const nextConfig = withPWA({
         urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
         handler: 'NetworkFirst',
         options: {
-          cacheName: 'supabase-cache',
+          cacheName: 'supabase-cache-v2',
           networkTimeoutSeconds: 10,
           cacheableResponse: { statuses: [0, 200] },
         },
