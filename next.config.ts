@@ -57,7 +57,6 @@ const nextConfig = withPWA({
       { url: '/icon-512x512.png', revision: '7163a6411b51b07a70718abcc219e418' },
       { url: '/logo.png', revision: 'd8739d0e6f9db73c9e33942397c484cf' },
       { url: '/icon.png', revision: Date.now().toString() },
-      { url: '/favicon.ico', revision: Date.now().toString() },
       { url: '/pdf.worker.min.mjs', revision: '1001f17653f487f58701874bef5a1964' },
     ],
     runtimeCaching: [

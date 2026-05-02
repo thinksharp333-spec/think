@@ -277,9 +277,10 @@ function ReadContent() {
                || _users.find(u => u.id === 'local-user')
                || _users[0];
 
-    // Auth Guard: Redirect to landing if no real user session
+    // Auth Guard: only redirect when online — offline users are always local-user
+    // and must be allowed through to read their downloaded books
     useEffect(() => {
-        if (user && user.id === 'local-user') {
+        if (user && user.id === 'local-user' && navigator.onLine) {
             router.push('/');
         }
     }, [user, router]);
