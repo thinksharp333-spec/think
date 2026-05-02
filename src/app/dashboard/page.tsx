@@ -159,7 +159,7 @@ export default function Dashboard() {
 
                     {/* Center: title */}
                     <h1 className="comic-title text-lg md:text-2xl text-white uppercase tracking-wide hidden md:block">
-                        Explore Your Library
+                        Explore Your Adventure
                     </h1>
 
                     {/* Right: status + actions */}
