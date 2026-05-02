@@ -20,6 +20,15 @@ const config: NextConfig = {
     }
     return webpackConfig;
   },
+  async redirects() {
+    return [
+      {
+        source: '/read/:id',
+        destination: '/read?id=:id',
+        permanent: true,
+      },
+    ]
+  },
 };
 
 const nextConfig = withPWA({
