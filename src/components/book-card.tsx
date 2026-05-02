@@ -58,7 +58,7 @@ export function BookCard({ id, fileId, title, grade, pages, pdfUrl, coverUrl, ha
         : (fileId ? getThumbnailUrl(fileId) : null);
 
     return (
-        <Link href={`/read/${id}`} className="block group/card relative">
+        <Link href={`/read?id=${id}`} className="block group/card relative">
             {/* Card wrapper */}
             <div className="book-card h-full overflow-hidden relative active:scale-95 transition-all duration-200 flex flex-col">
 
@@ -95,7 +95,7 @@ export function BookCard({ id, fileId, title, grade, pages, pdfUrl, coverUrl, ha
                 {/* ── Action Buttons (Footer) ───────────────────── */}
                 <div className="flex-1 bg-[#fffbf3] p-2 flex gap-1.5 md:gap-2 justify-end items-center">
                     <button
-                        onClick={(e) => { e.preventDefault(); window.location.href = `/read/${id}#quiz`; }}
+                        onClick={(e) => { e.preventDefault(); window.location.href = `/read?id=${id}#quiz`; }}
                         className={`group/btn flex items-center gap-1.5 text-[10px] md:text-xs font-black px-3 py-2 rounded-xl transition-all ${
                             hasQuiz
                                 ? 'bg-[#e63329] text-white hover:bg-[#b91c1c] active:scale-95'
@@ -110,9 +110,9 @@ export function BookCard({ id, fileId, title, grade, pages, pdfUrl, coverUrl, ha
                     <button onClick={(e) => {
                         e.preventDefault();
                         if (navigator.share) {
-                            navigator.share({ title, text: `Check out ${title}!`, url: `${window.location.origin}/read/${id}` }).catch(console.warn);
+                            navigator.share({ title, text: `Check out ${title}!`, url: `${window.location.origin}/read?id=${id}` }).catch(console.warn);
                         } else {
-                            navigator.clipboard.writeText(`${window.location.origin}/read/${id}`);
+                            navigator.clipboard.writeText(`${window.location.origin}/read?id=${id}`);
                             alert("Link copied!");
                         }
                     }} className="group/btn relative w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-xl bg-white border-2 border-[#111] shadow-[0_3px_0_#111] hover:-translate-y-0.5 hover:shadow-[0_4px_0_#111] active:translate-y-[2px] active:shadow-none transition-all shrink-0"

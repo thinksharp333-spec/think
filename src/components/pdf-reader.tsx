@@ -149,7 +149,7 @@ export function PdfReader({
                     if ('caches' in window) {
                         try {
                             const c = await caches.open('pages');
-                            await c.add(`/read/${bookIdNum}`);
+                            await c.add(`/read?id=${bookIdNum}`);
                         } catch { /* non-critical */ }
                     }
                 }

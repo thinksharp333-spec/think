@@ -47,6 +47,8 @@ const nextConfig = withPWA({
       { url: '/icon-512x512.png', revision: '7163a6411b51b07a70718abcc219e418' },
       { url: '/digi-library-logo.png', revision: 'f3be0ec53beab5af5f0923d6cb98b508' },
       { url: '/logo.png', revision: 'd8739d0e6f9db73c9e33942397c484cf' },
+      { url: '/icon.png', revision: Date.now().toString() },
+      { url: '/favicon.ico', revision: Date.now().toString() },
       // PDF.js worker — precached so offline book reading works on first use, not just after opening a book online
       { url: '/pdf.worker.min.mjs', revision: '1001f17653f487f58701874bef5a1964' },
       { url: '/reader-bg.png', revision: '1e6fa3ca4450ea1b41020589d3360fa1' },
