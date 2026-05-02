@@ -79,12 +79,22 @@ export default function Dashboard() {
         .filter(Boolean).sort().map(s => ({ value: s, label: s }));
 
     const filteredBooks = books?.filter((book) => {
+        // GAP: If offline, show only downloaded books
+        if (!isOnline && !book.pdfBlob) return false;
+
         const languageMatch = selectedLanguage ? book.language === selectedLanguage : true;
         const levelMatch = selectedLevel ? book.level === selectedLevel.toString() : true;
         const subjectMatch = selectedSubject ? normalizeSubject(book.subject) === selectedSubject : true;
         const searchMatch = searchQuery ? book.title.toLowerCase().includes(searchQuery.toLowerCase()) : true;
         return languageMatch && levelMatch && subjectMatch && searchMatch;
     });
+
+    // Also filter recent books for offline visibility
+    const offlineRecentBooks = recentBooks?.filter(rBook => {
+        if (isOnline) return true;
+        const fullBook = books?.find(b => String(b.id) === String(rBook.id));
+        return !!fullBook?.pdfBlob;
+    }) || [];
 
     const isFilterActive = selectedLevel || selectedSubject || selectedLanguage || searchQuery;
     const bookSections = Array.from(new Set(filteredBooks?.map(b => normalizeSubject(b.subject)) || [])).sort();
@@ -207,6 +217,18 @@ export default function Dashboard() {
                     <div className="absolute top-0 right-0 w-64 h-64 bg-red-100/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
                     <div className="absolute bottom-0 left-0 w-96 h-96 bg-yellow-100/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
                 </div>
+
+                {/* Offline Banner */}
+                {!isOnline && (
+                    <div className="absolute top-0 left-0 right-0 z-50 animate-slide-down">
+                        <div className="bg-[#e63329] text-white px-4 py-3 flex items-center justify-center gap-3 shadow-lg border-b-2 border-[#111]">
+                            <WifiOff className="w-5 h-5 animate-pulse" />
+                            <p className="text-xs md:text-sm font-black uppercase tracking-widest text-center">
+                                You are offline! Showing only downloaded books.
+                            </p>
+                        </div>
+                    </div>
+                )}
 
                 {/* Mobile sidebar overlay */}
                 {showSidebar && (() => {
@@ -359,7 +381,7 @@ export default function Dashboard() {
                         </div>
 
                         {/* Recently Read Section */}
-                        {recentBooks && recentBooks.length > 0 && !isFilterActive && (
+                        {offlineRecentBooks && offlineRecentBooks.length > 0 && !isFilterActive && (
                             <section className="space-y-5">
                                 <div className="flex items-center justify-between border-b-[3px] border-[#111] pb-3">
                                     <h3 className="flex items-center gap-3 text-xl font-black text-[#111] md:text-2xl">
@@ -368,7 +390,7 @@ export default function Dashboard() {
                                     </h3>
                                 </div>
                                 <div className="book-grid">
-                                    {recentBooks.slice(0, 4).map((rBook) => {
+                                    {offlineRecentBooks.slice(0, 4).map((rBook) => {
                                         const book = books?.find(b => String(b.id) === String(rBook.id));
                                         if (!book) return null;
                                         return (
