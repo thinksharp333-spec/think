@@ -521,15 +521,19 @@ function ReadContent() {
                 await db.syncQueue.add({ type: 'UPDATE_POINTS', payload: { userId, pointsDelta: totalPts, streak: updatedStreak, lastPointsDate: updatedLastPointsDate }, createdAt: Date.now() });
             }
             if (isFinal && !sessionLoggedRef.current) {
+                // Set the flag synchronously before any await so a concurrent saveProgress(true)
+                // call (e.g. cleanup firing while handleBack is in flight) can't slip through.
+                sessionLoggedRef.current = true;
                 const fallback: Record<number, string> = { 1: 'Sample Book', 2: 'Science Book', 3: 'Math Book', 4: 'History' };
-                // completed = true when student reached the last third of the book
-                const isCompleted = bookCompletedRef.current;
+                // completed = true when student reached the last page OR earned max points
+                // on all pages (the stricter bookCompletedRef alone was almost never true)
+                const isCompleted = bookCompletedRef.current ||
+                    (totalPagesRef.current > 0 && pg >= totalPagesRef.current);
                 await db.syncQueue.add({
                     type: 'READ_LOG',
                     payload: { userId: userId || 'local-user', bookId: bookIdNum, bookTitle: book?.title || fallback[bookIdNum] || 'Unknown', startTime: startTimeRef.current, endTime: now, duration: totalDur, pagesRead: pg, pointsEarned: totalPts, completed: isCompleted },
                     createdAt: Date.now(),
                 });
-                sessionLoggedRef.current = true;
                 await db.readings.add({ bookId: bookIdString, userId: userId || 'local-user', startTime: startTimeRef.current, endTime: now, synced: 0 });
             }
         } catch (e) { console.error("Save Progress Error:", e); }

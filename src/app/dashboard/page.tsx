@@ -218,17 +218,6 @@ export default function Dashboard() {
                     <div className="absolute bottom-0 left-0 w-96 h-96 bg-yellow-100/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
                 </div>
 
-                {/* Offline Banner */}
-                {!isOnline && (
-                    <div className="absolute top-0 left-0 right-0 z-50 animate-slide-down">
-                        <div className="bg-[#e63329] text-white px-4 py-3 flex items-center justify-center gap-3 shadow-lg border-b-2 border-[#111]">
-                            <WifiOff className="w-5 h-5 animate-pulse" />
-                            <p className="text-xs md:text-sm font-black uppercase tracking-widest text-center">
-                                You are offline! Showing only downloaded books.
-                            </p>
-                        </div>
-                    </div>
-                )}
 
                 {/* Mobile sidebar overlay */}
                 {showSidebar && (() => {
@@ -264,15 +253,13 @@ export default function Dashboard() {
                                                     </div>
                                                 )}
                                             </div>
-                                            <div className="flex flex-col items-center justify-center">
-                                                <button
-                                                    onClick={(e) => handleDeleteOffline(e, book.id!)}
-                                                    className="p-3 rounded-2xl hover:bg-red-50 text-gray-200 hover:text-red-500 transition-all active:scale-90"
-                                                    title="Remove from device"
-                                                >
-                                                    <Trash2 className="w-5 h-5" />
-                                                </button>
-                                            </div>
+                                            <button
+                                                onClick={(e) => handleDeleteOffline(e, book.id!)}
+                                                className="p-2 rounded-xl hover:bg-red-50 text-gray-400 hover:text-red-500 transition-all active:scale-90 flex-shrink-0"
+                                                title="Remove from device"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
                                         </Link>
                                     )) : (
                                         <div className="text-center py-8">
@@ -340,6 +327,16 @@ export default function Dashboard() {
                                 </Link>
                             </div>
                         </div>
+
+                        {/* Offline Banner */}
+                        {!isOnline && (
+                            <div className="rounded-2xl border-2 border-[#111] bg-[#111] text-white px-5 py-3.5 flex items-center gap-3 shadow-[0_4px_0_#e63329]">
+                                <WifiOff className="w-5 h-5 text-[#e63329] flex-shrink-0 animate-pulse" />
+                                <p className="text-xs md:text-sm font-black uppercase tracking-widest">
+                                    You&apos;re offline — showing only downloaded books.
+                                </p>
+                            </div>
+                        )}
 
                         {/* Filter bar / Dropdowns */}
                         <div className="flex flex-col md:flex-row md:items-center gap-3 overflow-x-auto no-scrollbar pb-1">
@@ -427,13 +424,29 @@ export default function Dashboard() {
                             </section>
                         )) : filteredBooks?.length === 0 ? (
                             <div className="card py-24 text-center">
-                                <Search className="mx-auto h-16 w-16 text-[#f2d7cd] mb-4" />
-                                <h3 className="font-black text-2xl text-[#111] mb-2">No books found</h3>
-                                <p className="font-bold text-[#777] mb-6 max-w-xs mx-auto">Try adjusting your filters or search terms.</p>
-                                <button onClick={() => { setSelectedLevel(""); setSelectedSubject(""); setSelectedLanguage(""); setSearchQuery(""); }}
-                                    className="btn-red mx-auto px-8 py-3 text-sm">
-                                    Show All Books
-                                </button>
+                                {!isOnline ? (
+                                    <>
+                                        <WifiOff className="mx-auto h-16 w-16 text-[#f2d7cd] mb-4" />
+                                        <h3 className="font-black text-2xl text-[#111] mb-2">You&apos;re offline</h3>
+                                        <p className="font-bold text-[#777] mb-6 max-w-xs mx-auto">No downloaded books match your filters. Download books while online to read them here.</p>
+                                        {isFilterActive && (
+                                            <button onClick={() => { setSelectedLevel(""); setSelectedSubject(""); setSelectedLanguage(""); setSearchQuery(""); }}
+                                                className="btn-red mx-auto px-8 py-3 text-sm">
+                                                Clear Filters
+                                            </button>
+                                        )}
+                                    </>
+                                ) : (
+                                    <>
+                                        <Search className="mx-auto h-16 w-16 text-[#f2d7cd] mb-4" />
+                                        <h3 className="font-black text-2xl text-[#111] mb-2">No books found</h3>
+                                        <p className="font-bold text-[#777] mb-6 max-w-xs mx-auto">Try adjusting your filters or search terms.</p>
+                                        <button onClick={() => { setSelectedLevel(""); setSelectedSubject(""); setSelectedLanguage(""); setSearchQuery(""); }}
+                                            className="btn-red mx-auto px-8 py-3 text-sm">
+                                            Show All Books
+                                        </button>
+                                    </>
+                                )}
                             </div>
                         ) : (
                             <div className="card py-16 text-center">

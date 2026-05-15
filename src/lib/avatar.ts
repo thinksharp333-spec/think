@@ -131,11 +131,21 @@ export async function checkAvatarEvolution(userId: string): Promise<number | nul
  * Returns the evolved stage, or null if no evolution happened.
  */
 export async function onBookCompleted(userId: string): Promise<number | null> {
+    const GUEST_IDS = ['local-user', 'local-admin'];
     const user = await db.users.get(userId);
     if (!user) return null;
 
     const newCount = (user.totalBooksRead || 0) + 1;
     await db.users.update(userId, { totalBooksRead: newCount });
+
+    // Persist to Supabase via sync queue so re-logins and new devices keep the count
+    if (!GUEST_IDS.includes(userId)) {
+        await db.syncQueue.add({
+            type: 'UPDATE_BOOKS_READ',
+            payload: { userId, totalBooksRead: newCount },
+            createdAt: Date.now(),
+        });
+    }
 
     return checkAvatarEvolution(userId);
 }

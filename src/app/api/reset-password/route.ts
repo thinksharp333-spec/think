@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import bcrypt from 'bcryptjs';
 
 export async function POST(req: NextRequest) {
     const body = await req.json();
@@ -25,8 +26,8 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Validate favourite food (case-insensitive)
-    const userFood = (user.favourite_food || "").trim().toLowerCase();
-    const inputFood = (body.favouriteFood || "").trim().toLowerCase();
+    const userFood = (user.favourite_food || '').trim().toLowerCase();
+    const inputFood = (body.favouriteFood || '').trim().toLowerCase();
 
     if (!userFood) {
         return NextResponse.json({ error: 'No favourite food is configured for this account. Please contact admin.' }, { status: 403 });
@@ -36,10 +37,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Incorrect favourite food.' }, { status: 403 });
     }
 
-    // 3. Update password
+    // 3. Hash the new password before storing
+    const passwordHash = await bcrypt.hash(body.newPassword, 12);
+
     const { error: updateError } = await adminClient
         .from('users')
-        .update({ password: body.newPassword })
+        .update({ password: passwordHash })
         .eq('id', user.id);
 
     if (updateError) {

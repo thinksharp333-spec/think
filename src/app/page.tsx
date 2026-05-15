@@ -157,7 +157,7 @@ export default function LandingPage() {
         <div className="relative flex flex-col lg:flex-row items-stretch h-full">
 
           {/* LEFT: Hero copy */}
-          <div className="flex-1 flex flex-col justify-center px-6 py-16 md:px-14 lg:px-20 xl:px-28">
+          <div className="flex-1 flex flex-col justify-center px-3 py-16 md:px-10">
             <div className="animate-pop-in flex flex-col items-start" style={{ animationDelay: "0ms" }}>
               <div className="relative mb-6 md:mb-8 -mt-6 md:-mt-12">
                 <img src="/logo.png" alt="ThinkSharp Foundation" className="h-16 md:h-20 lg:h-24 w-auto relative z-10" />

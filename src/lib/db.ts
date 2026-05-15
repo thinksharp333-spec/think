@@ -79,7 +79,7 @@ interface QuizAttempt {
 
 interface SyncTask {
     id?: number;
-    type: 'UPDATE_POINTS' | 'READ_LOG' | 'SUBMIT_REVIEW' | 'SUBMIT_QUIZ' | 'BOOK_QUIZ';
+    type: 'UPDATE_POINTS' | 'READ_LOG' | 'SUBMIT_REVIEW' | 'SUBMIT_QUIZ' | 'BOOK_QUIZ' | 'UPDATE_BOOKS_READ';
     payload: any;
     createdAt: number;
     retryCount?: number; // GAP-03: max 3 attempts before task is dropped

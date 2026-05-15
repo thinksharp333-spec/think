@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import bcrypt from 'bcryptjs';
 
 export async function POST(req: NextRequest) {
     const body = await req.json();
@@ -24,6 +25,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Mobile number already registered.' }, { status: 409 });
     }
 
+    // Generate UUID server-side — never trust a client-supplied ID
+    const id = crypto.randomUUID();
+
+    // Hash password before storing — never store plaintext
+    const passwordHash = await bcrypt.hash(body.password, 12);
+
     // If custom school, insert it into the schools table first
     let finalSchoolId = body.schoolId;
     if (body.isCustomSchool) {
@@ -42,7 +49,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { error } = await adminClient.from('users').insert([{
-        id:                   body.id,
+        id,
         name:                 body.name,
         age:                  body.age,
         mobile:               body.mobile,
@@ -50,8 +57,8 @@ export async function POST(req: NextRequest) {
         school:               body.school,
         school_id:            finalSchoolId !== 'custom' ? finalSchoolId : null,
         grade:                body.grade,
-        role:                 body.role,
-        password:             body.password,
+        role:                 'student', // hardcoded — never trust client-supplied role
+        password:             passwordHash,
         totalPoints:          0,
         avatar_base_id:       body.avatarBaseId,
         current_avatar_stage: 0,
@@ -64,5 +71,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true });
+    // Return server-generated id so client can use it for local cache and session cookie
+    return NextResponse.json({ success: true, id });
 }

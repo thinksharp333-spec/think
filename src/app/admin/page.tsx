@@ -5,7 +5,7 @@ import { Book, db, User, getSyncKey } from "@/lib/db";
 import { useState, useEffect, useRef, Fragment } from "react";
 import { generateCoverFromPdf } from "@/lib/pdf-utils";
 import { useLiveQuery } from "dexie-react-hooks";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Trash2, Plus, BookOpen, GraduationCap, MapPin, Search, Cloud, Download, Loader2, LayoutDashboard, CheckCircle2, ChevronDown, ChevronRight } from "lucide-react";
 import { Dropdown } from "@/components/dropdown";
 import { getDirectDownloadUrl, DriveItem } from "@/lib/google-drive";
@@ -752,38 +752,61 @@ export default function AdminDashboard() {
     const [allStudents, setAllStudents] = useState<User[]>([]);
     const [loadingAnalytics, setLoadingAnalytics] = useState(true);
 
+
+
     useEffect(() => {
         async function fetchAnalytics() {
             if (!supabase) return;
             setLoadingAnalytics(true);
             try {
-                // 1. Top schools by reading sessions
-                const { data: topSchools } = await supabase
-                    .from('analytics_school_stats')
-                    .select('school_name, total_sessions')
-                    .order('total_sessions', { ascending: false })
-                    .limit(5);
-                
-                if (topSchools) {
-                    setSchoolData(topSchools.map(s => ({ name: s.school_name, booksRead: s.total_sessions })));
+                // 1. Top 5 schools by books read — count distinct books per school from all
+                //    reading sessions (the old `completed=true` filter was too strict and
+                //    matched almost nothing because earning max points on every page is rare).
+                const [{ data: allSessions }, { data: userSchoolMap }] = await Promise.all([
+                    supabase.from('reading_sessions').select('user_id, book_id'),
+                    supabase.from('users').select('id, school').not('school', 'is', null),
+                ]);
+
+                if (allSessions && userSchoolMap) {
+                    const schoolByUser: Record<string, string> = {};
+                    userSchoolMap.forEach(u => { if (u.school) schoolByUser[u.id] = u.school; });
+
+                    // Deduplicate: count distinct book_ids per school so re-reading the same
+                    // book doesn't inflate the count.
+                    const schoolBooks: Record<string, Set<string>> = {};
+                    allSessions.forEach(s => {
+                        const school = schoolByUser[s.user_id];
+                        if (school && s.book_id) {
+                            if (!schoolBooks[school]) schoolBooks[school] = new Set();
+                            schoolBooks[school].add(String(s.book_id));
+                        }
+                    });
+                    setSchoolData(
+                        Object.entries(schoolBooks)
+                            .map(([name, books]) => ({ name, booksRead: books.size }))
+                            .sort((a, b) => b.booksRead - a.booksRead)
+                            .slice(0, 5)
+                    );
                 }
 
-                // 2. District distribution of students
-                const { data: distData } = await supabase
-                    .from('analytics_school_stats')
-                    .select('district, participating_students');
+                // 2. Total registered users over time (cumulative count by signup date)
+                const { data: registrations } = await supabase
+                    .from('users')
+                    .select('created_at')
+                    .order('created_at', { ascending: true });
 
-                if (distData) {
-                    const agg: Record<string, number> = {};
-                    distData.forEach(d => {
-                        if (!d.district) return;
-                        agg[d.district] = (agg[d.district] || 0) + d.participating_students;
+                if (registrations) {
+                    const countByDate: Record<string, number> = {};
+                    registrations.forEach(u => {
+                        const date = new Date(u.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+                        countByDate[date] = (countByDate[date] || 0) + 1;
                     });
+                    let running = 0;
                     setDistrictData(
-                        Object.entries(agg)
-                            .map(([name, val]) => ({ name, activeStudent: val }))
-                            .sort((a, b) => b.activeStudent - a.activeStudent)
-                            .slice(0, 5)
+                        Object.entries(countByDate).map(([date, count]) => {
+                            running += count;
+                            return { name: date, activeUsers: running };
+                        })
                     );
                 }
 
@@ -805,8 +828,6 @@ export default function AdminDashboard() {
         fetchAnalytics();
     }, []);
 
-
-    // ... (keep handleAddBook and other functions)
 
     // Sort books: Language → Level (numeric) → Subject
     const sortedBooks = [...(books || [])].sort((a, b) => {
@@ -875,7 +896,7 @@ export default function AdminDashboard() {
             {/* ── Charts (Moved Up) ── */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <h3 className="font-semibold mb-6">Top 5 Books Read by School</h3>
+                    <h3 className="font-semibold mb-6">Top 5 Schools by Completed Books</h3>
                     <div className="h-[256px] w-full">
                         {loadingAnalytics ? (
                             <div className="h-full flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-blue-500" /></div>
@@ -893,19 +914,19 @@ export default function AdminDashboard() {
                     </div>
                 </div>
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <h3 className="font-semibold mb-6">Top 5 Active Students by District</h3>
+                    <h3 className="font-semibold mb-6">Total Registered Users Over Time</h3>
                     <div className="h-[256px] w-full">
                         {loadingAnalytics ? (
                             <div className="h-full flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-green-500" /></div>
                         ) : (
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={districtData}>
+                                <LineChart data={districtData}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                    <XAxis dataKey="name" fontSize={12} />
-                                    <YAxis fontSize={12} />
-                                    <Tooltip />
-                                    <Bar dataKey="activeStudent" fill="#10b981" radius={[4, 4, 0, 0]} />
-                                </BarChart>
+                                    <XAxis dataKey="name" fontSize={10} interval="preserveStartEnd" />
+                                    <YAxis fontSize={12} allowDecimals={false} />
+                                    <Tooltip formatter={(v: number | undefined) => [v ?? 0, 'Total Users']} />
+                                    <Line type="monotone" dataKey="activeUsers" name="Total Users" stroke="#10b981" strokeWidth={2} dot={false} />
+                                </LineChart>
                             </ResponsiveContainer>
                         )}
                     </div>
@@ -926,6 +947,7 @@ export default function AdminDashboard() {
                     </div>
                 </Link>
             </div>
+
 
             {/* ── Add Book (Manual Upload) ── */}
             <section className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">

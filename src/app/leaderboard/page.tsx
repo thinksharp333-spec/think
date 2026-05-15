@@ -58,7 +58,6 @@ const RANK_BADGES = [
 // Glowing dragon-egg trophy on a flame pedestal — tiered by rank
 function PodiumAvatar({ rank, name }: { rank: number; name: string }) {
     const initials = name.substring(0, 2).toUpperCase();
-    const size = rank === 1 ? { w: 200, h: 220 } : { w: 160, h: 180 };
     const uid = `pa-${rank}`;
 
     // Per-rank palette (gold / silver / bronze, each with its own glow)
@@ -71,8 +70,8 @@ function PodiumAvatar({ rank, name }: { rank: number; name: string }) {
     const eggScale = rank === 1 ? 1.15 : 0.9;
 
     return (
-        <div className="relative" title={name}>
-            <svg width={size.w} height={size.h} viewBox="0 0 200 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <div className="relative w-full" title={name}>
+            <svg style={{ width: '100%', height: 'auto' }} viewBox="0 0 200 220" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                     <radialGradient id={`${uid}-glow`} cx="50%" cy="50%" r="50%">
                         <stop offset="0%" stopColor={tier.glow} stopOpacity="0.9" />
@@ -433,23 +432,23 @@ export default function LeaderboardPage() {
                                                         const isFirst = rank === 1;
                                                         const isMe = u.id === currentUser?.id;
                                                         return (
-                                                            <div key={u.id} className={`flex flex-col items-center ${isFirst ? '-mt-4' : ''}`}>
+                                                            <div key={u.id} className={`flex flex-col items-center ${isFirst ? 'w-[38%]' : 'w-[28%]'} ${isFirst ? '-mt-4' : ''}`}>
                                                                 <PodiumAvatar rank={rank} name={u.name} />
-                                                                <p className={`font-black mt-1 text-center flex items-center justify-center gap-1.5 drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] ${isFirst ? 'text-base' : 'text-sm'} ${isMe ? 'text-yellow-300' : 'text-white'}`}>
+                                                                <p className={`font-black mt-1 text-center w-full flex items-center justify-center gap-1 drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] ${isFirst ? 'text-xs md:text-sm' : 'text-[10px] md:text-xs'} ${isMe ? 'text-yellow-300' : 'text-white'}`}>
                                                                     {u.streak! > 0 && (
-                                                                        <span className="flex items-center gap-0.5 text-orange-400 bg-black/40 px-1.5 py-0.5 rounded" title={`${u.streak} Day Streak!`}>
-                                                                            <Flame className="w-3 h-3 text-orange-400 fill-orange-400" />
-                                                                            <span className="text-[10px]">{u.streak}</span>
+                                                                        <span className="flex items-center gap-0.5 text-orange-400 bg-black/40 px-1 py-0.5 rounded shrink-0" title={`${u.streak} Day Streak!`}>
+                                                                            <Flame className="w-2.5 h-2.5 text-orange-400 fill-orange-400" />
+                                                                            <span className="text-[9px]">{u.streak}</span>
                                                                         </span>
                                                                     )}
-                                                                    <span>{u.name.split(' ')[0]}{isMe ? ' (YOU)' : ''}</span>
+                                                                    <span className="truncate">{u.name.split(' ')[0]}{isMe ? ' (YOU)' : ''}</span>
                                                                 </p>
-                                                                <p className={`font-black text-center drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] ${isFirst ? 'text-sm' : 'text-xs'} ${isMe ? 'text-white' : 'text-yellow-300'}`}>
-                                                                    {u.totalPoints} Book Points
+                                                                <p className={`font-black text-center w-full truncate drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] ${isFirst ? 'text-[10px] md:text-xs' : 'text-[9px] md:text-[10px]'} ${isMe ? 'text-white' : 'text-yellow-300'}`}>
+                                                                    {u.totalPoints} BP
                                                                 </p>
-                                                                <div className="mt-2 px-3 py-1.5 rounded-full border-2 border-[#111] font-black text-[11px] uppercase tracking-wide flex items-center gap-1.5 shadow-[0_4px_0_rgba(0,0,0,0.4)]"
+                                                                <div className="mt-1 px-2 py-1 rounded-full border-2 border-[#111] font-black text-[9px] md:text-[11px] uppercase tracking-wide flex items-center gap-1 shadow-[0_4px_0_rgba(0,0,0,0.4)] max-w-full truncate"
                                                                     style={{ background: badge.bg, color: badge.color, borderColor: badge.color + "88" }}>
-                                                                    <span>{badge.emoji}</span> {badge.label}
+                                                                    <span>{badge.emoji}</span> <span className="truncate">{badge.label}</span>
                                                                 </div>
                                                             </div>
                                                         );
@@ -461,10 +460,10 @@ export default function LeaderboardPage() {
                                                     {podiumOrder.map((u) => {
                                                         const rank = top3.findIndex(user => user.id === u.id) + 1;
                                                         const isFirst = rank === 1;
-                                                        const rankLabel = rank === 1 ? '1st Place' : rank === 2 ? '2nd' : '3rd';
+                                                        const rankLabel = rank === 1 ? '1st' : rank === 2 ? '2nd' : '3rd';
                                                         const medalSuffix = rank === 1 ? 'st' : rank === 2 ? 'nd' : 'rd';
                                                         return (
-                                                            <div key={u.id} className={`${isFirst ? 'w-44 md:w-52' : 'w-32 md:w-40'} flex flex-col items-center relative`}>
+                                                            <div key={u.id} className={`${isFirst ? 'w-[38%]' : 'w-[28%]'} flex flex-col items-center relative`}>
                                                                 {/* Rank medallion */}
                                                                 <div className="absolute -left-2 -top-3 z-20 w-12 h-12 rounded-full border-[3px] border-[#111] flex items-center justify-center font-black text-white"
                                                                      style={{ 
@@ -489,7 +488,7 @@ export default function LeaderboardPage() {
                                                                      }}>
                                                                     {/* Gold top stripe */}
                                                                     <div className="absolute top-1 left-3 right-3 h-0.5 rounded-full bg-yellow-300/60" />
-                                                                    <p className={`font-black text-white uppercase tracking-wide text-center drop-shadow-[0_2px_0_rgba(0,0,0,0.5)] truncate ${isFirst ? 'text-sm md:text-base' : 'text-xs md:text-sm'}`}>
+                                                                    <p className={`font-black text-white uppercase tracking-wide text-center drop-shadow-[0_2px_0_rgba(0,0,0,0.5)] truncate ${isFirst ? 'text-[10px] md:text-sm' : 'text-[9px] md:text-xs'}`}>
                                                                         {rankLabel}: {u.name.split(' ')[0]}
                                                                     </p>
                                                                 </div>

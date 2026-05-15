@@ -9,6 +9,10 @@ const MAX_TASK_RETRIES = 3;
 // IDs that must never be synced to Supabase
 const GUEST_IDS = ['local-user', 'local-admin', 'local_user', 'undefined', 'null'];
 
+// Module-level mutex — shared across ALL useSync instances (reader + dashboard can both
+// be alive during navigation; per-instance refs let them race on the same queue tasks).
+let globalIsSyncing = false;
+
 type ErrorDetails = { code?: string; status?: number; message?: string };
 
 function getErrorDetails(error: unknown): ErrorDetails {
@@ -18,17 +22,15 @@ function getErrorDetails(error: unknown): ErrorDetails {
 export function useSync() {
     const [isOnline, setIsOnline] = useState(true);
     const [isSyncing, setIsSyncing] = useState(false);
-    // Ref-based mutex prevents double-sync when state updates are batched
-    const isSyncingRef = useRef(false);
     const syncQueueCount = useLiveQuery(() => db.syncQueue.count()) || 0;
 
     // attemptSync is stable via ref so event listeners never capture a stale copy
     const attemptSyncRef = useRef<(() => Promise<void>) | undefined>(undefined);
 
     const attemptSync = async () => {
-        if (!navigator.onLine || isSyncingRef.current) return;
+        if (!navigator.onLine || globalIsSyncing) return;
 
-        isSyncingRef.current = true;
+        globalIsSyncing = true;
         setIsSyncing(true);
         try {
             const pendingTasks = await db.syncQueue.toArray();
@@ -119,7 +121,7 @@ export function useSync() {
         } catch (error) {
             console.error("[Sync] Sync failed:", error);
         } finally {
-            isSyncingRef.current = false;
+            globalIsSyncing = false;
             setIsSyncing(false);
         }
     };
@@ -146,7 +148,7 @@ export function useSync() {
 
     // Auto-sync whenever the queue grows while online
     useEffect(() => {
-        if (syncQueueCount > 0 && isOnline && !isSyncingRef.current) {
+        if (syncQueueCount > 0 && isOnline && !globalIsSyncing) {
             attemptSync();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps

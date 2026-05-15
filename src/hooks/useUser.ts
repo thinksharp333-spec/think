@@ -40,22 +40,24 @@ export function useUser() {
                 throw error;
             }
             if (data) {
-                const localUser = await db.users.get(userId);
                 const serverPoints    = data.totalPoints || 0;
-                const localPoints     = localUser?.totalPoints || 0;
                 const serverBooksRead = data.total_books_read || 0;
-                const localBooksRead  = localUser?.totalBooksRead || 0;
 
-                // Defensive update: keep the higher value to protect un-synced progress.
-                await db.users.update(userId, {
-                    name:               data.name,
-                    mobile:             data.mobile,
-                    totalPoints:        Math.max(serverPoints, localPoints),
-                    totalBooksRead:     Math.max(serverBooksRead, localBooksRead),
-                    // Avatar fields — always trust server as source of truth
-                    ...(data.avatar_base_id       && { avatarBaseId:       data.avatar_base_id }),
-                    ...(data.current_avatar_stage != null && { currentAvatarStage: data.current_avatar_stage }),
-                    ...(data.current_avatar_url   && { currentAvatarUrl:   data.current_avatar_url }),
+                // Wrap in a transaction so an in-flight onBookCompleted write can't be
+                // silently overwritten by a stale localBooksRead read here.
+                await db.transaction('rw', db.users, async () => {
+                    const freshUser = await db.users.get(userId);
+                    // Defensive update: keep the higher value to protect un-synced progress.
+                    await db.users.update(userId, {
+                        name:               data.name,
+                        mobile:             data.mobile,
+                        totalPoints:        Math.max(serverPoints, freshUser?.totalPoints || 0),
+                        totalBooksRead:     Math.max(serverBooksRead, freshUser?.totalBooksRead || 0),
+                        // Avatar fields — always trust server as source of truth
+                        ...(data.avatar_base_id       && { avatarBaseId:       data.avatar_base_id }),
+                        ...(data.current_avatar_stage != null && { currentAvatarStage: data.current_avatar_stage }),
+                        ...(data.current_avatar_url   && { currentAvatarUrl:   data.current_avatar_url }),
+                    });
                 });
             }
         } catch (err: any) {

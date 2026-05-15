@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import bcrypt from "bcryptjs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { User, Lock, ArrowRight, ArrowLeft, Phone, Calendar, WifiOff, CheckCircle2, Utensils, GraduationCap, ChevronDown } from "lucide-react";
+import { User, Lock, ArrowRight, ArrowLeft, Phone, Calendar, WifiOff, CheckCircle2, Utensils, GraduationCap, ChevronDown, PenLine } from "lucide-react";
 import { AVATARS, getAvatarUrl } from "@/lib/avatar";
 import { AvatarStageImage } from "@/components/avatar-stage-image";
 import { db } from "@/lib/db";
@@ -43,8 +44,20 @@ export default function SignUpPage() {
         favouriteFood: ""
     });
     const [selectedAvatarId, setSelectedAvatarId] = useState<string>("");
+    const [gradeOpen, setGradeOpen] = useState(false);
+    const gradeRef = useRef<HTMLDivElement>(null);
     const [error, setError] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (gradeRef.current && !gradeRef.current.contains(event.target as Node)) {
+                setGradeOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -99,13 +112,10 @@ export default function SignUpPage() {
         setIsLoading(true);
 
         try {
-            // Generate a robust standard UUID for the new user
-            const id = crypto.randomUUID();
-
             const initialAvatarUrl = getAvatarUrl(selectedAvatarId, 0);
 
-            const userData = {
-                id,
+            // Do NOT send id or role — server generates UUID and hardcodes role='student'
+            const signupPayload = {
                 name: formData.name,
                 age: Number(formData.age),
                 mobile: formData.mobile,
@@ -116,40 +126,57 @@ export default function SignUpPage() {
                 village: formData.village,
                 isCustomSchool: formData.isCustomSchool,
                 grade: formData.grade,
-                role: 'student',
                 password: formData.password,
-                totalPoints: 0,
-                isVerified: true,
                 favouriteFood: formData.favouriteFood,
-                // Avatar system
                 avatarBaseId:       selectedAvatarId,
-                currentAvatarStage: 0,
                 currentAvatarUrl:   initialAvatarUrl,
-                totalBooksRead:     0,
             };
 
             // 1. Save to Cloud via server-side API (bypasses RLS)
             const signupRes = await fetch('/api/signup', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(userData),
+                body: JSON.stringify(signupPayload),
             });
             if (!signupRes.ok) {
                 const { error: signupErr } = await signupRes.json();
                 throw new Error(signupErr || 'Cloud Registration Failed');
             }
 
-            // 2. Save Local (Dexie) - Keeping for offline cache/session
-            await db.users.put(userData);
+            // Server generates the UUID — use it for local cache and session
+            const { id } = await signupRes.json();
 
-            // Set as current local user
+            // Hash password locally for offline login — never store plaintext in IndexedDB
+            const offlinePasswordHash = await bcrypt.hash(formData.password, 8);
+
+            const localUserData = {
+                id,
+                name: formData.name,
+                age: Number(formData.age),
+                mobile: formData.mobile,
+                city: formData.city,
+                school: formData.school,
+                schoolId: formData.schoolId,
+                grade: formData.grade,
+                role: 'student',
+                password: offlinePasswordHash,
+                totalPoints: 0,
+                isVerified: true,
+                favouriteFood: formData.favouriteFood,
+                avatarBaseId:       selectedAvatarId,
+                currentAvatarStage: 0,
+                currentAvatarUrl:   initialAvatarUrl,
+                totalBooksRead:     0,
+            };
+
+            // 2. Save Local (Dexie) - Keeping for offline cache/session
             await db.users.delete('local-user');
-            await db.users.put(userData);
+            await db.users.put(localUserData);
 
             // Set session cookie for middleware
             document.cookie = `user_session=${id}; path=/; max-age=86400`;
 
-            // Redirect to dashboard (OTP bypassed)
+            // Redirect to dashboard
             router.push(`/dashboard`);
 
         } catch (err: unknown) {
@@ -408,33 +435,60 @@ export default function SignUpPage() {
                                         value={formData.age}
                                         onChange={handleChange}
                                         required
-                                        min="4"
-                                        max="18"
+                                        min="1"
+                                        max="100"
                                     />
                                 </div>
                             </div>
                             <div>
                                 <label className="mb-2 block text-xl font-extrabold text-[#111111]">Grade</label>
-                                <div className="relative">
+                                <div className="relative" ref={gradeRef}>
                                     <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10">
                                         <GraduationCap className="h-5 w-5 text-[#111111]" />
                                     </div>
-                                    <select
-                                        name="grade"
-                                        className="comic-input comic-select pl-12 pr-10 text-xl font-bold appearance-none bg-white"
+                                    <input
+                                        type="text"
+                                        readOnly
+                                        placeholder="Select Grade"
+                                        value={formData.grade ? (formData.grade === "Other" ? "Other" : `Class ${formData.grade}`) : ""}
+                                        onClick={() => setGradeOpen(o => !o)}
+                                        className="comic-input pl-12 pr-10 text-lg font-bold w-full h-[52px] cursor-pointer"
                                         style={{ paddingLeft: "3rem" }}
-                                        value={formData.grade}
-                                        onChange={(e) => setFormData((prev) => ({ ...prev, grade: e.target.value }))}
                                         required
-                                    >
-                                        <option value="">Select</option>
-                                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(g => (
-                                            <option key={g} value={g}>Class {g}</option>
-                                        ))}
-                                    </select>
+                                    />
                                     <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[#111] pointer-events-none">
-                                        <ChevronDown className="h-5 w-5" />
+                                        <ChevronDown className={`h-5 w-5 transition-transform ${gradeOpen ? 'rotate-180' : ''}`} />
                                     </div>
+                                    {gradeOpen && (
+                                        <div className="absolute z-50 left-0 right-0 mt-2 bg-white border-[3px] border-[#111] rounded-xl shadow-[0_5px_0_#111] overflow-hidden">
+                                            <div className="max-h-[142px] overflow-y-auto no-scrollbar">
+                                                {[1,2,3,4,5,6,7,8,9,10].map(g => (
+                                                    <button
+                                                        key={g}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setFormData(prev => ({ ...prev, grade: String(g) }));
+                                                            setGradeOpen(false);
+                                                        }}
+                                                        className="w-full text-left px-4 py-3 font-bold text-sm tracking-tight hover:bg-[#fff9ee] transition-colors border-b border-[#eee] last:border-0"
+                                                    >
+                                                        Class {g}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setFormData(prev => ({ ...prev, grade: "Other" }));
+                                                    setGradeOpen(false);
+                                                }}
+                                                className="w-full text-left px-4 py-3 font-bold text-sm flex items-center gap-2 text-[#db3125] bg-[#fff5f5] border-t-[2px] border-[#ffd5d5] hover:bg-[#ffecec] transition-colors"
+                                            >
+                                                <PenLine className="h-4 w-4 flex-shrink-0" />
+                                                Other (not in list)
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>

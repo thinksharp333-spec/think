@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Wifi, WifiOff, Phone, Loader2, BookOpen, ChevronRight, Rocket, Bot, Sparkles, Footprints, WandSparkles } from "lucide-react";
+import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { useSync } from "@/hooks/useSync";
 import { supabase } from "@/lib/supabase";
@@ -50,12 +51,14 @@ export default function LoginPage() {
                     if (res.ok) {
                         const { user: data } = await res.json();
                         user = data;
-                        // SYNC DOWN: Update local DB with latest cloud data
+                        // Hash password locally for offline login — server never returns the hash
+                        const offlinePasswordHash = await bcrypt.hash(password, 8);
+                        // SYNC DOWN: Update local DB with latest cloud data (no plaintext password)
                         await db.users.put({
                             id: data.id,
                             name: data.name || 'Student',
                             mobile: data.mobile || '',
-                            password: data.password,
+                            password: offlinePasswordHash,
                             totalPoints: data.totalPoints || data.total_points || 0,
                             booksRead: data.books_read || data.booksRead || 0,
                             isVerified: data.isVerified || data.is_verified,
@@ -67,8 +70,12 @@ export default function LoginPage() {
                     }
                 }
                 if (!user) {
+                    // Offline fallback: compare entered password against locally stored bcrypt hash
                     const localUser = await db.users.where({ mobile: mobile }).first();
-                    if (localUser && localUser.password === password) user = localUser;
+                    if (localUser && localUser.password) {
+                        const match = await bcrypt.compare(password, localUser.password);
+                        if (match) user = localUser;
+                    }
                 }
                 if (user) {
                     await db.users.delete('local-user');
