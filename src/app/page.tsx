@@ -219,7 +219,7 @@ export default function LandingPage() {
 
             {/* The big monster SVG */}
             <div className="animate-float -mt-16 md:-mt-24 lg:-mt-32 xl:-mt-40" style={{ animationDelay: "0.5s" }}>
-              <svg width="100%" height="auto" viewBox="0 0 320 380" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ maxWidth: 320, display: "block", margin: "0 auto" }}>
+              <svg width="100%" viewBox="0 0 320 380" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ maxWidth: 320, height: "auto", display: "block", margin: "0 auto" }}>
                 {/* Body */}
                 <ellipse cx="160" cy="240" rx="105" ry="112" fill="#e63329" stroke="#111" strokeWidth="4"/>
                 {/* Belly */}

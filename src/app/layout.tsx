@@ -19,6 +19,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   icons: {
     icon: "/thinksharp-t.png",
+    shortcut: "/thinksharp-t.png",
     apple: "/thinksharp-t.png",
   },
   appleWebApp: {
