@@ -12,6 +12,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.90.0",
     "@ducanh2912/next-pwa": "^10.2.9",
+    "@marsidev/react-turnstile": "^1.5.2",
     "@supabase/supabase-js": "^2.95.3",
     "@types/d3-geo": "^3.1.0",
     "@types/d3-scale": "^4.0.9",

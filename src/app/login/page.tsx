@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Wifi, WifiOff, Phone, Loader2, BookOpen, ChevronRight, Rocket, Bot, Sparkles, Footprints, WandSparkles } from "lucide-react";
@@ -9,6 +9,7 @@ import { db } from "@/lib/db";
 import { useSync } from "@/hooks/useSync";
 import { supabase } from "@/lib/supabase";
 import { useUser } from "@/hooks/useUser";
+import { Turnstile, TurnstileInstance } from '@marsidev/react-turnstile';
 
 export default function LoginPage() {
     const router = useRouter();
@@ -26,6 +27,8 @@ export default function LoginPage() {
     const [password, setPassword] = useState("");
     const [showForgotPassword, setShowForgotPassword] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [turnstileToken, setTurnstileToken] = useState<string>("");
+    const turnstileRef = useRef<TurnstileInstance>(null);
 
     const emojiPasswordChoices = [
         { icon: Rocket, color: "bg-[#ff4d3d]", label: "Rocket" },
@@ -39,14 +42,19 @@ export default function LoginPage() {
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         if (mobile.length > 0 && password.length > 0) {
+            if (isOnline && !turnstileToken) {
+                alert("Please complete the security check.");
+                return;
+            }
             setLoading(true);
             try {
                 let user;
+                let serverError = "";
                 if (isOnline) {
                     const res = await fetch('/api/login', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ mobile, password }),
+                        body: JSON.stringify({ mobile, password, turnstileToken }),
                     });
                     if (res.ok) {
                         const { user: data } = await res.json();
@@ -67,6 +75,9 @@ export default function LoginPage() {
                             age: data.age,
                             schoolId: data.schoolId || data.school_id,
                         });
+                    } else {
+                        const errData = await res.json().catch(() => ({}));
+                        serverError = errData.error || "Login failed.";
                     }
                 }
                 if (!user) {
@@ -74,7 +85,14 @@ export default function LoginPage() {
                     const localUser = await db.users.where({ mobile: mobile }).first();
                     if (localUser && localUser.password) {
                         const match = await bcrypt.compare(password, localUser.password);
-                        if (match) user = localUser;
+                        if (match) {
+                            user = localUser;
+                            serverError = ""; // Clear server error if offline succeeds
+                        } else if (!isOnline) {
+                            serverError = "Incorrect password.";
+                        }
+                    } else if (!isOnline) {
+                        serverError = "User not found.";
                     }
                 }
                 if (user) {
@@ -97,11 +115,15 @@ export default function LoginPage() {
                     document.cookie = `user_session=${user.id}; path=/; max-age=86400`;
                     router.push("/dashboard");
                 } else {
-                    alert("Invalid credentials or user not found.");
+                    alert(serverError || "Invalid credentials or user not found.");
+                    turnstileRef.current?.reset();
+                    setTurnstileToken("");
                 }
             } catch (err) {
                 console.error("Login error", err);
                 alert("Login failed.");
+                turnstileRef.current?.reset();
+                setTurnstileToken("");
             } finally {
                 setLoading(false);
             }
@@ -227,7 +249,18 @@ export default function LoginPage() {
                                     </div>
                                 </div>
 
-                                <button type="submit" disabled={loading}
+                                {isOnline && process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
+                                    <div className="flex justify-center mt-2">
+                                        <Turnstile
+                                            ref={turnstileRef}
+                                            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+                                            onSuccess={(token) => setTurnstileToken(token)}
+                                            onError={() => alert("Security check failed. Please try again.")}
+                                        />
+                                    </div>
+                                )}
+
+                                <button type="submit" disabled={loading || (isOnline && !turnstileToken)}
                                     className="btn-red w-full py-5 mt-2 text-2xl font-black tracking-widest relative overflow-hidden group">
                                     <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform" />
                                     {loading ? <Loader2 className="h-7 w-7 animate-spin mx-auto" /> : "Go!"}

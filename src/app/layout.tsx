@@ -20,11 +20,11 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
-      { url: "/icon-192x192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icon-512x512.png", sizes: "512x512", type: "image/png" },
+      { url: "/thinksharp-t.png", sizes: "192x192", type: "image/png" },
+      { url: "/thinksharp-t.png", sizes: "512x512", type: "image/png" },
     ],
     shortcut: "/favicon.ico",
-    apple: "/icon-192x192.png",
+    apple: "/thinksharp-t.png",
   },
   appleWebApp: {
     capable: true,

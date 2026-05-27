@@ -1,16 +1,16 @@
 {
-  "name": "ThinkSharp Digital Library",
-  "short_name": "BookQuest",
+  "name": "digilibrary",
+  "short_name": "digilibrary",
   "description": "Gamified reading & adaptive learning for students",
   "icons": [
     {
-      "src": "/icon-192x192.png",
+      "src": "/thinksharp-t.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icon-512x512.png",
+      "src": "/thinksharp-t.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

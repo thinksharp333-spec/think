@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import bcrypt from 'bcryptjs';
+import { verifyTurnstileToken } from '@/lib/turnstile';
 
 export async function POST(req: NextRequest) {
-    const { mobile, password } = await req.json();
+    const { mobile, password, turnstileToken } = await req.json();
 
     if (!mobile || !password) {
         return NextResponse.json({ error: 'Mobile and password are required.' }, { status: 400 });
+    }
+
+    const isHuman = await verifyTurnstileToken(turnstileToken);
+    if (!isHuman) {
+        return NextResponse.json({ error: 'Security check failed. Please try again.' }, { status: 400 });
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -25,11 +31,8 @@ export async function POST(req: NextRequest) {
         .eq('mobile', mobile)
         .single();
 
-    // Identical error message for both "not found" and "wrong password" — prevents user enumeration
-    const invalidMsg = 'Invalid credentials or user not found.';
-
     if (error || !data) {
-        return NextResponse.json({ error: invalidMsg }, { status: 401 });
+        return NextResponse.json({ error: 'User not found.' }, { status: 404 });
     }
 
     // Detect whether this user's password is a bcrypt hash or legacy plaintext.
@@ -55,7 +58,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (!passwordMatch) {
-        return NextResponse.json({ error: invalidMsg }, { status: 401 });
+        return NextResponse.json({ error: 'Incorrect password.' }, { status: 401 });
     }
 
     // Strip password from the response — client never needs it over the network

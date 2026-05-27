@@ -13,6 +13,7 @@ import { useSync } from "@/hooks/useSync";
 import { supabase } from "@/lib/supabase";
 import { useUser } from "@/hooks/useUser";
 import { SchoolSelector } from "@/components/school-selector";
+import { Turnstile } from '@marsidev/react-turnstile';
 
 export default function SignUpPage() {
     const router = useRouter();
@@ -48,6 +49,7 @@ export default function SignUpPage() {
     const gradeRef = useRef<HTMLDivElement>(null);
     const [error, setError] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [turnstileToken, setTurnstileToken] = useState<string>("");
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -109,6 +111,11 @@ export default function SignUpPage() {
             return;
         }
 
+        if (isOnline && !turnstileToken) {
+            setError("Please complete the security check.");
+            return;
+        }
+
         setIsLoading(true);
 
         try {
@@ -130,6 +137,7 @@ export default function SignUpPage() {
                 favouriteFood: formData.favouriteFood,
                 avatarBaseId:       selectedAvatarId,
                 currentAvatarUrl:   initialAvatarUrl,
+                turnstileToken:     turnstileToken,
             };
 
             // 1. Save to Cloud via server-side API (bypasses RLS)
@@ -559,6 +567,16 @@ export default function SignUpPage() {
                         {error && (
                             <div className="comic-card bg-[#fff0ef] p-3 text-center text-sm font-black text-[#db3125] mt-2 animate-pop-in">
                                 {error}
+                            </div>
+                        )}
+
+                        {isOnline && process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
+                            <div className="flex justify-center mt-4">
+                                <Turnstile
+                                    siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+                                    onSuccess={(token) => { setTurnstileToken(token); setError(""); }}
+                                    onError={() => setError("Security check failed. Please try again.")}
+                                />
                             </div>
                         )}
 

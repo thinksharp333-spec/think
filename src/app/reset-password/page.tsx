@@ -4,6 +4,7 @@ import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Lock, ArrowRight, CheckCircle2, Loader2, AlertCircle, Utensils } from "lucide-react";
 import { db } from "@/lib/db";
+import { Turnstile } from '@marsidev/react-turnstile';
 
 function ResetPasswordContent() {
     const router = useRouter();
@@ -16,6 +17,7 @@ function ResetPasswordContent() {
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState("");
+    const [turnstileToken, setTurnstileToken] = useState<string>("");
 
     const handleReset = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -27,6 +29,10 @@ function ResetPasswordContent() {
             setError("Please enter your favourite food.");
             return;
         }
+        if (!turnstileToken) {
+            setError("Please complete the security check.");
+            return;
+        }
 
         setLoading(true);
         setError("");
@@ -36,7 +42,7 @@ function ResetPasswordContent() {
             const res = await fetch('/api/reset-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mobile, favouriteFood, newPassword: password }),
+                body: JSON.stringify({ mobile, favouriteFood, newPassword: password, turnstileToken }),
             });
             
             if (!res.ok) {
@@ -144,9 +150,19 @@ function ResetPasswordContent() {
                         </div>
                     </div>
 
+                    {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
+                        <div className="flex justify-center mt-4">
+                            <Turnstile
+                                siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+                                onSuccess={(token) => { setTurnstileToken(token); setError(""); }}
+                                onError={() => setError("Security check failed. Please try again.")}
+                            />
+                        </div>
+                    )}
+
                     <button
                         type="submit"
-                        disabled={loading}
+                        disabled={loading || !turnstileToken}
                         className="btn-red w-full py-5 mt-4 text-2xl font-black tracking-widest relative overflow-hidden group"
                     >
                         <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform" />

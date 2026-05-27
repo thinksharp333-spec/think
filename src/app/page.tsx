@@ -159,9 +159,9 @@ export default function LandingPage() {
           {/* LEFT: Hero copy */}
           <div className="flex-1 flex flex-col justify-center px-3 py-16 md:px-10">
             <div className="animate-pop-in flex flex-col items-start" style={{ animationDelay: "0ms" }}>
-              <div className="relative mb-6 md:mb-8 -mt-6 md:-mt-12">
-                <img src="/logo.png" alt="ThinkSharp Foundation" className="h-16 md:h-20 lg:h-24 w-auto relative z-10" />
-                <div className="absolute -bottom-1 left-1 w-[calc(75%+85px)] h-[2px] bg-[#111] rounded-full opacity-70"></div>
+              <div className="flex items-center gap-2 mb-6 md:mb-8 -mt-6 md:-mt-12">
+                <span className="text-[11px] md:text-xs font-bold uppercase tracking-widest text-[#555]">An initiative by</span>
+                <img src="/logo.png" alt="ThinkSharp Foundation" className="h-7 md:h-8 w-auto" />
               </div>
               <span className="chip chip-red mb-6">
                 <Sparkles className="h-3.5 w-3.5" /> Story Powered Learning

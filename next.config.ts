@@ -116,6 +116,26 @@ const nextConfig = withPWA({
           cacheableResponse: { statuses: [0, 200] },
         },
       },
+      // PDF Web Worker — CacheFirst so the PDF reader doesn't hang offline
+      {
+        urlPattern: /pdf\.worker\.min\.mjs$/,
+        handler: 'CacheFirst',
+        options: {
+          cacheName: 'pdf-worker-cache',
+          expiration: { maxEntries: 1, maxAgeSeconds: 365 * 24 * 60 * 60 },
+          cacheableResponse: { statuses: [0, 200] },
+        },
+      },
+      // PDF cmaps (fonts) — CacheFirst
+      {
+        urlPattern: /\/cmaps\/.*\.bcmap$/,
+        handler: 'CacheFirst',
+        options: {
+          cacheName: 'pdf-cmaps-cache',
+          expiration: { maxEntries: 200, maxAgeSeconds: 365 * 24 * 60 * 60 },
+          cacheableResponse: { statuses: [0, 200] },
+        },
+      },
     ],
   },
 })(config);

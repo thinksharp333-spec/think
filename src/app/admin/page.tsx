@@ -896,7 +896,7 @@ export default function AdminDashboard() {
             {/* ── Charts (Moved Up) ── */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <h3 className="font-semibold mb-6">Top 5 Schools by Completed Books</h3>
+                    <h3 className="font-semibold mb-6">Top 5 schools vs number of books</h3>
                     <div className="h-[256px] w-full">
                         {loadingAnalytics ? (
                             <div className="h-full flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-blue-500" /></div>

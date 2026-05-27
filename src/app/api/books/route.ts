@@ -13,7 +13,8 @@ export async function GET() {
 
     const { data, error } = await adminClient
         .from('books')
-        .select('id, title, "fileId", grade, pages, "pdfUrl", level, subject, language, "coverUrl", questions, avg_rating, review_count');
+        .select('id, title, "fileId", grade, pages, "pdfUrl", level, subject, language, "coverUrl", questions, avg_rating, review_count')
+        .limit(10000);
 
     if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
