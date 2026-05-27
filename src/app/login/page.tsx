@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Wifi, WifiOff, Phone, Loader2, BookOpen, ChevronRight, Rocket, Bot, Sparkles, Footprints, WandSparkles } from "lucide-react";
+import { ArrowLeft, Phone, Loader2, Sparkles } from "lucide-react";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { useSync } from "@/hooks/useSync";
@@ -28,106 +28,116 @@ export default function LoginPage() {
     const [showForgotPassword, setShowForgotPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [turnstileToken, setTurnstileToken] = useState<string>("");
+    const [pendingLogin, setPendingLogin] = useState(false);
     const turnstileRef = useRef<TurnstileInstance>(null);
 
-    const emojiPasswordChoices = [
-        { icon: Rocket, color: "bg-[#ff4d3d]", label: "Rocket" },
-        { icon: Bot, color: "bg-[#ffb13d]", label: "Robot" },
-        { icon: Sparkles, color: "bg-[#ffd95c]", label: "Star" },
-        { icon: Footprints, color: "bg-[#9ed86d]", label: "Dino" },
-        { icon: WandSparkles, color: "bg-[#6fa7ff]", label: "Wizard" },
-    ];
 
+
+    // Core login logic — called once we have a valid turnstile token (or offline)
+    const doLogin = async (token: string) => {
+        setLoading(true);
+        try {
+            let user;
+            let serverError = "";
+            if (isOnline) {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mobile, password, turnstileToken: token }),
+                });
+                if (res.ok) {
+                    const { user: data } = await res.json();
+                    // Hash password locally for offline login — server never returns the hash
+                    const offlinePasswordHash = await bcrypt.hash(password, 8);
+                    // SYNC DOWN: save all cloud fields so dashboard, avatars, and role work offline
+                    await db.users.put({
+                        id: data.id,
+                        name: data.name || 'Student',
+                        mobile: data.mobile || '',
+                        password: offlinePasswordHash,
+                        role: data.role,
+                        grade: data.grade,
+                        totalPoints: data.total_points ?? data.totalPoints ?? 0,
+                        booksRead: data.books_read ?? data.booksRead ?? 0,
+                        isVerified: data.is_verified ?? data.isVerified ?? false,
+                        school: data.school,
+                        city: data.city,
+                        age: data.age,
+                        schoolId: data.school_id || data.schoolId,
+                        favouriteFood: data.favourite_food || data.favouriteFood,
+                        avatarBaseId: data.avatar_base_id || data.avatarBaseId,
+                        currentAvatarUrl: data.current_avatar_url || data.currentAvatarUrl,
+                        currentAvatarStage: data.current_avatar_stage ?? data.currentAvatarStage ?? 0,
+                        totalBooksRead: data.total_books_read ?? data.totalBooksRead ?? 0,
+                        streak: data.streak ?? 0,
+                        lastPointsDate: data.last_points_date || data.lastPointsDate,
+                    });
+                    user = { ...data, password: offlinePasswordHash };
+                } else {
+                    const errData = await res.json().catch(() => ({}));
+                    serverError = errData.error || "Login failed.";
+                }
+            }
+            if (!user) {
+                // Offline fallback: compare entered password against locally stored bcrypt hash
+                const localUser = await db.users.where({ mobile: mobile }).first();
+                if (localUser && localUser.password) {
+                    const match = await bcrypt.compare(password, localUser.password);
+                    if (match) {
+                        user = localUser;
+                        serverError = "";
+                    } else if (!isOnline) {
+                        serverError = "Incorrect password.";
+                    }
+                } else if (!isOnline) {
+                    serverError = "User not found.";
+                }
+            }
+            if (user) {
+                // Clean up guest record and set session cookie for middleware
+                await db.users.delete('local-user');
+                document.cookie = `user_session=${user.id}; path=/; max-age=86400`;
+                router.push("/dashboard");
+            } else {
+                alert(serverError || "Invalid credentials or user not found.");
+                turnstileRef.current?.reset();
+                setTurnstileToken("");
+            }
+        } catch (err) {
+            console.error("Login error", err);
+            alert("Login failed.");
+            turnstileRef.current?.reset();
+            setTurnstileToken("");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // true only when the site key is actually present in the build
+    const hasTurnstile = isOnline && !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+
+    // When Turnstile resolves after a pending submit, proceed automatically
+    useEffect(() => {
+        if (pendingLogin && turnstileToken) {
+            setPendingLogin(false);
+            doLogin(turnstileToken);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pendingLogin, turnstileToken]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (mobile.length > 0 && password.length > 0) {
-            if (isOnline && !turnstileToken) {
-                alert("Please complete the security check.");
-                return;
-            }
-            setLoading(true);
-            try {
-                let user;
-                let serverError = "";
-                if (isOnline) {
-                    const res = await fetch('/api/login', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ mobile, password, turnstileToken }),
-                    });
-                    if (res.ok) {
-                        const { user: data } = await res.json();
-                        user = data;
-                        // Hash password locally for offline login — server never returns the hash
-                        const offlinePasswordHash = await bcrypt.hash(password, 8);
-                        // SYNC DOWN: Update local DB with latest cloud data (no plaintext password)
-                        await db.users.put({
-                            id: data.id,
-                            name: data.name || 'Student',
-                            mobile: data.mobile || '',
-                            password: offlinePasswordHash,
-                            totalPoints: data.totalPoints || data.total_points || 0,
-                            booksRead: data.books_read || data.booksRead || 0,
-                            isVerified: data.isVerified || data.is_verified,
-                            school: data.school,
-                            city: data.city,
-                            age: data.age,
-                            schoolId: data.schoolId || data.school_id,
-                        });
-                    } else {
-                        const errData = await res.json().catch(() => ({}));
-                        serverError = errData.error || "Login failed.";
-                    }
-                }
-                if (!user) {
-                    // Offline fallback: compare entered password against locally stored bcrypt hash
-                    const localUser = await db.users.where({ mobile: mobile }).first();
-                    if (localUser && localUser.password) {
-                        const match = await bcrypt.compare(password, localUser.password);
-                        if (match) {
-                            user = localUser;
-                            serverError = ""; // Clear server error if offline succeeds
-                        } else if (!isOnline) {
-                            serverError = "Incorrect password.";
-                        }
-                    } else if (!isOnline) {
-                        serverError = "User not found.";
-                    }
-                }
-                if (user) {
-                    await db.users.delete('local-user');
-                    await db.users.put({
-                        id: user.id,
-                        name: user.name || 'Student',
-                        mobile: user.mobile || '',
-                        password: user.password,
-                        totalPoints: user.totalPoints || user.total_points || 0,
-                        booksRead: user.books_read || user.booksRead || 0,
-                        isVerified: user.isVerified || user.is_verified,
-                        school: user.school,
-                        city: user.city,
-                        age: user.age,
-                        schoolId: user.schoolId || user.school_id,
-                    });
+        if (!mobile || !password) return;
 
-                    // Set session cookie for middleware
-                    document.cookie = `user_session=${user.id}; path=/; max-age=86400`;
-                    router.push("/dashboard");
-                } else {
-                    alert(serverError || "Invalid credentials or user not found.");
-                    turnstileRef.current?.reset();
-                    setTurnstileToken("");
-                }
-            } catch (err) {
-                console.error("Login error", err);
-                alert("Login failed.");
-                turnstileRef.current?.reset();
-                setTurnstileToken("");
-            } finally {
-                setLoading(false);
-            }
+        if (hasTurnstile && !turnstileToken) {
+            // Turnstile is configured but hasn't resolved yet — trigger it and wait
+            turnstileRef.current?.execute();
+            setPendingLogin(true);
+            setLoading(true);
+            return;
         }
+        // No Turnstile configured (keys not set) OR token already present — login directly
+        await doLogin(turnstileToken);
     };
 
     const handleForgotPassword = async (e: React.FormEvent) => {
@@ -250,17 +260,33 @@ export default function LoginPage() {
                                 </div>
 
                                 {isOnline && process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
-                                    <div className="flex justify-center mt-2">
+                                    <div className="flex flex-col items-center mt-2 gap-1">
                                         <Turnstile
                                             ref={turnstileRef}
                                             siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+                                            options={{ execution: "execute", theme: "light" }}
                                             onSuccess={(token) => setTurnstileToken(token)}
-                                            onError={() => alert("Security check failed. Please try again.")}
+                                            onExpire={() => { setTurnstileToken(""); turnstileRef.current?.reset(); }}
+                                            onError={() => {
+                                                setPendingLogin(false);
+                                                setLoading(false);
+                                                alert("Security check failed. Please try again.");
+                                            }}
                                         />
+                                        {pendingLogin && !turnstileToken && (
+                                            <p className="text-xs text-[#888] font-bold animate-pulse">
+                                                🔒 Running security check…
+                                            </p>
+                                        )}
+                                        {turnstileToken && (
+                                            <p className="text-xs text-green-600 font-bold">
+                                                ✓ Security check passed
+                                            </p>
+                                        )}
                                     </div>
                                 )}
 
-                                <button type="submit" disabled={loading || (isOnline && !turnstileToken)}
+                                <button type="submit" disabled={loading}
                                     className="btn-red w-full py-5 mt-2 text-2xl font-black tracking-widest relative overflow-hidden group">
                                     <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform" />
                                     {loading ? <Loader2 className="h-7 w-7 animate-spin mx-auto" /> : "Go!"}

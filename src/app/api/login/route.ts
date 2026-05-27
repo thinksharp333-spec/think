@@ -10,9 +10,13 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Mobile and password are required.' }, { status: 400 });
     }
 
-    const isHuman = await verifyTurnstileToken(turnstileToken);
-    if (!isHuman) {
-        return NextResponse.json({ error: 'Security check failed. Please try again.' }, { status: 400 });
+    // Only enforce Turnstile when TURNSTILE_SECRET_KEY is configured.
+    // If the key is absent (e.g. env var not yet set), bypass the check so login still works.
+    if (process.env.TURNSTILE_SECRET_KEY) {
+        const isHuman = await verifyTurnstileToken(turnstileToken);
+        if (!isHuman) {
+            return NextResponse.json({ error: 'Security check failed. Please try again.' }, { status: 400 });
+        }
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

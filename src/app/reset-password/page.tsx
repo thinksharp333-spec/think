@@ -154,7 +154,9 @@ function ResetPasswordContent() {
                         <div className="flex justify-center mt-4">
                             <Turnstile
                                 siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+                                options={{ theme: "light" }}
                                 onSuccess={(token) => { setTurnstileToken(token); setError(""); }}
+                                onExpire={() => setTurnstileToken("")}
                                 onError={() => setError("Security check failed. Please try again.")}
                             />
                         </div>
