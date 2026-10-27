@@ -19,18 +19,18 @@ function getRemoteUserId(user?: { id: string; student_id?: string }): string | n
 // ─── Avatar Evolution Overlay ─────────────────────────────────────────────────
 function AvatarEvolutionOverlay({ evolvedStage, onClose }: { evolvedStage: number | null; onClose: () => void }) {
     const users = useLiveQuery(() => db.users.toArray()) || [];
-    const user  = users.find(u => u.id !== 'local-user' && u.id !== 'local-admin')
-               || users.find(u => u.id === 'local-user')
-               || users[0];
+    const user = users.find(u => u.id !== 'local-user' && u.id !== 'local-admin')
+        || users.find(u => u.id === 'local-user')
+        || users[0];
 
     if (evolvedStage === null || !user?.avatarBaseId) return null;
 
     const avatarDef = AVATARS.find(a => a.id === user.avatarBaseId);
     const prevStage = Math.max(0, evolvedStage - 1);
     const stageName = avatarDef?.stageNames[evolvedStage] ?? `Stage ${evolvedStage}`;
-    const prevName  = avatarDef?.stageNames[prevStage]   ?? `Stage ${prevStage}`;
-    const color     = avatarDef?.color ?? '#db3125';
-    const bgColor   = avatarDef?.bgColor ?? '#fff0ec';
+    const prevName = avatarDef?.stageNames[prevStage] ?? `Stage ${prevStage}`;
+    const color = avatarDef?.color ?? '#db3125';
+    const bgColor = avatarDef?.bgColor ?? '#fff0ec';
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
@@ -105,8 +105,8 @@ function AvatarEvolutionOverlay({ evolvedStage, onClose }: { evolvedStage: numbe
                                             border: i === evolvedStage
                                                 ? `2px solid ${color}`
                                                 : i < evolvedStage
-                                                ? '2px solid #bbb'
-                                                : '2px solid #ddd',
+                                                    ? '2px solid #bbb'
+                                                    : '2px solid #ddd',
                                             opacity: i <= evolvedStage ? 1 : 0.35,
                                         }}
                                     />
@@ -274,8 +274,8 @@ function ReadContent() {
     // Current user (same priority as dashboard: real user > local-user)
     const _users = useLiveQuery(() => db.users.toArray()) || [];
     const user = _users.find(u => u.id !== 'local-user' && u.id !== 'local-admin')
-               || _users.find(u => u.id === 'local-user')
-               || _users[0];
+        || _users.find(u => u.id === 'local-user')
+        || _users[0];
 
     // Auth Guard: only redirect when online — offline users are always local-user
     // and must be allowed through to read their downloaded books
@@ -511,7 +511,7 @@ function ReadContent() {
                 const today = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().split('T')[0];
                 const yesterdayObj = new Date(now.getTime() - 86400000 - now.getTimezoneOffset() * 60000);
                 const yesterday = yesterdayObj.toISOString().split('T')[0];
-                
+
                 if (updatedLastPointsDate === yesterday) {
                     updatedStreak += 1;
                     updatedLastPointsDate = today;
@@ -596,7 +596,7 @@ function ReadContent() {
             if (bonusPoints > 0) {
                 // Do not add quiz points to total points per user request
                 // accumulatedPointsRef.current += bonusPoints;
-                
+
                 // BUG-02 FIX: pass isFinal=true so READ_LOG is queued for this session
                 saveProgressRef.current(true);
             }
@@ -719,9 +719,9 @@ function ReadContent() {
                 </div>
 
                 {/* Right: sync status + XP bar */}
-                <div className="flex flex-col items-end gap-[1px]">
-                    {/* GAP-01: Sync status indicator */}
-                    <div className="flex items-center gap-1">
+                {/* <div className="flex flex-col items-end gap-[1px]"> */}
+                {/* GAP-01: Sync status indicator */}
+                {/* <div className="flex items-center gap-1">
                         {!isOnline ? (
                             <span className="flex items-center gap-1 text-[8px] md:text-[9px] font-bold text-yellow-300/90 uppercase tracking-wide">
                                 <WifiOff className="w-2.5 h-2.5 md:w-3 md:h-3" /> <span className="hidden xs:inline">Offline</span>
@@ -750,9 +750,9 @@ function ReadContent() {
                             <div className="h-full rounded-full transition-all duration-700"
                                 style={{ width: `${Math.max(xpPercent, 3)}%`, background: 'linear-gradient(90deg, #f59e0b, #fbbf24, #f59e0b)', boxShadow: '0 0 8px rgba(251,191,36,0.5)' }} />
                         </div>
-                    </div>
-                    <span className="text-white/60 text-[8px] md:text-[9px] font-bold hidden xs:inline">{currentXP}/{MAX_XP} XP</span>
-                </div>
+                    </div> */}
+                {/* <span className="text-white/60 text-[8px] md:text-[9px] font-bold hidden xs:inline">{currentXP}/{MAX_XP} XP</span>
+                </div> */}
             </header>
 
             {/* ─── MAIN ─── */}
@@ -830,7 +830,7 @@ function ReadContent() {
                             {/* Page number badge */}
                             <div className="absolute bottom-2 md:bottom-3 left-1/2 -translate-x-1/2 z-20 pointer-events-none"
                                 style={{ background: 'rgba(0,0,0,0.12)', borderRadius: '999px', padding: '2px 8px md:2px 10px' }}>
-                                <span className="text-[9px] md:text-[10px] font-bold text-black/40 md:text-black/30 tracking-widest select-none">
+                                <span className="text-[9px] md:text-[10px] font-bold text-black/40 md:text-black tracking-widest select-none">
                                     {currentPage} / {totalPages || '—'}
                                 </span>
                             </div>
@@ -872,25 +872,45 @@ function ReadContent() {
                             />
                         </div>
                     </div>
-                    <p className="text-white/35 font-bold text-[10px] tracking-widest uppercase">
-                        Page <span className="text-white/65">{currentPage}</span> of {totalPages || '?'}
+                    <p className="text-white font-bold text-[10px] tracking-widest uppercase">
+                        Page <span className="text-white">{currentPage}</span> of {totalPages || '?'}
                     </p>
                 </div>
             </main>
 
             {/* ── Minimum reading time warning banner — shown at last page if time is not met ── */}
-            {atLastPage && displaySeconds < getMinReadTimeForBook() && (
-                <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 px-5 py-3 bg-[#e63329] border-[#111] rounded-2xl shadow-2xl text-white font-black text-xs uppercase"
-                    style={{ minWidth: 280, border: '3px solid #111' }}>
+            {/* {atLastPage && displaySeconds < getMinReadTimeForBook() && (
+
+                <div
+                    className="fixed bottom-8 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 px-5 py-3 bg-[#e63329] rounded-2xl shadow-2xl text-white font-black text-xs uppercase"
+                    style={{
+                        minWidth: 280,
+                        maxWidth: 'calc(100vw - 24px)',
+                        border: '3px solid #111'
+                    }}
+                >
                     <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full flex-shrink-0" />
-                    <span>Read for {getMinReadTimeForBook() - displaySeconds} more seconds to complete book!</span>
-                </div>
-            )}
+
+                    <span>
+                        Read for {Math.max(0, getMinReadTimeForBook() - displaySeconds)} more seconds to complete book!
+                    </span>
+             </div>
+
+            )} */}
 
             {/* ── Quiz prompt banner — shown at last page if quiz is ready ── */}
             {atLastPage && questions.length > 0 && !showQuiz && (
-                <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl"
-                    style={{ background: 'linear-gradient(90deg, #e63329, #f59e0b)', border: '3px solid #111', minWidth: 260 }}>
+                // <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl"
+                //     style={{ background: 'linear-gradient(90deg, #e63329, #f59e0b)', border: '3px solid #111', minWidth: 260 }}>
+                <div
+                    className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl"
+                    style={{
+                        background: 'linear-gradient(90deg, #e63329, #f59e0b)',
+                        border: '3px solid #111',
+                        minWidth: 260
+                    }}
+                >
+
                     <Trophy className="w-5 h-5 text-white flex-shrink-0 fill-yellow-300" />
                     <span className="text-white font-black text-sm flex-1">Quiz available!</span>
                     <button
@@ -940,14 +960,33 @@ function ReadContent() {
             {showQuiz && questions.length > 0 && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
                     <div className="comic-modal w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+
+
                         <div className="px-6 py-4 flex justify-between items-center bg-[#e63329] border-b-[3px] border-[#111]">
                             <div className="font-black text-white flex items-center gap-2 text-lg uppercase tracking-wide">
                                 <Trophy className="w-5 h-5" /> Book Quiz
                             </div>
-                            <span className="chip bg-white/20 text-white border-white/30 text-xs">
-                                {!quizCompleted ? `${currentQuestionIndex + 1}/${questions.length}` : 'Done!'}
-                            </span>
+
+                            {!quizCompleted ? (
+                                <span className="chip bg-white/20 text-black border-white/30 text-xs">
+                                    {`${currentQuestionIndex + 1}/${questions.length}`}
+                                </span>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowQuiz(false);
+                                        setQuizCompleted(false);
+                                        setCurrentQuestionIndex(0);
+                                        setSelectedOption(null);
+                                    }}
+                                    className="chip bg-white/20 text-black border-white/30 text-xs cursor-pointer hover:bg-white/30"
+                                >
+                                    Done!
+                                </button>
+                            )}
                         </div>
+
                         {!quizCompleted ? (
                             <div className="p-6 overflow-y-auto">
                                 <h3 className="text-xl font-black text-[#111] mb-6 leading-relaxed">{questions[currentQuestionIndex].question}</h3>
