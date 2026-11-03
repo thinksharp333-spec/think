@@ -180,10 +180,11 @@ a, button { cursor: pointer; }
   box-shadow: 0 4px 0 var(--black);
   transition: background 0.15s, transform 0.15s;
 }
-.chip:hover { background: #fff3ef; transform: translateY(-1px); }
+.chip:hover { background: var(--black);  color: #fff; transform: translateY(-1px) }
 .chip-red   { background: var(--red); color: #fff; border-color: var(--black); }
 .chip-dark  { background: var(--black); color: #fff; }
 .chip-gold  { background: #fff4ba; }
+
 
 /* ─── Hero Section ────────────────────────────────────────────── */
 .hero-section {

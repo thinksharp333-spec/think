@@ -15,6 +15,7 @@ import { getThumbnailUrl, extractFileId } from "@/lib/google-drive";
 import { db } from "@/lib/db";
 import { AvatarStageImage } from "@/components/avatar-stage-image";
 import { normalizeSubject } from "@/lib/utils";
+import { toast } from "sonner";
 
 export default function Dashboard() {
     const { user } = useUser();
@@ -148,6 +149,26 @@ export default function Dashboard() {
             await db.books.update(bookId, { pdfBlob: undefined });
         }
     };
+// logout 
+const handleLogout = async () => {
+    try {
+        document.cookie =
+            "user_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+
+        if (supabase) {
+            await supabase.auth.signOut();
+        }
+
+        window.dispatchEvent(new Event("user-session-changed"));
+
+        // Save message before redirect
+        sessionStorage.setItem("logoutToast", "Logout successfully!");
+        router.replace("/login");
+    } catch (error) {
+        console.error("Logout failed:", error);
+        toast.error("Logout failed!");
+    }
+};
 
     return (
         <div className="library-shell">
@@ -188,19 +209,18 @@ export default function Dashboard() {
                                 <User className="h-5 w-5" />
                             )}
                         </div>
-                        {user ? (
-                            <button onClick={async () => {
-                                await supabase?.auth.signOut();
-                                router.push('/');
-                            }}
-                                className="chip chip-dark text-xs hidden md:flex">
-                                <LogOut className="h-3.5 w-3.5" /> Logout
-                            </button>
-                        ) : (
-                            <Link href="/login" className="chip chip-dark text-xs hidden md:flex">
-                                <User className="h-3.5 w-3.5" /> Login
-                            </Link>
-                        )}
+                       {user ? (
+    <button
+        onClick={handleLogout}
+        className="chip chip-dark text-xs hidden md:flex"
+    >
+        <LogOut className="h-3.5 w-3.5" /> Logout
+    </button>
+) : (
+    <Link href="/login" className="chip chip-dark text-xs hidden md:flex">
+        <User className="h-3.5 w-3.5" /> Login
+    </Link>
+)}
                     </div>
                 </div>
 
@@ -552,21 +572,24 @@ export default function Dashboard() {
                         <Trophy className="w-6 h-6" />
                         <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Rank</span>
                     </Link>
-                    {user ? (
-                        <button onClick={async () => {
-                            await supabase?.auth.signOut();
-                            router.push('/');
-                        }}
-                            className="flex flex-col items-center text-[#777] hover:text-[#e63329] transition-colors">
-                            <LogOut className="w-6 h-6" />
-                            <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Logout</span>
-                        </button>
-                    ) : (
-                        <Link href="/login" className="flex flex-col items-center text-[#777] hover:text-[#e63329] transition-colors">
-                            <User className="w-6 h-6" />
-                            <span className="mt-1 text-[9px] font-black uppercase tracking-wide">Login</span>
-                        </Link>
-                    )}
+                  {user ? (
+    <button
+        onClick={handleLogout}
+        className="flex flex-col items-center text-[#777] hover:text-[#e63329]!important transition-colors"
+    >
+        <LogOut className="w-6 h-6" />
+        <span className="mt-1 text-[9px] font-black uppercase tracking-wide">
+            Logout
+        </span>
+    </button>
+) : (
+    <Link href="/login" className="flex flex-col items-center text-[#777] hover:text-[#e63329] transition-colors">
+        <User className="w-6 h-6" />
+        <span className="mt-1 text-[9px] font-black uppercase tracking-wide">
+            Login
+        </span>
+    </Link>
+)}
 
                 </div>
             </nav>

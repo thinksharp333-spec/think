@@ -1,156 +1,177 @@
+
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
+function getSessionUserId(): string | null {
+    if (typeof document === "undefined") return null;
+
+    const sessionCookie = document.cookie
+        .split("; ")
+        .find(cookie => cookie.startsWith("user_session="));
+
+    if (!sessionCookie) return null;
+
+    try {
+        return decodeURIComponent(
+            sessionCookie.substring("user_session=".length)
+        );
+    } catch {
+        return null;
+    }
+}
+
 export function useUser() {
-    // 1. Get all users
-    const users = useLiveQuery(() => db.users.toArray()) || [];
-    // Watch sync queue — when it drains to 0, points have been pushed to Supabase
+    const users = useLiveQuery(() => db.users.toArray());
     const syncQueueCount = useLiveQuery(() => db.syncQueue.count()) ?? 0;
+
+    const [sessionUserId, setSessionUserId] = useState<string | null>(null);
+    const [authReady, setAuthReady] = useState(false);
+
     const prevSyncCount = useRef(syncQueueCount);
+    const fetchedUserId = useRef<string | null>(null);
 
-    // 2. Determine active user: 
-    // - Priority 1: A user that is NOT local-user or local-admin (the real signed-in account)
-    // - Priority 2: local-user (guest account)
-    // - Priority 3: First available (fallback)
-    const user = users.find(u => u.id !== 'local-user' && u.id !== 'local-admin')
-        || users.find(u => u.id === 'local-user')
-        || users[0];
+    // Read the custom login cookie and listen for login/logout changes.
+    useEffect(() => {
+        const updateSession = () => {
+            const newSessionId = getSessionUserId();
 
+            setSessionUserId(newSessionId);
+            setAuthReady(true);
 
-    // Sync user profile from Supabase
+            if (fetchedUserId.current !== newSessionId) {
+                fetchedUserId.current = null;
+            }
+        };
+
+        updateSession();
+
+        window.addEventListener("user-session-changed", updateSession);
+
+        return () => {
+            window.removeEventListener("user-session-changed", updateSession);
+        };
+    }, []);
+
+    const userList = users ?? [];
+
+    // Find only the user matching the active session cookie.
+    const sessionUser = sessionUserId
+        ? userList.find(user => user.id === sessionUserId)
+        : undefined;
+
+    // Use a guest/local profile when no valid session exists.
+    const user = sessionUser
+        || userList.find(user => user.id === "local-user")
+        || userList.find(user => user.id === "local-admin")
+        || undefined;
+
+    const isLoggedIn = Boolean(
+        authReady &&
+        users !== undefined &&
+        sessionUser
+    );
+
+    // Fetch the logged-in user's profile from Supabase.
     const fetchUserProfile = async (userId: string) => {
         try {
-            const client = supabase;
-            if (!client) return;
+            if (!supabase || !navigator.onLine) return;
 
-            const { data, error } = await client
-                .from('users')
-                .select('*')
-                .eq('id', userId)
+            const { data, error } = await supabase
+                .from("users")
+                .select("*")
+                .eq("id", userId)
                 .single();
 
             if (error) {
-                // Supabase returns an error for "single" when no row is found
-                if (error.code === 'PGRST116') {
-                    console.warn("[User] Profile not found in cloud for ID:", userId);
+                if (error.code === "PGRST116") {
+                    console.warn("[User] Profile not found:", userId);
                     return;
                 }
+
                 throw error;
             }
-            if (data) {
-                const serverPoints    = data.totalPoints || 0;
-                const serverBooksRead = data.total_books_read || 0;
 
-                // Wrap in a transaction so an in-flight onBookCompleted write can't be
-                // silently overwritten by a stale localBooksRead read here.
-                await db.transaction('rw', db.users, async () => {
-                    const freshUser = await db.users.get(userId);
-                    // Defensive update: keep the higher value to protect un-synced progress.
-                    await db.users.update(userId, {
-                        name:               data.name,
-                        mobile:             data.mobile,
-                        totalPoints:        Math.max(serverPoints, freshUser?.totalPoints || 0),
-                        totalBooksRead:     Math.max(serverBooksRead, freshUser?.totalBooksRead || 0),
-                        // Avatar fields — always trust server as source of truth
-                        ...(data.avatar_base_id       && { avatarBaseId:       data.avatar_base_id }),
-                        ...(data.current_avatar_stage != null && { currentAvatarStage: data.current_avatar_stage }),
-                        ...(data.current_avatar_url   && { currentAvatarUrl:   data.current_avatar_url }),
-                    });
+            if (!data) return;
+
+            await db.transaction("rw", db.users, async () => {
+                const freshUser = await db.users.get(userId);
+
+                if (!freshUser) return;
+
+                await db.users.update(userId, {
+                    name: data.name,
+                    mobile: data.mobile,
+
+                    totalPoints: Math.max(
+                        data.totalPoints || 0,
+                        freshUser.totalPoints || 0
+                    ),
+
+                    totalBooksRead: Math.max(
+                        data.total_books_read || 0,
+                        freshUser.totalBooksRead || 0
+                    ),
+
+                    ...(data.avatar_base_id && {
+                        avatarBaseId: data.avatar_base_id
+                    }),
+
+                    ...(data.current_avatar_stage != null && {
+                        currentAvatarStage: data.current_avatar_stage
+                    }),
+
+                    ...(data.current_avatar_url && {
+                        currentAvatarUrl: data.current_avatar_url
+                    })
                 });
-            }
+            });
+
         } catch (err: any) {
-            console.error("[User] Failed to fetch profile:", err.message || err);
+            console.error(
+                "[User] Failed to fetch profile:",
+                err.message || err
+            );
         }
     };
 
-    // Re-fetch user profile from Supabase when sync queue drains (points just synced)
+    // Refresh profile when the sync queue becomes empty.
     useEffect(() => {
         const wasNonZero = prevSyncCount.current > 0;
         prevSyncCount.current = syncQueueCount;
-        if (wasNonZero && syncQueueCount === 0 && navigator.onLine) {
-            const refresh = async () => {
-                const all = await db.users.toArray();
-                const current = all.find(u => u.id !== 'local-user' && u.id !== 'local-admin');
-                if (current) fetchUserProfile(current.id);
-            };
-            refresh();
+
+        if (
+            wasNonZero &&
+            syncQueueCount === 0 &&
+            navigator.onLine &&
+            isLoggedIn &&
+            sessionUserId
+        ) {
+            void fetchUserProfile(sessionUserId);
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [syncQueueCount]);
+    }, [syncQueueCount, isLoggedIn, sessionUserId]);
 
-    // Listen for Supabase Auth Changes
+    // Fetch the logged-in user's profile once per active session.
     useEffect(() => {
-        if (!supabase) return;
+        if (
+            !authReady ||
+            !isLoggedIn ||
+            !sessionUserId ||
+            !navigator.onLine ||
+            fetchedUserId.current === sessionUserId
+        ) {
+            return;
+        }
 
-        const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-            if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
-                // 1. Get current local user (usually 'local-user')
-                const localUser = await db.users.get('local-user');
+        fetchedUserId.current = sessionUserId;
+        void fetchUserProfile(sessionUserId);
 
-                if (localUser) {
-                    // Update ID to match Supabase ID (Migration effectively)
-                    await db.users.put({
-                        ...localUser,
-                        id: session.user.id,
-                        name: session.user.user_metadata.full_name || localUser.name,
-                        mobile: session.user.phone || localUser.mobile || '',
-                        school: localUser.school || '',
-                    });
-                    await db.users.delete('local-user');
-                } else {
-                    // If no local-user, upsert to avoid ConstraintError on re-login
-                    await db.users.put({
-                        id: session.user.id,
-                        name: session.user.user_metadata.full_name || 'Student',
-                        mobile: session.user.phone || '',
-                        school: '',
-                        totalPoints: 0
-                    });
-                }
-                // Fetch latest from server after sign-in/init
-                fetchUserProfile(session.user.id);
-            } else if (event === 'SIGNED_OUT') {
-                await db.users.clear();
-                await db.users.put({
-                    id: 'local-user',
-                    name: 'Student',
-                    mobile: '',
-                    school: '',
-                    totalPoints: 0
-                });
-            }
-        });
+    }, [authReady, isLoggedIn, sessionUserId]);
 
-        return () => {
-            authListener.subscription.unsubscribe();
-        };
-    }, []);
-
-    // Initialize default user if none exists (Guest Mode)
-    useEffect(() => {
-        const initUser = async () => {
-            const count = await db.users.count();
-            if (count === 0) {
-                await db.users.put({
-                    id: 'local-user',
-                    name: 'Student',
-                    mobile: '',
-                    school: '',
-                    totalPoints: 0
-                });
-            } else {
-                // If we have a user, and it's not local-user, try to sync it
-                const all = await db.users.toArray();
-                const current = all.find(u => u.id !== 'local-user' && u.id !== 'local-admin');
-                if (current && navigator.onLine) {
-                    fetchUserProfile(current.id);
-                }
-            }
-        };
-        initUser();
-    }, []);
-
-    return { user };
+    return {
+        user,
+        isLoggedIn,
+        authReady
+    };
 }

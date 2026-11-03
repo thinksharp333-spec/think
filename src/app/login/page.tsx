@@ -10,18 +10,27 @@ import { useSync } from "@/hooks/useSync";
 import { supabase } from "@/lib/supabase";
 import { useUser } from "@/hooks/useUser";
 import { Turnstile, TurnstileInstance } from '@marsidev/react-turnstile';
+import { toast } from "sonner";
 
 export default function LoginPage() {
     const router = useRouter();
     const { isOnline } = useSync();
-    const { user } = useUser();
+    // const { user } = useUser();
+    const { isLoggedIn, authReady } = useUser();
 
     // Already Logged In Guard
-    useEffect(() => {
-        if (user && user.id !== 'local-user' && user.id !== 'local-admin') {
-            router.push('/dashboard');
-        }
-    }, [user, router]);
+    // useEffect(() => {
+    //     if (user && user.id !== 'local-user' && user.id !== 'local-admin') {
+    //         router.push('/dashboard');
+    //     }
+    // }, [user, router]);
+    // Redirect only when authentication has been checked
+// and a valid login session exists.
+useEffect(() => {
+    if (authReady && isLoggedIn) {
+        router.replace("/dashboard");
+    }
+}, [authReady, isLoggedIn, router]);
 
     const [mobile, setMobile] = useState("");
     const [password, setPassword] = useState("");
@@ -90,12 +99,29 @@ export default function LoginPage() {
                     serverError = "User not found.";
                 }
             }
-            if (user) {
-                // Clean up guest record and set session cookie for middleware
-                await db.users.delete('local-user');
-                document.cookie = `user_session=${user.id}; path=/; max-age=86400`;
-                router.push("/dashboard");
-            } else {
+
+            
+           if (user) {
+
+            // Clean up guest record and set session cookie for middleware
+                // await db.users.delete('local-user');
+                // document.cookie = `user_session=${user.id}; path=/; max-age=86400`;
+                // router.push("/dashboard");
+    // Remove guest record
+    await db.users.delete("local-user");
+
+    // Create login session
+    document.cookie =
+        `user_session=${encodeURIComponent(user.id)}; path=/; max-age=86400; SameSite=Lax`;
+
+    // Notify useUser and other components
+    window.dispatchEvent(new Event("user-session-changed"));
+    toast.success("Login successful!", {
+    description: "Welcome back! Happy reading.",
+});
+
+    router.replace("/dashboard");
+} else {
                 alert(serverError || "Invalid credentials or user not found.");
                 turnstileRef.current?.reset();
                 setTurnstileToken("");
@@ -138,6 +164,16 @@ export default function LoginPage() {
             alert("Please enter your mobile number first.");
         }
     };
+
+    // toaster logout
+ useEffect(() => {
+    const message = sessionStorage.getItem("logoutToast");
+
+    if (message) {
+        toast.success(message, { duration: 3000 });
+        sessionStorage.removeItem("logoutToast");
+    }
+}, []);
 
     return (
         <div className="min-h-screen bg-[#fff9ee] flex flex-col lg:flex-row relative overflow-hidden">
