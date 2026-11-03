@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Baloo_2, Bungee } from "next/font/google";
 import "./globals.css";
+import { Toaster } from "sonner";
 
 const baloo = Baloo_2({
   subsets: ["latin"],
@@ -102,6 +103,12 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
         {children}
+         <Toaster
+        position="top-right"
+        richColors
+        duration={3000}
+        closeButton
+    />
       </body>
     </html>
   );
