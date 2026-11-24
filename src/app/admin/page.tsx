@@ -6,9 +6,10 @@ import { useState, useEffect, useRef, Fragment } from "react";
 import { generateCoverFromPdf } from "@/lib/pdf-utils";
 import { useLiveQuery } from "dexie-react-hooks";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Trash2, Plus, BookOpen, GraduationCap, MapPin, Search, Cloud, Download, Loader2, LayoutDashboard, CheckCircle2, ChevronDown, ChevronRight } from "lucide-react";
+import { Trash2, Plus, BookOpen, GraduationCap, MapPin, Search, Cloud, Download, Loader2, LayoutDashboard, CheckCircle2, ChevronDown, ChevronRight,Users,Upload,FileSpreadsheet} from "lucide-react";
 import { Dropdown } from "@/components/dropdown";
 import { getDirectDownloadUrl, DriveItem } from "@/lib/google-drive";
+import * as XLSX from "xlsx";
 
 async function fetchDriveContents(folderId: string): Promise<DriveItem[]> {
     const res = await fetch(`/api/drive?type=contents&folderId=${encodeURIComponent(folderId)}`);
@@ -125,6 +126,37 @@ async function extractTextFromPdf(
 export default function AdminDashboard() {
     console.log('[Admin] Component rendering');
     const { books, addBook, addBooks, removeBook, syncLibrary } = useBooks();
+ type BulkStudent = {
+    name: string;
+    age: number;
+    mobile: string;
+    password: string;
+    confirmPassword: string;
+    school: string;
+    district: string;
+    grade: string;
+    schoolId?: string;
+    taluka?: string;
+    village?: string;
+    favouriteFood: string;
+    avatarBaseId?: string;
+    currentAvatarUrl?: string;
+};
+
+type BulkImportResult = {
+    row: number;
+    name: string;
+    mobile: string;
+    status: "success" | "skipped" | "error";
+    message: string;
+    temporaryPassword?: string;
+};
+
+const [studentFile, setStudentFile] = useState<File | null>(null);
+const [studentPreview, setStudentPreview] = useState<BulkStudent[]>([]);
+const [studentImporting, setStudentImporting] = useState(false);
+const [studentResults, setStudentResults] = useState<BulkImportResult[]>([]);
+const [studentFileError, setStudentFileError] = useState("");
 
     const [newBook, setNewBook] = useState<Partial<Book>>({
         title: "",
@@ -811,14 +843,24 @@ export default function AdminDashboard() {
                 }
 
                 // 3. Global Students List (Real-time from Supabase)
-                const { data: globalUsers } = await supabase
-                    .from('users')
-                    .select('*')
-                    .order('totalPoints', { ascending: false });
+                // const { data: globalUsers } = await supabase
+                //     .from('users')
+                //     .select('*')
+                //     .order('totalPoints', { ascending: false });
                 
-                if (globalUsers) {
-                    setAllStudents(globalUsers as User[]);
-                }
+                // if (globalUsers) {
+                //     setAllStudents(globalUsers as User[]);
+                // }
+                const { data: globalUsers, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('role', 'student')
+    .eq('is_active', true)
+    .order('totalPoints', { ascending: false });
+
+if (error) throw error;
+
+setAllStudents((globalUsers || []) as User[]);
             } catch (err) {
                 console.error("Failed to fetch analytics:", err);
             } finally {
@@ -848,6 +890,421 @@ export default function AdminDashboard() {
         booksByLanguageAndLevel[lang][level].push(book);
     }
 
+
+const handleStudentFile = async (file: File) => {
+    setStudentFileError("");
+    setStudentResults([]);
+    setStudentPreview([]);
+    setStudentFile(null);
+
+    try {
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(buffer, { type: "array" });
+
+        const sheetName = workbook.SheetNames[0];
+
+        if (!sheetName) {
+            throw new Error("The uploaded file does not contain a worksheet.");
+        }
+
+        const worksheet = workbook.Sheets[sheetName];
+
+        const rawRows = XLSX.utils.sheet_to_json<unknown[]>(worksheet, {
+            header: 1,
+            defval: "",
+            blankrows: false,
+        });
+
+        const normalize = (value: unknown): string =>
+            String(value ?? "")
+                .toLowerCase()
+                .replace(/\([^)]*\)/g, "")
+                .replace(/[^a-z0-9]/g, "");
+
+        // Find the actual header row.
+        const headerRowIndex = rawRows.findIndex((row) =>
+            row.some((cell) => normalize(cell) === "studentname")
+        );
+
+        if (headerRowIndex === -1) {
+            throw new Error(
+                "Invalid template. Could not find the Student Name column."
+            );
+        }
+
+        const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(
+            worksheet,
+            {
+                defval: "",
+                blankrows: false,
+                range: headerRowIndex,
+            }
+        );
+
+        const getValue = (
+            row: Record<string, unknown>,
+            keys: string[]
+        ): string => {
+            const key = Object.keys(row).find((item) =>
+                keys.includes(normalize(item))
+            );
+
+            return key ? String(row[key] ?? "").trim() : "";
+        };
+
+        const students: BulkStudent[] = [];
+        const invalidRows: string[] = [];
+        const seenMobiles = new Set<string>();
+
+        rows.forEach((row, index) => {
+
+            // IMPORTANT: Check the original Excel row before converting age.
+            // This prevents empty rows from becoming age = 0.
+            const hasData = Object.values(row).some(
+                (value) => String(value ?? "").trim() !== ""
+            );
+
+            // Ignore completely empty Excel rows.
+            if (!hasData) return;
+
+            // Preserve actual Excel row number.
+            const excelRow = headerRowIndex + index + 2;
+
+            const ageValue = getValue(row, ["age"]);
+
+            const student: BulkStudent = {
+                name: getValue(row, ["studentname", "name"]),
+                age: ageValue === "" ? NaN : Number(ageValue),
+                mobile: getValue(row, [
+                    "mobilenumber",
+                    "mobile",
+                    "phone",
+                ]),
+                password: getValue(row, ["password"]),
+                confirmPassword: getValue(row, [
+                    "confirmpassword",
+                    "confirmpass",
+                ]),
+                grade: getValue(row, ["grade", "class", "standard"]),
+                district: getValue(row, ["district", "city"]),
+                school: getValue(row, ["schoolname", "school"]),
+                schoolId: getValue(row, ["schoolid"]) || undefined,
+                taluka: getValue(row, ["taluka"]) || undefined,
+                village: getValue(row, ["village"]) || undefined,
+                favouriteFood: getValue(row, [
+                    "favouritefood",
+                    "favoritefood",
+                ]),
+                avatarBaseId:
+                    getValue(row, ["avatarbaseid"]) || undefined,
+                currentAvatarUrl:
+                    getValue(row, ["currentavatarurl"]) || undefined,
+            };
+
+            const errors: string[] = [];
+
+            if (!student.name) {
+                errors.push("Student Name is required");
+            }
+
+            if (
+                !Number.isInteger(student.age) ||
+                student.age < 1 ||
+                student.age > 100
+            ) {
+                errors.push("Age must be between 1 and 100");
+            }
+
+            if (!/^[6-9]\d{9}$/.test(student.mobile)) {
+                errors.push("Invalid 10-digit mobile number");
+            }
+
+            if (!student.password || student.password.length < 8) {
+                errors.push("Password must contain at least 8 characters");
+            }
+
+            if (student.password !== student.confirmPassword) {
+                errors.push("Passwords do not match");
+            }
+
+            if (!student.grade) {
+                errors.push("Grade is required");
+            }
+
+            if (!student.district) {
+                errors.push("District is required");
+            }
+
+            if (!student.school) {
+                errors.push("School Name is required");
+            }
+
+            if (!student.favouriteFood) {
+                errors.push("Favourite Food is required");
+            }
+
+            if (student.mobile && seenMobiles.has(student.mobile)) {
+                errors.push("Duplicate mobile number in uploaded file");
+            }
+
+            if (student.mobile) {
+                seenMobiles.add(student.mobile);
+            }
+
+            if (errors.length > 0) {
+                invalidRows.push(
+                    `Excel row ${excelRow}: ${errors.join(", ")}`
+                );
+                return;
+            }
+
+            students.push(student);
+        });
+
+        if (students.length === 0 && invalidRows.length === 0) {
+            throw new Error(
+                "The uploaded file does not contain any students."
+            );
+        }
+
+        if (students.length > 200) {
+            throw new Error(
+                "You can upload a maximum of 200 students at a time."
+            );
+        }
+
+        if (invalidRows.length > 0) {
+            throw new Error(invalidRows.join("\n"));
+        }
+
+        setStudentFile(file);
+        setStudentPreview(students);
+
+    } catch (error) {
+        setStudentFile(null);
+        setStudentPreview([]);
+
+        setStudentFileError(
+            error instanceof Error
+                ? error.message
+                : "Unable to read the file."
+        );
+    }
+};
+
+//
+const downloadStudentTemplate = () => {
+    const headers = [
+        "Student Name",
+        "Age",
+        "Mobile Number (Required for Login)",
+        "Password (Required for Login)",
+        "Confirm Password (Required)",
+        "Grade",
+        "District",
+        "School Name",
+        "School ID (Optional – use an existing school ID if available)",
+        "Taluka",
+        "Village",
+        "Favourite Food (Required for Password Reset)",
+        "Avatar Base ID (Optional)",
+        "Current Avatar URL (Optional)",
+    ];
+
+    const sampleData = [
+        [
+            "Aarav Patil",
+            10,
+            "9876543210",
+            "DemoPass123",
+            "DemoPass123",
+            5,
+            "Pune",
+            "Sample Public School",
+            "SCH-PUN-001",
+            "Haveli",
+            "Wagholi",
+            "Mango",
+            "",
+            "",
+        ],
+        [
+            "Anaya Shinde",
+            11,
+            "8765432109",
+            "DemoPass123",
+            "DemoPass123",
+            6,
+            "Satara",
+            "Demo Zilla Parishad School",
+            "",
+            "Karad",
+            "Malkapur",
+            "Poha",
+            "",
+            "",
+        ],
+        [
+            "Vihaan Jadhav",
+            9,
+            "7654321098",
+            "DemoPass123",
+            "DemoPass123",
+            4,
+            "Nashik",
+            "Example English School",
+            "SCH-NSK-002",
+            "Niphad",
+            "Pimpalgaon",
+            "Pizza",
+            "",
+            "",
+        ],
+        [
+            "Ira Kulkarni",
+            12,
+            "6543210987",
+            "DemoPass123",
+            "DemoPass123",
+            7,
+            "Kolhapur",
+            "Demo Vidyalaya",
+            "",
+            "Karveer",
+            "Uchgaon",
+            "Idli",
+            "",
+            "",
+        ],
+        [
+            "Reyansh Deshmukh",
+            8,
+            "9123456789",
+            "DemoPass123",
+            "DemoPass123",
+            3,
+            "Pune",
+            "Sample Municipal School",
+            "SCH-PUN-003",
+            "Mulshi",
+            "Paud",
+            "Dosa",
+            "",
+            "",
+        ],
+    ];
+
+    const worksheet = XLSX.utils.aoa_to_sheet([
+        ["DIGILIBRARY | BULK STUDENT REGISTRATION"],
+        [
+            "Enter one student per row. Green headers are mandatory; blue headers are optional. Sample rows are for demonstration only.",
+        ],
+        headers,
+        ...sampleData,
+    ]);
+
+    worksheet["!merges"] = [
+        {
+            s: { r: 0, c: 0 },
+            e: { r: 0, c: 13 },
+        },
+        {
+            s: { r: 1, c: 0 },
+            e: { r: 1, c: 13 },
+        },
+    ];
+
+    worksheet["!cols"] = [
+        { wch: 22 },
+        { wch: 10 },
+        { wch: 22 },
+        { wch: 25 },
+        { wch: 25 },
+        { wch: 10 },
+        { wch: 18 },
+        { wch: 30 },
+        { wch: 55 },
+        { wch: 18 },
+        { wch: 18 },
+        { wch: 35 },
+        { wch: 25 },
+        { wch: 35 },
+    ];
+
+    const workbook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(
+        workbook,
+        worksheet,
+        "Student Registration"
+    );
+
+    XLSX.writeFile(
+        workbook,
+        "DigiLibrary_Bulk_Student_Registration.xlsx"
+    );
+};
+
+const handleBulkStudentImport = async () => {
+    if (studentPreview.length === 0) {
+        setStudentFileError("Please upload a student Excel or CSV file first.");
+        return;
+    }
+
+    setStudentImporting(true);
+    setStudentFileError("");
+    setStudentResults([]);
+
+    try {
+        const response = await fetch("/api/register/bulk", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                students: studentPreview,
+            }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || "Student registration failed.");
+        }
+
+        setStudentResults(data.results || []);
+    } catch (error) {
+        setStudentFileError(
+            error instanceof Error ? error.message : "Something went wrong."
+        );
+    } finally {
+        setStudentImporting(false);
+    }
+};
+
+const downloadStudentResults = () => {
+    const successfulStudents = studentResults
+        .filter((item) => item.status === "success")
+        .map((item) => ({
+            Name: item.name,
+            Mobile: item.mobile,
+            TemporaryPassword: item.temporaryPassword || "",
+            Status: item.status,
+            Message: item.message,
+        }));
+
+    if (successfulStudents.length === 0) {
+        setStudentFileError("There are no successful registrations to download.");
+        return;
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(successfulStudents);
+    const workbook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Student Results");
+
+    XLSX.writeFile(workbook, "Student_Registration_Results.xlsx");
+};
     return (
         <div className="space-y-8">
             {/* ── Header ── */}
@@ -948,6 +1405,147 @@ export default function AdminDashboard() {
                 </Link>
             </div>
 
+{/* bulk registration */}
+{/* Bulk Student Registration */}
+<div className="bg-white rounded-xl shadow-md border p-6 mt-6">
+    <div className="flex items-center gap-3 mb-5">
+        <div className="bg-blue-100 p-3 rounded-lg">
+            <Users className="w-6 h-6 text-blue-600" />
+        </div>
+
+        <div>
+            <h2 className="text-xl font-bold text-gray-800">
+                Bulk Student Registration
+            </h2>
+            <p className="text-sm text-gray-500">
+                Register multiple students using an Excel or CSV file.
+            </p>
+        </div>
+    </div>
+
+    <button
+        onClick={downloadStudentTemplate}
+        className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg mb-5 hover:bg-green-700"
+    >
+        <Download className="w-4 h-4" />
+        Download Excel Template
+    </button>
+
+    <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center">
+        <FileSpreadsheet className="w-10 h-10 mx-auto text-gray-400 mb-3" />
+
+        <p className="font-semibold text-gray-700 mb-2">
+            Upload Student Excel or CSV File
+        </p>
+
+        <input
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleStudentFile(file);
+                e.target.value = "";
+            }}
+            className="block mx-auto text-sm"
+        />
+
+        {studentFile && (
+            <p className="text-sm text-green-600 mt-3">
+                Selected: {studentFile.name}
+            </p>
+        )}
+    </div>
+
+    {studentFileError && (
+        <p className="text-red-600 text-sm mt-4">
+            {studentFileError}
+        </p>
+    )}
+
+    {studentPreview.length > 0 && (
+        <div className="mt-6">
+            <h3 className="font-bold text-gray-800 mb-3">
+                Student Preview ({studentPreview.length})
+            </h3>
+
+          <div className="overflow-x-auto">
+    <table className="w-full text-sm border">
+        <thead className="bg-gray-100">
+            <tr>
+                <th className="p-3 border">Name</th>
+                <th className="p-3 border">Age</th>
+                <th className="p-3 border">Mobile</th>
+                <th className="p-3 border">Grade</th>
+                <th className="p-3 border">District</th>
+                <th className="p-3 border">School</th>
+                <th className="p-3 border">School ID</th>
+                <th className="p-3 border">Taluka</th>
+                <th className="p-3 border">Village</th>
+                <th className="p-3 border">Favourite Food</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {studentPreview.map((student, index) => (
+                <tr key={`${student.mobile}-${index}`}>
+                    <td className="p-3 border">{student.name}</td>
+                    <td className="p-3 border">{student.age}</td>
+                    <td className="p-3 border">{student.mobile}</td>
+                    <td className="p-3 border">{student.grade}</td>
+                    <td className="p-3 border">{student.district}</td>
+                    <td className="p-3 border">{student.school}</td>
+                    <td className="p-3 border">{student.schoolId || "-"}</td>
+                    <td className="p-3 border">{student.taluka || "-"}</td>
+                    <td className="p-3 border">{student.village || "-"}</td>
+                    <td className="p-3 border">{student.favouriteFood}</td>
+                </tr>
+            ))}
+        </tbody>
+    </table>
+</div>
+
+            <button
+                onClick={handleBulkStudentImport}
+                disabled={studentImporting}
+                className="mt-5 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+                {studentImporting
+                    ? "Registering Students..."
+                    : `Register ${studentPreview.length} Students`}
+            </button>
+        </div>
+    )}
+
+    {studentResults.length > 0 && (
+        <div className="mt-6 border-t pt-5">
+            <h3 className="font-bold text-gray-800 mb-3">
+                Registration Results
+            </h3>
+
+            <div className="flex flex-wrap gap-4 mb-4 text-sm">
+                <p className="text-green-700">
+                    Registered: {studentResults.filter(r => r.status === "success").length}
+                </p>
+
+                <p className="text-yellow-700">
+                    Skipped: {studentResults.filter(r => r.status === "skipped").length}
+                </p>
+
+                <p className="text-red-700">
+                    Failed: {studentResults.filter(r => r.status === "error").length}
+                </p>
+            </div>
+
+            <button
+                onClick={downloadStudentResults}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+            >
+                <Download className="w-4 h-4 inline mr-2" />
+                Download Registration Results
+            </button>
+        </div>
+    )}
+</div>
 
             {/* ── Add Book (Manual Upload) ── */}
             <section className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
