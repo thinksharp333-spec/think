@@ -10,32 +10,66 @@ export default function AdminLoginPage() {
     const [error, setError] = useState("");
     const router = useRouter();
 
+    // const handleLogin = async (e: React.FormEvent) => {
+    //     e.preventDefault();
+    //     setLoading(true);
+    //     setError("");
+
+    //     try {
+    //         const res = await fetch("/api/admin/login", {
+    //             method: "POST",
+    //             headers: { "Content-Type": "application/json" },
+    //             body: JSON.stringify({ password }),
+    //         });
+
+    //         if (res.ok) {
+    //             router.push("/admin");
+    //             router.refresh();
+    //         } else {
+    //             const data = await res.json();
+    //             setError(data.message || "Invalid password");
+    //         }
+    //     } catch (err) {
+    //         setError("Something went wrong. Please try again.");
+    //     } finally {
+    //         setLoading(false);
+    //     }
+    // };
+
     const handleLogin = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        setError("");
+    e.preventDefault();
+    setLoading(true);
+    setError("");
 
-        try {
-            const res = await fetch("/api/admin/login", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ password }),
-            });
+    try {
+        const res = await fetch("/api/admin/login", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            credentials: "same-origin",
+            body: JSON.stringify({ password }),
+        });
 
-            if (res.ok) {
-                router.push("/admin");
-                router.refresh();
-            } else {
-                const data = await res.json();
-                setError(data.message || "Invalid password");
-            }
-        } catch (err) {
-            setError("Something went wrong. Please try again.");
-        } finally {
-            setLoading(false);
+        const data = await res.json();
+
+        if (!res.ok) {
+            setError(data.message || "Invalid password");
+            return;
         }
-    };
 
+        if (data.success) {
+            router.replace("/admin");
+            router.refresh();
+        } else {
+            setError("Admin login failed. Please try again.");
+        }
+    } catch (err) {
+        setError("Something went wrong. Please try again.");
+    } finally {
+        setLoading(false);
+    }
+};
     return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
             <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
